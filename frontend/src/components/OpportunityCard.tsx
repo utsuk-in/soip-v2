@@ -1,0 +1,85 @@
+import React from "react";
+import { Calendar, ExternalLink } from "lucide-react";
+import type { Opportunity } from "../lib/api";
+
+const CATEGORY_COLORS: Record<string, string> = {
+  hackathon: "bg-purple-100 text-purple-700",
+  grant: "bg-green-100 text-green-700",
+  fellowship: "bg-blue-100 text-blue-700",
+  internship: "bg-orange-100 text-orange-700",
+  competition: "bg-red-100 text-red-700",
+  scholarship: "bg-teal-100 text-teal-700",
+  program: "bg-indigo-100 text-indigo-700",
+  other: "bg-gray-100 text-gray-700",
+};
+
+function deadlineLabel(deadline: string | null): { text: string; urgent: boolean } | null {
+  if (!deadline) return null;
+  const days = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
+  if (days < 0) return { text: "Expired", urgent: true };
+  if (days === 0) return { text: "Today!", urgent: true };
+  if (days === 1) return { text: "Tomorrow", urgent: true };
+  if (days <= 7) return { text: `${days} days left`, urgent: true };
+  if (days <= 30) return { text: `${days} days left`, urgent: false };
+  return { text: new Date(deadline).toLocaleDateString("en-IN", { month: "short", day: "numeric" }), urgent: false };
+}
+
+interface Props {
+  opportunity: Opportunity;
+  onClick?: () => void;
+  compact?: boolean;
+}
+
+export default function OpportunityCard({ opportunity: opp, onClick, compact }: Props) {
+  const dl = deadlineLabel(opp.deadline);
+  const colorClass = CATEGORY_COLORS[opp.category] || CATEGORY_COLORS.other;
+
+  return (
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-xl border border-gray-200 hover:border-brand-300 hover:shadow-md transition-all ${
+        onClick ? "cursor-pointer" : ""
+      } ${compact ? "p-3" : "p-5"} animate-fade-in`}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+          {opp.category}
+        </span>
+        {dl && (
+          <span className={`flex items-center gap-1 text-xs font-medium ${dl.urgent ? "text-red-600" : "text-gray-500"}`}>
+            <Calendar size={12} />
+            {dl.text}
+          </span>
+        )}
+      </div>
+
+      <h3 className={`font-semibold text-gray-900 ${compact ? "text-sm" : "text-base"} line-clamp-2 mb-1`}>
+        {opp.title}
+      </h3>
+
+      {!compact && (
+        <p className="text-sm text-gray-500 line-clamp-2 mb-3">{opp.description}</p>
+      )}
+
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {(opp.domain_tags || []).slice(0, 4).map((tag) => (
+          <span key={tag} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px] font-medium">
+            {tag}
+          </span>
+        ))}
+      </div>
+
+      {!compact && (
+        <a
+          href={opp.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium"
+        >
+          Visit <ExternalLink size={11} />
+        </a>
+      )}
+    </div>
+  );
+}
