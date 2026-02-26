@@ -6,6 +6,7 @@ from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 from app.schemas.user import UserOut
 from app.services.auth import authenticate_user, create_access_token, register_user
 from app.utils.dependencies import get_current_user
+from app.services.taxonomy import normalize_domains
 from app.models.user import User
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -14,7 +15,15 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
     try:
-        user = register_user(db, body.email, body.password, body.university_id)
+        skills = body.skills
+        user = register_user(
+            db,
+            body.email,
+            body.password,
+            body.university_id,
+            skills=normalize_domains(skills) if skills else None,
+            interests=normalize_domains(body.interests) if body.interests else None,
+        )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 

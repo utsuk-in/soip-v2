@@ -40,11 +40,9 @@ scrape:
 embed:
 	cd backend && . .venv/bin/activate && python -m app.scripts.embed_pending
 
-validate:
-	cd backend && . .venv/bin/activate && python -m app.scripts.validate_scrape CryptNit2
 
 backend:
-	cd backend && . .venv/bin/activate && uvicorn app.main:app --reload --port 8007
+	cd backend && . .venv/bin/activate && uvicorn app.main:app --reload --port 8000
 
 # ── Frontend ──
 

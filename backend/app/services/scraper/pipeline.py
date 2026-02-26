@@ -8,21 +8,25 @@ Data lineage:
   Chunks are linked back to both the raw page and the extracted opportunity.
 """
 
+import asyncio
 import logging
 import re
 import calendar
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
+from app.database import SessionLocal
 from app.models.opportunity import Opportunity, OpportunityCategory
 from app.models.scrape import ContentChunk, ScrapePage
 from app.models.source import Source
 from app.services.chunker import Chunk, chunk_markdown, content_hash
 from app.services.scraper.client import scrape_detail_url, scrape_source
 from app.services.scraper.extractor import ExtractedOpportunity, extract_opportunities
+from app.services.taxonomy import normalize_domains
 
 logger = logging.getLogger(__name__)
 _ONLINE_OFFLINE_TAGS = ("online", "offline")
@@ -45,14 +49,36 @@ async def run_pipeline(db: Session) -> dict:
         "errors": 0,
     }
 
-    for source in sources:
-        try:
-            source_stats = await _process_source(db, source)
+    concurrency = int(getattr(settings, "scrape_concurrency", 1) or 1)
+    if concurrency <= 1:
+        for source in sources:
+            try:
+                source_stats = await _process_source(db, source)
+                for key in ("new", "updated", "skipped", "chunks"):
+                    stats[key] += source_stats.get(key, 0)
+            except Exception as e:
+                logger.error(f"Pipeline failed for {source.name}: {e}")
+                stats["errors"] += 1
+    else:
+        sem = asyncio.Semaphore(concurrency)
+
+        async def _run_one(src: Source) -> dict:
+            async with sem:
+                local_db = SessionLocal()
+                try:
+                    return await _process_source(local_db, src)
+                except Exception as e:
+                    logger.error(f"Pipeline failed for {src.name}: {e}")
+                    return {"errors": 1}
+                finally:
+                    local_db.close()
+
+        results = await asyncio.gather(*[_run_one(s) for s in sources])
+        for res in results:
+            if res.get("errors"):
+                stats["errors"] += res.get("errors", 0)
             for key in ("new", "updated", "skipped", "chunks"):
-                stats[key] += source_stats.get(key, 0)
-        except Exception as e:
-            logger.error(f"Pipeline failed for {source.name}: {e}")
-            stats["errors"] += 1
+                stats[key] += res.get(key, 0)
 
     expired = _expire_past_deadlines(db)
 
@@ -124,11 +150,40 @@ async def _process_source(db: Session, source: Source) -> dict:
 
     # --- Step 7: Upsert opportunities and link chunks ---
     for item in extracted:
-        item = await _enrich_from_unstop_detail(source, item)
-        result, opp_id = _upsert_opportunity(db, source, item)
+        # Always fetch detail page for full data (all sources)
+        item = await _enrich_from_detail(db, source, item)
+        # If deadline already passed, mark inactive early
+        if item.deadline_at and item.deadline_at < datetime.now(timezone.utc):
+            item.is_active = False
+        if item.deadline and item.deadline < date.today():
+            item.is_active = False
+        # Filter by modality/location rules: online OR offline-in-India only
+        if not _passes_location_mode(item):
+            item.is_active = False
+        # Exclude closed opportunities entirely
+        if item.is_active is False:
+            # If it already exists, update it to inactive
+            if item.url:
+                existing = db.query(Opportunity).filter(Opportunity.url == item.url).first()
+                if existing:
+                    if existing.is_active:
+                        existing.is_active = False
+                        existing.updated_at = datetime.now(timezone.utc)
+                    if item.deadline_at and existing.deadline_at != item.deadline_at:
+                        existing.deadline_at = item.deadline_at
+                    if item.deadline and existing.deadline != item.deadline:
+                        existing.deadline = item.deadline
+                    db.flush()
+            stats["skipped"] += 1
+            continue
+        result, opp_id = _upsert_opportunity(db, source, item, scrape_page.id)
         stats[result] += 1
         if opp_id:
-            _link_chunks_to_opportunity(db, chunk_models, item, opp_id)
+            if item.detail_scrape_page_id:
+                _link_detail_chunks(db, item.detail_scrape_page_id, opp_id)
+            matched_chunk_id = _link_chunks_to_opportunity(db, chunk_models, item, opp_id)
+            if matched_chunk_id:
+                _attach_chunk_reference(db, opp_id, matched_chunk_id)
 
     source.last_scraped_at = datetime.now(timezone.utc)
     db.commit()
@@ -179,7 +234,12 @@ def _store_chunks(
 ) -> list[ContentChunk]:
     """Persist semantic chunks linked to the raw page."""
     models = []
+    seen_hashes: set[str] = set()
     for chunk in chunks:
+        chunk_hash = content_hash(chunk.content)
+        if chunk_hash in seen_hashes:
+            continue
+        seen_hashes.add(chunk_hash)
         m = ContentChunk(
             scrape_page_id=scrape_page.id,
             source_id=source.id,
@@ -198,16 +258,20 @@ def _link_chunks_to_opportunity(
     chunk_models: list[ContentChunk],
     item: ExtractedOpportunity,
     opp_id: UUID,
-) -> None:
+) -> UUID | None:
     """Link chunks that contain the opportunity title to the opportunity record."""
     title_lower = item.title.lower()
+    matched_chunk_id: UUID | None = None
     for chunk in chunk_models:
         if title_lower in chunk.content.lower():
             chunk.opportunity_id = opp_id
+            if matched_chunk_id is None:
+                matched_chunk_id = chunk.id
+    return matched_chunk_id
 
 
 def _upsert_opportunity(
-    db: Session, source: Source, item: ExtractedOpportunity
+    db: Session, source: Source, item: ExtractedOpportunity, scrape_page_id: UUID
 ) -> tuple[str, UUID | None]:
     """Insert or update a single opportunity. Returns (status, opportunity_id)."""
     opp_url = item.url or _generate_url(source.base_url, item.title)
@@ -215,7 +279,7 @@ def _upsert_opportunity(
     existing = db.query(Opportunity).filter(Opportunity.url == opp_url).first()
 
     if existing:
-        status = _apply_changes(db, existing, item)
+        status = _apply_changes(db, existing, item, scrape_page_id)
         return status, existing.id
 
     try:
@@ -227,15 +291,18 @@ def _upsert_opportunity(
         title=item.title,
         description=item.description,
         category=category,
-        domain_tags=item.domain_tags,
+        domain_tags=normalize_domains(item.domain_tags) or ["general"],
+        raw_domain_tags=item.raw_domain_tags or [],
         eligibility=item.eligibility,
         benefits=item.benefits,
         deadline=item.deadline,
+        deadline_at=item.deadline_at,
         url=opp_url,
         source_id=source.id,
         source_url=source.base_url,
+        scrape_page_id=scrape_page_id,
         confidence=item.confidence,
-        is_active=True,
+        is_active=bool(item.is_active),
         scraped_at=datetime.now(timezone.utc),
     )
     db.add(opp)
@@ -244,7 +311,7 @@ def _upsert_opportunity(
 
 
 def _apply_changes(
-    db: Session, existing: Opportunity, item: ExtractedOpportunity
+    db: Session, existing: Opportunity, item: ExtractedOpportunity, scrape_page_id: UUID
 ) -> str:
     """Compare and apply field-level changes. Returns 'updated' or 'skipped'."""
     changed = False
@@ -255,6 +322,9 @@ def _apply_changes(
     if item.deadline and existing.deadline != item.deadline:
         existing.deadline = item.deadline
         changed = True
+    if item.deadline_at and existing.deadline_at != item.deadline_at:
+        existing.deadline_at = item.deadline_at
+        changed = True
     if item.eligibility and existing.eligibility != item.eligibility:
         existing.eligibility = item.eligibility
         changed = True
@@ -262,10 +332,14 @@ def _apply_changes(
         existing.benefits = item.benefits
         changed = True
     if item.domain_tags:
-        normalized_new = _normalize_domain_tags(item.domain_tags)
-        normalized_existing = _normalize_domain_tags(existing.domain_tags or [])
+        normalized_new = normalize_domains(item.domain_tags)
+        normalized_existing = normalize_domains(existing.domain_tags or [])
         if normalized_new != normalized_existing:
             existing.domain_tags = normalized_new
+            changed = True
+    if item.raw_domain_tags is not None:
+        if (item.raw_domain_tags or []) != (existing.raw_domain_tags or []):
+            existing.raw_domain_tags = item.raw_domain_tags
             changed = True
     if item.category:
         try:
@@ -278,6 +352,12 @@ def _apply_changes(
     if item.confidence is not None and existing.confidence != item.confidence:
         existing.confidence = item.confidence
         changed = True
+    if existing.is_active != bool(item.is_active):
+        existing.is_active = bool(item.is_active)
+        changed = True
+    if scrape_page_id and existing.scrape_page_id != scrape_page_id:
+        existing.scrape_page_id = scrape_page_id
+        changed = True
 
     if not changed:
         return "skipped"
@@ -286,6 +366,21 @@ def _apply_changes(
     existing.scraped_at = datetime.now(timezone.utc)
     existing.embedding = None
     return "updated"
+
+
+def _attach_chunk_reference(db: Session, opp_id: UUID, chunk_id: UUID) -> None:
+    opp = db.query(Opportunity).filter(Opportunity.id == opp_id).first()
+    if not opp:
+        return
+    if opp.content_chunk_id != chunk_id:
+        opp.content_chunk_id = chunk_id
+
+
+def _link_detail_chunks(db: Session, scrape_page_id: UUID, opp_id: UUID) -> None:
+    """Link all chunks from a detail page to the opportunity."""
+    db.query(ContentChunk).filter(
+        ContentChunk.scrape_page_id == scrape_page_id
+    ).update({"opportunity_id": opp_id}, synchronize_session="fetch")
 
 
 def _expire_past_deadlines(db: Session) -> int:
@@ -309,39 +404,79 @@ def _generate_url(base_url: str, title: str) -> str:
     return f"{base_url.rstrip('/')}#/{slug}"
 
 
-async def _enrich_from_unstop_detail(
-    source: Source, item: ExtractedOpportunity
+def _apply_unstop_detail_parsing(
+    item: ExtractedOpportunity, detail_markdown: str
 ) -> ExtractedOpportunity:
-    """Use Unstop detail page text to improve description, mode tags, and deadline."""
-    if not item.url or "unstop.com/" not in item.url.lower():
+    """Apply Unstop-specific parsing (description, benefits, tags, deadlines, status)."""
+    improved_desc = _extract_unstop_description(detail_markdown)
+    if improved_desc:
+        if not item.description or len(improved_desc) > len(item.description) or len(item.description) < 200:
+            item.description = improved_desc
+
+    improved_benefits = _extract_unstop_benefits(detail_markdown)
+    if improved_benefits:
+        if not item.benefits or len(improved_benefits) > len(item.benefits):
+            item.benefits = improved_benefits
+
+    inferred_tags = _infer_online_offline_tags(detail_markdown)
+    if inferred_tags:
+        merged = normalize_domains((item.domain_tags or []) + inferred_tags)
+        item.domain_tags = merged or ["general"]
+
+    parsed_deadline = _extract_unstop_registration_close(detail_markdown)
+    if parsed_deadline:
+        item.deadline = parsed_deadline
+    parsed_deadline_at = _extract_unstop_registration_close_datetime(detail_markdown)
+    if parsed_deadline_at:
+        item.deadline_at = parsed_deadline_at
+
+    status = _extract_unstop_status(detail_markdown)
+    if status is False:
+        item.is_active = False
+
+    return item
+
+
+async def _enrich_from_detail(
+    db: Session, source: Source, item: ExtractedOpportunity
+) -> ExtractedOpportunity:
+    """Fetch detail page for any source, store raw content/chunks, and extract full data."""
+    if not item.url:
         return item
 
     detail_markdown = await scrape_detail_url(item.url, source)
     if not detail_markdown:
         return item
 
-    improved_desc = _extract_unstop_description(detail_markdown)
-    if improved_desc and len(improved_desc) > len(item.description):
-        item.description = improved_desc
+    _store_detail_page_and_chunks(db, source, item, detail_markdown)
 
-    inferred_tags = _infer_online_offline_tags(detail_markdown)
-    if inferred_tags:
-        merged = _normalize_domain_tags((item.domain_tags or []) + inferred_tags)
-        item.domain_tags = merged or ["general"]
+    # Extract from detail markdown for better accuracy
+    extracted = await extract_opportunities(detail_markdown, item.url)
+    if extracted:
+        best = _pick_best_match(extracted, item)
+        if best:
+            item = best
 
-    parsed_deadline = _extract_unstop_registration_close(detail_markdown)
-    if parsed_deadline:
-        item.deadline = parsed_deadline
+    # Apply Unstop-specific parsing on detail markdown (if applicable)
+    if "unstop.com/" in item.url.lower():
+        item = _apply_unstop_detail_parsing(item, detail_markdown)
 
     return item
 
 
 def _extract_unstop_description(markdown: str) -> Optional[str]:
-    start_match = re.search(
+    patterns = [
         r"##\s+All that you need to know about.*?\n",
-        markdown,
-        flags=re.IGNORECASE,
-    )
+        r"##\s+About\s+the\s+Opportunity.*?\n",
+        r"##\s+About.*?\n",
+        r"##\s+Overview.*?\n",
+    ]
+    start_match = None
+    for pattern in patterns:
+        match = re.search(pattern, markdown, flags=re.IGNORECASE)
+        if match:
+            start_match = match
+            break
     if not start_match:
         return None
 
@@ -366,7 +501,80 @@ def _extract_unstop_description(markdown: str) -> Optional[str]:
     cleaned = section.strip()
     if len(cleaned) < 80:
         return None
-    return cleaned[:2500]
+    return cleaned
+
+
+def _extract_unstop_status(markdown: str) -> Optional[bool]:
+    """Return False if closed, True if open, None if unknown."""
+    lowered = markdown.lower()
+    closed_patterns = [
+        "registrations closed",
+        "registration closed",
+        "applications closed",
+        "application closed",
+        "opportunity closed",
+        "closed",
+    ]
+    open_patterns = [
+        "registrations open",
+        "registration open",
+        "applications open",
+        "application open",
+        "open",
+    ]
+    if any(p in lowered for p in closed_patterns):
+        return False
+    if any(p in lowered for p in open_patterns):
+        return True
+    return None
+
+
+def _extract_unstop_benefits(markdown: str) -> Optional[str]:
+    """Extract rewards/prizes section from Unstop detail pages."""
+    patterns = [
+        r"##\s+Rewards\s+and\s+Prizes.*?\n",
+        r"##\s+Rewards\s+&\s+Recognition.*?\n",
+        r"##\s+Rewards.*?\n",
+        r"##\s+Prizes.*?\n",
+        r"##\s+Prize.*?\n",
+        r"##\s+Awards.*?\n",
+        r"##\s+Prize\s+Pool.*?\n",
+        r"##\s+Prize\s+Money.*?\n",
+    ]
+    start = None
+    for pattern in patterns:
+        match = re.search(pattern, markdown, flags=re.IGNORECASE)
+        if match:
+            start = match
+            break
+    if not start:
+        return None
+
+    tail = markdown[start.end():]
+    end_markers = (
+        "## ",
+        "### ",
+        "#### ",
+        "## Eligibility",
+        "## Registration",
+        "## Timeline",
+        "## Rules",
+        "## FAQs",
+    )
+    end = len(tail)
+    for marker in end_markers:
+        pos = tail.find(marker)
+        if pos != -1 and pos < end:
+            end = pos
+
+    section = tail[:end]
+    section = re.sub(r"!\[[^\]]*\]\([^)]+\)", " ", section)
+    section = re.sub(r"\n{2,}", "\n", section)
+    section = re.sub(r"[ \t]{2,}", " ", section)
+    cleaned = section.strip()
+    if len(cleaned) < 20:
+        return None
+    return cleaned
 
 
 def _infer_online_offline_tags(markdown: str) -> list[str]:
@@ -379,50 +587,99 @@ def _infer_online_offline_tags(markdown: str) -> list[str]:
 
 
 def _extract_unstop_registration_close(markdown: str) -> Optional[date]:
+    dt = _extract_unstop_registration_close_datetime(markdown)
+    if dt is None:
+        return None
+    return dt.date()
+
+
+def _extract_unstop_registration_close_datetime(markdown: str) -> Optional[datetime]:
     match = re.search(
-        r"Registrations?\s+Close\s*:\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})",
+        r"Registrations?\s+Close\s*:\s*([0-9]{1,2}\s+[A-Za-z]+\s+[0-9]{2,4},\s*[0-9]{1,2}:[0-9]{2}\s*[AP]M)\s*([A-Z]{2,4})?",
         markdown,
         flags=re.IGNORECASE,
     )
     if not match:
         return None
     raw = match.group(1).strip()
+    tz = (match.group(2) or "IST").upper()
     try:
-        return datetime.strptime(raw, "%d %B %Y").date()
+        naive = datetime.strptime(raw, "%d %b %y, %I:%M %p")
     except ValueError:
         try:
-            return datetime.strptime(raw, "%d %b %Y").date()
+            naive = datetime.strptime(raw, "%d %b %Y, %I:%M %p")
         except ValueError:
-            month_map = {
-                "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
-                "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
-            }
-            parts = raw.split()
-            if len(parts) != 3:
-                return None
             try:
-                day = int(parts[0])
-                month = month_map.get(parts[1][:3].lower())
-                year = int(parts[2])
-                if not month:
-                    return None
-                last_day = calendar.monthrange(year, month)[1]
-                # Some pages occasionally publish impossible dates (e.g. 29 Feb on non-leap years).
-                safe_day = min(day, last_day)
-                return date(year, month, safe_day)
-            except Exception:
+                naive = datetime.strptime(raw, "%d %B %Y, %I:%M %p")
+            except ValueError:
                 return None
+    if tz == "IST":
+        return naive.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    return naive.replace(tzinfo=timezone.utc)
+
+
+def _store_detail_page_and_chunks(
+    db: Session,
+    source: Source,
+    item: ExtractedOpportunity,
+    detail_markdown: str,
+) -> None:
+    """Store detail page raw content + chunks and attach scrape_page_id to item."""
+    try:
+        detail_hash = content_hash(detail_markdown)
+        detail_page = _store_raw_page(db, source, item.url, detail_markdown, detail_hash)
+        item.detail_scrape_page_id = detail_page.id
+        detail_chunks = chunk_markdown(detail_markdown)
+        _store_chunks(db, detail_page, source, detail_chunks)
+    except Exception:
+        pass
+
+
+def _pick_best_match(
+    extracted: list[ExtractedOpportunity],
+    seed: ExtractedOpportunity,
+) -> ExtractedOpportunity | None:
+    """Pick best extracted opportunity from detail page based on URL or title."""
+    if seed.url:
+        for opp in extracted:
+            if opp.url and opp.url.strip().lower() == seed.url.strip().lower():
+                return opp
+    seed_title = (seed.title or "").strip().lower()
+    if seed_title:
+        for opp in extracted:
+            if opp.title and opp.title.strip().lower() == seed_title:
+                return opp
+    return extracted[0] if extracted else None
+
+
+def _passes_location_mode(item: ExtractedOpportunity) -> bool:
+    tags = [t.lower() for t in (item.domain_tags or [])]
+    is_online = "online" in tags
+    is_offline = "offline" in tags
+
+    # Online is always allowed.
+    if is_online:
+        return True
+
+    # Offline must be in India.
+    if is_offline:
+        location = " ".join([item.description or "", item.eligibility or ""]).lower()
+        if not location:
+            return False
+        if "india" in location:
+            return True
+        non_india = [
+            "usa", "united states", "uk", "united kingdom", "canada", "australia",
+            "germany", "france", "singapore", "uae", "dubai", "abu dhabi",
+        ]
+        if any(n in location for n in non_india):
+            return False
+        return False
+
+    # If neither online nor offline is known, exclude by default.
+    return False
 
 
 def _normalize_domain_tags(tags: list[str]) -> list[str]:
-    seen: set[str] = set()
-    normalized: list[str] = []
-    for tag in tags:
-        if not tag:
-            continue
-        value = str(tag).strip().lower()
-        if not value or value in seen:
-            continue
-        seen.add(value)
-        normalized.append(value)
-    return normalized
+    # Backward-compatible alias
+    return normalize_domains(tags)

@@ -18,22 +18,23 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _BCRYPT_MAX_BYTES = 72
 
 
-def _truncate_for_bcrypt(password: str) -> str:
-    """Truncate password to 72 bytes (UTF-8) so bcrypt accepts it."""
-    if not isinstance(password, str):
-        password = str(password)
-    encoded = password.encode("utf-8")
-    if len(encoded) <= _BCRYPT_MAX_BYTES:
-        return password
-    return encoded[:_BCRYPT_MAX_BYTES].decode("utf-8", errors="ignore")
+def _truncate_password_bytes(password: str | bytes) -> bytes:
+    """Truncate password to 72 bytes (UTF-8) so bcrypt accepts it. Returns bytes so
+    the bcrypt library never receives more than 72 bytes."""
+    if isinstance(password, bytes):
+        return password[:_BCRYPT_MAX_BYTES]
+    raw = password.encode("utf-8") if isinstance(password, str) else str(password).encode("utf-8")
+    return raw[:_BCRYPT_MAX_BYTES]
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(_truncate_for_bcrypt(password))
+    truncated = _truncate_password_bytes(password)
+    return pwd_context.hash(truncated.decode("utf-8", errors="replace"))
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(_truncate_for_bcrypt(plain), hashed)
+    truncated = _truncate_password_bytes(plain)
+    return pwd_context.verify(truncated.decode("utf-8", errors="replace"), hashed)
 
 
 def create_access_token(user_id: UUID) -> str:
@@ -44,7 +45,14 @@ def create_access_token(user_id: UUID) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def register_user(db: Session, email: str, password: str, university_id: str | None = None) -> User:
+def register_user(
+    db: Session,
+    email: str,
+    password: str,
+    university_id: UUID | None = None,
+    skills: list[str] | None = None,
+    interests: list[str] | None = None,
+) -> User:
     """Create a new user. Raises ValueError if email already taken."""
     existing = db.query(User).filter(User.email == email).first()
     if existing:
@@ -53,6 +61,8 @@ def register_user(db: Session, email: str, password: str, university_id: str | N
     user = User(
         email=email,
         password_hash=hash_password(password),
+        skills=skills or [],
+        interests=interests or [],
     )
     if university_id:
         user.university_id = university_id

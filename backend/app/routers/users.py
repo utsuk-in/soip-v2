@@ -6,6 +6,7 @@ from app.models.university import University
 from app.models.user import User
 from app.schemas.user import ProfileUpdate, UniversityOut, UserOut
 from app.utils.dependencies import get_current_user
+from app.services.taxonomy import normalize_domains
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -32,11 +33,15 @@ def update_profile(
     for field, value in update_data.items():
         setattr(current_user, field, value)
 
+    # Normalize skills + interests for consistent matching
+    if current_user.skills is not None:
+        current_user.skills = normalize_domains(current_user.skills) or current_user.skills
+    if current_user.interests is not None:
+        current_user.interests = normalize_domains(current_user.interests) or current_user.interests
+
     has_profile_fields = all([
         current_user.first_name,
         current_user.degree_type,
-        current_user.skills,
-        current_user.interests,
     ])
     if has_profile_fields and not current_user.is_onboarded:
         current_user.is_onboarded = True

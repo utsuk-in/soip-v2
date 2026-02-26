@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Filter } from "lucide-react";
-import { browseOpportunities, type Opportunity } from "../lib/api";
+import { browseOpportunities, type Opportunity, type OpportunityListResponse } from "../lib/api";
 import OpportunityCard from "../components/OpportunityCard";
 import FilterSidebar from "../components/FilterSidebar";
 
@@ -18,6 +18,7 @@ export default function BrowsePage() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [meta, setMeta] = useState<OpportunityListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -33,9 +34,11 @@ export default function BrowsePage() {
         page,
         page_size: 20,
       });
-      setOpportunities(data);
+      setOpportunities(data.items || []);
+      setMeta(data);
     } catch {
       setOpportunities([]);
+      setMeta(null);
     } finally {
       setLoading(false);
     }
@@ -63,14 +66,14 @@ export default function BrowsePage() {
       <div className="flex-1 overflow-auto p-6 lg:p-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Browse opportunities</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {loading ? "Loading..." : `${opportunities.length} results`}
+            <h1 className="text-xl font-semibold text-slate-900 font-display">Browse opportunities</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {loading ? "Loading..." : meta ? `Showing ${Math.min((page - 1) * meta.page_size + 1, meta.total)}–${Math.min(page * meta.page_size, meta.total)} of ${meta.total}` : `${opportunities.length} results`}
             </p>
           </div>
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
+            className="lg:hidden flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
           >
             <Filter size={16} /> Filters
           </button>
@@ -98,22 +101,26 @@ export default function BrowsePage() {
             </div>
 
             {/* Pagination */}
-            <div className="flex justify-center gap-2 mt-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-8">
+              <div className="text-sm text-slate-500">
+                {meta ? `Page ${meta.page} of ${meta.total_pages}` : `Page ${page}`}
+              </div>
+              <div className="flex justify-center gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-gray-50"
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-slate-50"
               >
                 Previous
               </button>
-              <span className="px-4 py-2 text-sm text-gray-500">Page {page}</span>
               <button
                 onClick={() => setPage((p) => p + 1)}
-                disabled={opportunities.length < 20}
-                className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-gray-50"
+                disabled={meta ? !meta.has_next : opportunities.length < 20}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-slate-50"
               >
                 Next
               </button>
+              </div>
             </div>
           </>
         )}

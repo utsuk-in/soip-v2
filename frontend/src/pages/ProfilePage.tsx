@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 import { updateProfile } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -11,15 +10,13 @@ const ASPIRATION_OPTIONS = [
 ];
 
 const INTEREST_SUGGESTIONS = [
-  "AI", "ML", "Data", "Robotics", "Web", "Mobile", "Cloud",
-  "Security", "Blockchain", "Fintech", "Health", "Climate",
-  "Education", "Social Impact", "Design", "Product", "Startup",
-  "Research", "Hardware", "IoT",
+  "AI", "Machine Learning", "Web Development", "Mobile", "Cloud",
+  "Cybersecurity", "Data Science", "Blockchain", "IoT", "Robotics",
+  "Climate", "Healthcare", "Fintech", "Education", "Social Impact",
 ];
 
-export default function OnboardingPage() {
-  const { refreshUser } = useAuth();
-  const navigate = useNavigate();
+export default function ProfilePage() {
+  const { user, refreshUser } = useAuth();
 
   const [firstName, setFirstName] = useState("");
   const [degreeType, setDegreeType] = useState("");
@@ -29,6 +26,16 @@ export default function OnboardingPage() {
   const [skillInput, setSkillInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+    setFirstName(user.first_name || "");
+    setDegreeType(user.degree_type || "");
+    setSkills(user.skills || []);
+    setInterests(user.interests || []);
+    setAspirations(user.aspirations || []);
+  }, [user]);
 
   const addSkill = () => {
     const tag = skillInput.trim();
@@ -54,6 +61,7 @@ export default function OnboardingPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setSuccess("");
     try {
       await updateProfile({
         first_name: firstName,
@@ -63,23 +71,23 @@ export default function OnboardingPage() {
         aspirations,
       });
       await refreshUser();
-      navigate("/dashboard");
+      setSuccess("Profile updated.");
     } catch (err: any) {
-      setError(err.message || "Failed to save profile");
+      setError(err.message || "Failed to update profile");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-accent-50 py-12 px-4">
-      <div className="max-w-xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold text-slate-900 mb-2 font-display">Tell us about yourself</h1>
-          <p className="text-slate-500">This helps SOIP find the best opportunities for you.</p>
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-indigo-50 py-10 px-4">
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Your profile</h1>
+          <p className="text-gray-500">Update your details to improve recommendations.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-100 p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 space-y-6">
           {/* First Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">First name</label>
@@ -175,13 +183,14 @@ export default function OnboardingPage() {
           </div>
 
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          {success && <p className="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2">{success}</p>}
 
           <button
             type="submit"
             disabled={loading}
             className="w-full py-3 bg-brand-600 text-white rounded-lg font-medium text-sm hover:bg-brand-700 transition-colors disabled:opacity-50"
           >
-            {loading ? "Saving..." : "Get started"}
+            {loading ? "Saving..." : "Save changes"}
           </button>
         </form>
       </div>

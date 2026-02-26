@@ -19,12 +19,21 @@ export default function DashboardPage() {
       try {
         const [rec, all] = await Promise.all([
           getRecommended(6).catch(() => []),
-          browseOpportunities({ sort: "newest", page_size: 50 }).catch(() => []),
+          browseOpportunities({ sort: "newest", page_size: 50 }).catch(() => ({
+            items: [],
+            total: 0,
+            page: 1,
+            page_size: 50,
+            total_pages: 1,
+            has_next: false,
+            has_prev: false,
+          })),
         ]);
         setRecommended(rec);
-        setRecent(all.slice(0, 6));
+        const allItems = all.items || [];
+        setRecent(allItems.slice(0, 6));
 
-        const soon = all
+        const soon = allItems
           .filter((o) => o.deadline)
           .filter((o) => {
             const days = Math.ceil((new Date(o.deadline!).getTime() - Date.now()) / 86400000);
@@ -51,33 +60,34 @@ export default function DashboardPage() {
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
       {/* Greeting */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Hey {user?.first_name || "there"} <span className="inline-block animate-bounce">👋</span>
+      <div className="flex flex-col gap-2">
+        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Personal brief</p>
+        <h1 className="text-3xl font-semibold text-slate-900 font-display">
+          Welcome back, {user?.first_name || "explorer"}
         </h1>
-        <p className="text-gray-500 mt-1">Here's what's relevant for you today.</p>
+        <p className="text-slate-500">Signal captured. Here’s your best next move.</p>
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <button
           onClick={() => navigate("/chat")}
-          className="flex items-center gap-4 bg-brand-600 text-white p-5 rounded-xl hover:bg-brand-700 transition-colors text-left"
+          className="flex items-center gap-4 bg-gradient-to-r from-brand-600 to-brand-500 text-white p-5 rounded-2xl hover:shadow-lg transition-all text-left"
         >
           <MessageSquare size={24} />
           <div>
             <p className="font-semibold">Chat with SOIP</p>
-            <p className="text-sm text-brand-200">Ask about opportunities, get personalized recommendations</p>
+            <p className="text-sm text-brand-100">Ask about opportunities, get personalized recommendations</p>
           </div>
         </button>
         <button
           onClick={() => navigate("/browse")}
-          className="flex items-center gap-4 bg-white border border-gray-200 text-gray-900 p-5 rounded-xl hover:border-brand-300 hover:shadow-sm transition-all text-left"
+          className="flex items-center gap-4 bg-white border border-slate-200 text-slate-900 p-5 rounded-2xl hover:border-brand-300 hover:shadow-md transition-all text-left"
         >
           <Search size={24} className="text-brand-600" />
           <div>
             <p className="font-semibold">Browse opportunities</p>
-            <p className="text-sm text-gray-500">Filter by category, domain, deadline</p>
+            <p className="text-sm text-slate-500">Filter by category, domain, deadline</p>
           </div>
         </button>
       </div>
@@ -123,7 +133,7 @@ function Section({ icon: Icon, title, color, children }: {
 }) {
   return (
     <section>
-      <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-4">
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 mb-4 font-display">
         <Icon size={20} className={color} />
         {title}
       </h2>

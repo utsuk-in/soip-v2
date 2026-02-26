@@ -16,6 +16,7 @@ from typing import Optional
 from openai import AsyncOpenAI
 
 from app.config import settings
+from app.services.taxonomy import normalize_domains
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,7 @@ def _parse_response(raw_json: str, fallback_text: str) -> ParsedQuery:
         intent=data.get("intent", "search"),
         search_text=data.get("search_text") or fallback_text,
         categories=data.get("categories"),
-        domains=data.get("domains"),
+        domains=normalize_domains(data.get("domains")),
         deadline_before=deadline_before,
         deadline_after=deadline_after,
     )

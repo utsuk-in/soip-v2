@@ -46,10 +46,16 @@ make install
 # 4. Run database migrations
 make migrate
 
-# 5. Seed opportunity sources
+# 5. Seed opportunity sources 
 make seed
 
-# 6. Install frontend dependencies
+# 6. Scrape / crawl sources (scrape only those that are marked Enabled True in the sources table will be executed)
+make scrape
+
+# 6. Generate vector embeddings
+make embed
+
+# . Install frontend dependencies
 make install-frontend
 ```
 

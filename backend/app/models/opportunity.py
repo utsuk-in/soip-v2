@@ -43,12 +43,20 @@ class Opportunity(Base):
         nullable=False,
     )
     domain_tags = Column(JSON, nullable=False, default=list)
+    raw_domain_tags = Column(JSON, nullable=True)
     eligibility = Column(Text, nullable=True)
     benefits = Column(Text, nullable=True)
     deadline = Column(Date, nullable=True)
+    deadline_at = Column(DateTime(timezone=True), nullable=True)
     url = Column(String(1000), unique=True, nullable=False)
     source_id = Column(
         UUID(as_uuid=True), ForeignKey("sources.id"), nullable=True
+    )
+    scrape_page_id = Column(
+        UUID(as_uuid=True), ForeignKey("scrape_pages.id"), nullable=True, index=True
+    )
+    content_chunk_id = Column(
+        UUID(as_uuid=True), ForeignKey("content_chunks.id"), nullable=True, index=True
     )
     source_url = Column(String(1000), nullable=False)
     confidence = Column(Float, nullable=True)

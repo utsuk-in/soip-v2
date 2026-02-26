@@ -20,8 +20,8 @@ SEED_SOURCES: list[dict] = [
             "listing_url": "https://devfolio.co/hackathons",
             "notes": "India's largest hackathon platform",
             "scroll_mode": "full_page",
-            "max_scroll_steps": 3,
-            "scroll_delay": 0.5,
+            "scroll_steps_per_page": 12,
+            "scroll_delay": 1.0,
         },
     },
     {
@@ -32,12 +32,39 @@ SEED_SOURCES: list[dict] = [
             "listing_url": "https://unstop.com/competitions?oppstatus=open",
             "notes": "Formerly Dare2Compete — competitions, quizzes, hackathons",
             "scroll_mode": "full_page",
-            "scroll_steps_per_page": 10,
-            "scroll_delay": 1.5,
-            "delay_before_return_html": 2,
+            "scroll_steps_per_page": 20,
+            "scroll_delay": 2.0,
+            "delay_before_return_html": 2.5,
+            "pagination_delay_before_return_html": 2.5,
+            "detail_delay_before_return_html": 0.8,
             "remove_overlay_elements": True,
             "magic": True,
-            "js_code": "document.querySelector('[id*=\"cookie\"], [class*=\"cookie\"], [data-testid*=\"cookie\"]')?.querySelector('button, [role=button], a')?.click();",
+            "pagination": True,
+            "page_param": "page",
+            "pagination_mode": "click",
+            "js_code": """
+(() => {
+  const clickCookie = () => {
+    document.querySelector('[id*="cookie"], [class*="cookie"], [data-testid*="cookie"]')
+      ?.querySelector('button, [role=button], a')?.click();
+  };
+  const findLoadMore = () => {
+    const buttons = Array.from(document.querySelectorAll('button, a'));
+    const texts = ["load more", "view more", "show more", "loadmore", "viewmore", "showmore"];
+    return buttons.find(b => texts.includes((b.textContent || "").trim().toLowerCase()));
+  };
+  clickCookie();
+  let clicks = 0;
+  const maxClicks = 12;
+  const interval = setInterval(() => {
+    const btn = findLoadMore();
+    if (btn) btn.click();
+    window.scrollTo(0, document.body.scrollHeight);
+    clicks += 1;
+    if (clicks >= maxClicks) clearInterval(interval);
+  }, 1200);
+})();
+""",
         },
     },
     {
@@ -48,12 +75,39 @@ SEED_SOURCES: list[dict] = [
             "listing_url": "https://unstop.com/hackathons?oppstatus=open",
             "notes": "Hackathon-specific listing on Unstop",
             "scroll_mode": "full_page",
-            "scroll_steps_per_page": 10,
-            "scroll_delay": 1.5,
-            "delay_before_return_html": 2,
+            "scroll_steps_per_page": 20,
+            "scroll_delay": 2.0,
+            "delay_before_return_html": 2.5,
+            "pagination_delay_before_return_html": 2.5,
+            "detail_delay_before_return_html": 0.8,
             "remove_overlay_elements": True,
             "magic": True,
-            "js_code": "document.querySelector('[id*=\"cookie\"], [class*=\"cookie\"], [data-testid*=\"cookie\"]')?.querySelector('button, [role=button], a')?.click();",
+            "pagination": True,
+            "page_param": "page",
+            "pagination_mode": "click",
+            "js_code": """
+(() => {
+  const clickCookie = () => {
+    document.querySelector('[id*="cookie"], [class*="cookie"], [data-testid*="cookie"]')
+      ?.querySelector('button, [role=button], a')?.click();
+  };
+  const findLoadMore = () => {
+    const buttons = Array.from(document.querySelectorAll('button, a'));
+    const texts = ["load more", "view more", "show more", "loadmore", "viewmore", "showmore"];
+    return buttons.find(b => texts.includes((b.textContent || "").trim().toLowerCase()));
+  };
+  clickCookie();
+  let clicks = 0;
+  const maxClicks = 12;
+  const interval = setInterval(() => {
+    const btn = findLoadMore();
+    if (btn) btn.click();
+    window.scrollTo(0, document.body.scrollHeight);
+    clicks += 1;
+    if (clicks >= maxClicks) clearInterval(interval);
+  }, 1200);
+})();
+""",
         },
     },
     {
@@ -64,8 +118,8 @@ SEED_SOURCES: list[dict] = [
             "listing_url": "https://mlh.io/seasons/2026/events",
             "notes": "Major League Hacking — global student hackathons",
             "scroll_mode": "full_page",
-            "max_scroll_steps": 3,
-            "scroll_delay": 0.5,
+            "scroll_steps_per_page": 10,
+            "scroll_delay": 1.0,
         },
     },
     {
@@ -76,8 +130,8 @@ SEED_SOURCES: list[dict] = [
             "listing_url": "https://internshala.com/internships",
             "notes": "India's top internship platform",
             "scroll_mode": "full_page",
-            "max_scroll_steps": 3,
-            "scroll_delay": 0.6,
+            "scroll_steps_per_page": 10,
+            "scroll_delay": 1.0,
         },
     },
     {
@@ -87,6 +141,7 @@ SEED_SOURCES: list[dict] = [
         "config": {
             "listing_url": "https://summerofcode.withgoogle.com/programs/2026",
             "notes": "GSoC — open source mentoring for students",
+            "scroll_mode": "none",
         },
     },
     {
@@ -96,6 +151,7 @@ SEED_SOURCES: list[dict] = [
         "config": {
             "listing_url": "https://www.startupindia.gov.in/content/sih/en/government-schemes.html",
             "notes": "Government startup programs and schemes",
+            "scroll_mode": "none",
         },
     },
     {
@@ -105,6 +161,7 @@ SEED_SOURCES: list[dict] = [
         "config": {
             "listing_url": "https://aim.gov.in/",
             "notes": "NITI Aayog innovation programs for students and startups",
+            "scroll_mode": "none",
         },
     },
     {
@@ -114,6 +171,7 @@ SEED_SOURCES: list[dict] = [
         "config": {
             "listing_url": "https://www.e-yantra.org/",
             "notes": "Robotics competitions and labs by IIT Bombay",
+            "scroll_mode": "none",
         },
     },
     # --- Static HTML sites (httpx) ---

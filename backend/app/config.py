@@ -33,7 +33,16 @@ class Settings(BaseSettings):
     crawl_max_pages: int = Field(default=3, description="Global crawl depth. Use 1 for minimal crawl, 3 for first 3 pages/scroll steps.")
 
     # Extraction: limit segments to process (1 = validate on first "page" only; 3 = first 3; 0 = all).
-    extraction_max_segments: int = Field(default=1, description="Limit extraction to first N segments. Use 1 to validate accuracy, then 3 or 0 for full.")
+    extraction_max_segments: int = Field(default=3, description="Limit extraction to first N segments. Use 1 to validate accuracy, then 3 or 0 for full.")
+
+    # Cross-encoder reranker (local)
+    rerank_enabled: bool = Field(default=False)
+    rerank_model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    rerank_top_k: int = Field(default=30, ge=1)
+    rerank_batch_size: int = Field(default=16, ge=1)
+
+    # Scrape concurrency (parallel sources)
+    scrape_concurrency: int = Field(default=1, ge=1)
 
 
 settings = Settings()

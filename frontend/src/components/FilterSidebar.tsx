@@ -7,8 +7,10 @@ const CATEGORIES = [
 ];
 
 const DOMAINS = [
-  "AI", "climate", "fintech", "healthcare", "web3",
-  "robotics", "education", "social-impact",
+  "AI", "ML", "Data", "Robotics", "Web", "Mobile", "Cloud",
+  "Security", "Blockchain", "Fintech", "Health", "Climate",
+  "Education", "Social Impact", "Design", "Product", "Startup",
+  "Research", "Hardware", "IoT",
 ];
 
 interface Filters {

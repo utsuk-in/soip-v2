@@ -1,4 +1,5 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE =
+  (import.meta as any).env?.VITE_API_BASE || "http://localhost:8000";
 
 function getToken(): string | null {
   return localStorage.getItem("soip_token");
@@ -116,7 +117,17 @@ export interface BrowseParams {
   page_size?: number;
 }
 
-export async function browseOpportunities(params: BrowseParams = {}): Promise<Opportunity[]> {
+export interface OpportunityListResponse {
+  items: Opportunity[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+export async function browseOpportunities(params: BrowseParams = {}): Promise<OpportunityListResponse> {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== "") qs.set(k, String(v));

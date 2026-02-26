@@ -19,6 +19,8 @@ from uuid import UUID
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
 
+from app.models.opportunity import OpportunityCategory
+from app.services.taxonomy import normalize_domains
 from app.services.query_parser import ParsedQuery
 
 logger = logging.getLogger(__name__)
@@ -78,11 +80,12 @@ def _chunk_vector_search(
     opp_filters = []
     params: dict = {"qe": str(query_embedding), "lim": _CANDIDATE_LIMIT}
 
-    if query.categories:
-        placeholders = ", ".join(f":cat_{i}" for i in range(len(query.categories)))
+    categories = _normalize_categories(query.categories)
+    if categories:
+        placeholders = ", ".join(f":cat_{i}" for i in range(len(categories)))
         opp_filters.append(f"o.category IN ({placeholders})")
-        for i, cat in enumerate(query.categories):
-            params[f"cat_{i}"] = cat
+        for i, cat in enumerate(categories):
+            params[f"cat_{i}"] = cat.name
 
     if query.deadline_before:
         opp_filters.append("(o.deadline IS NULL OR o.deadline <= :dl_before)")
@@ -91,6 +94,13 @@ def _chunk_vector_search(
     if query.deadline_after:
         opp_filters.append("(o.deadline IS NULL OR o.deadline >= :dl_after)")
         params["dl_after"] = query.deadline_after.isoformat()
+
+    domains = normalize_domains(query.domains)
+    if domains:
+        placeholders = ", ".join(f":dom_{i}" for i in range(len(domains)))
+        opp_filters.append(f"o.domain_tags::jsonb ?| array[{placeholders}]")
+        for i, dom in enumerate(domains):
+            params[f"dom_{i}"] = dom
 
     where = " AND ".join(where_clauses)
 
@@ -193,6 +203,13 @@ def _fts_search(
         where_clauses.append("(deadline IS NULL OR deadline >= :dl_after)")
         params["dl_after"] = query.deadline_after.isoformat()
 
+    domains = normalize_domains(query.domains)
+    if domains:
+        placeholders = ", ".join(f":dom_{i}" for i in range(len(domains)))
+        where_clauses.append(f"domain_tags::jsonb ?| array[{placeholders}]")
+        for i, dom in enumerate(domains):
+            params[f"dom_{i}"] = dom
+
     where = " AND ".join(where_clauses)
 
     sql = sa_text(f"""
@@ -243,6 +260,13 @@ def _chunk_fts_search(
         return []
 
     params: dict = {"q": search_text, "lim": _CANDIDATE_LIMIT}
+    domain_filter = ""
+    domains = normalize_domains(query.domains)
+    if domains:
+        placeholders = ", ".join(f":dom_{i}" for i in range(len(domains)))
+        domain_filter = f" AND (o.domain_tags::jsonb ?| array[{placeholders}])"
+        for i, dom in enumerate(domains):
+            params[f"dom_{i}"] = dom
 
     sql = sa_text("""
         SELECT c.id AS chunk_id,
@@ -258,6 +282,7 @@ def _chunk_fts_search(
         LEFT JOIN sources s ON c.source_id = s.id
         WHERE to_tsvector('english', c.content) @@ plainto_tsquery('english', :q)
           AND (o.id IS NULL OR (o.is_active = true AND (o.deadline IS NULL OR o.deadline >= CURRENT_DATE)))
+    """ + domain_filter + """
         ORDER BY rank DESC
         LIMIT :lim
     """)
@@ -304,6 +329,35 @@ def _chunk_fts_search(
 
     logger.debug(f"Chunk FTS returned {len(results)} results")
     return results
+
+
+def _normalize_categories(
+    raw: Optional[list[str]],
+) -> list[OpportunityCategory]:
+    if not raw:
+        return []
+    normalized: list[OpportunityCategory] = []
+    for item in raw:
+        if isinstance(item, OpportunityCategory):
+            normalized.append(item)
+            continue
+        if not item:
+            continue
+        try:
+            normalized.append(OpportunityCategory(item))
+            continue
+        except ValueError:
+            pass
+        try:
+            normalized.append(OpportunityCategory[item.upper()])
+        except KeyError:
+            continue
+    return normalized
+
+
+def _normalize_domains(raw: Optional[list[str]]) -> list[str]:
+    # Backward-compatible alias
+    return normalize_domains(raw)
 
 
 def _rrf_fuse(

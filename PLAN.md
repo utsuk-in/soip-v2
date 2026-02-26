@@ -26,6 +26,12 @@ todos:
   - id: p7-alerts
     content: "Phase 7: APScheduler (scrape every 6h, expire hourly), alert generation for new relevant opportunities, alerts API + frontend bell notification"
     status: done
+  - id: p8-rerank-cache
+    content: "Phase 8: Add cross-encoder rerank score cache (query + doc hash) to reduce rerank cost/latency on repeat queries"
+    status: done
+  - id: p9-taxonomy
+    content: "Phase 9: Add canonical taxonomy (domains/categories) with synonym normalization across extraction, user profile updates, query parsing, retrieval, and UI; include backfill script"
+    status: done
 isProject: false
 ---
 

@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
@@ -8,7 +10,9 @@ _BCRYPT_MAX_BYTES = 72
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
-    university_id: str | None = None
+    university_id: UUID | None = None
+    skills: list[str] | None = None
+    interests: list[str] | None = None
 
     @field_validator("password")
     @classmethod

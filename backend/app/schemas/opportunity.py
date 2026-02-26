@@ -10,11 +10,15 @@ class OpportunityOut(BaseModel):
     description: str
     category: str
     domain_tags: list[str] = []
+    raw_domain_tags: list[str] | None = None
     eligibility: str | None = None
     benefits: str | None = None
     deadline: date | None = None
+    deadline_at: datetime | None = None
     url: str
     source_url: str
+    scrape_page_id: UUID | None = None
+    content_chunk_id: UUID | None = None
     confidence: float | None = None
     is_active: bool = True
     created_at: datetime | None = None
@@ -33,3 +37,13 @@ class OpportunityBrief(BaseModel):
     is_active: bool = True
 
     model_config = {"from_attributes": True}
+
+
+class OpportunityListResponse(BaseModel):
+    items: list[OpportunityOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    has_next: bool
+    has_prev: bool

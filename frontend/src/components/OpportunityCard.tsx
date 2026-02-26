@@ -3,14 +3,14 @@ import { Calendar, ExternalLink } from "lucide-react";
 import type { Opportunity } from "../lib/api";
 
 const CATEGORY_COLORS: Record<string, string> = {
-  hackathon: "bg-purple-100 text-purple-700",
-  grant: "bg-green-100 text-green-700",
-  fellowship: "bg-blue-100 text-blue-700",
-  internship: "bg-orange-100 text-orange-700",
-  competition: "bg-red-100 text-red-700",
-  scholarship: "bg-teal-100 text-teal-700",
-  program: "bg-indigo-100 text-indigo-700",
-  other: "bg-gray-100 text-gray-700",
+  hackathon: "bg-brand-100 text-brand-800",
+  grant: "bg-emerald-100 text-emerald-800",
+  fellowship: "bg-sky-100 text-sky-800",
+  internship: "bg-accent-100 text-accent-800",
+  competition: "bg-rose-100 text-rose-800",
+  scholarship: "bg-teal-100 text-teal-800",
+  program: "bg-indigo-100 text-indigo-800",
+  other: "bg-slate-100 text-slate-700",
 };
 
 function deadlineLabel(deadline: string | null): { text: string; urgent: boolean } | null {
@@ -37,7 +37,7 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
   return (
     <div
       onClick={onClick}
-      className={`bg-white rounded-xl border border-gray-200 hover:border-brand-300 hover:shadow-md transition-all ${
+      className={`bg-white rounded-2xl border border-slate-200 hover:border-brand-300 hover:shadow-lg transition-all ${
         onClick ? "cursor-pointer" : ""
       } ${compact ? "p-3" : "p-5"} animate-fade-in`}
     >
@@ -53,17 +53,17 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
         )}
       </div>
 
-      <h3 className={`font-semibold text-gray-900 ${compact ? "text-sm" : "text-base"} line-clamp-2 mb-1`}>
+      <h3 className={`font-semibold text-slate-900 ${compact ? "text-sm" : "text-base"} line-clamp-2 mb-1`}>
         {opp.title}
       </h3>
 
       {!compact && (
-        <p className="text-sm text-gray-500 line-clamp-2 mb-3">{opp.description}</p>
+        <p className="text-sm text-slate-500 line-clamp-2 mb-3">{opp.description}</p>
       )}
 
       <div className="flex flex-wrap gap-1.5 mb-2">
         {(opp.domain_tags || []).slice(0, 4).map((tag) => (
-          <span key={tag} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px] font-medium">
+          <span key={tag} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[11px] font-medium">
             {tag}
           </span>
         ))}
@@ -75,7 +75,7 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium"
+          className="inline-flex items-center gap-1 text-xs text-brand-700 hover:text-brand-800 font-medium"
         >
           Visit <ExternalLink size={11} />
         </a>

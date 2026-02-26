@@ -11,10 +11,12 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Optional
+from uuid import UUID
 
 from openai import AsyncOpenAI
 
 from app.config import settings
+from app.services.taxonomy import normalize_domains
 
 logger = logging.getLogger(__name__)
 
@@ -29,18 +31,20 @@ structured JSON array.
 
 For each opportunity, extract:
 - title: The opportunity name (required)
-- description: A clear 2-4 sentence summary (required)
+- description: The complete opportunity description as written on the page. Do not summarize or truncate. Preserve key details and sections in plain text. (required)
 - category: One of: hackathon, grant, fellowship, internship, competition, \
 scholarship, program, other (required)
-- domain_tags: List of relevant domains like ["AI", "climate", "fintech", \
+- domain_tags: List of relevant domains, Add domain tags relevant to the title and description. some examples like but not limited to ["AI", "climate", "fintech", \
 "healthcare", "web3", "robotics", "education", "social-impact", "general", \
 "online", "offline"] — include "online" or "offline" if the opportunity format is stated (required, at least 1)
 - eligibility: Who can apply — degree level, year, nationality, age, etc. (if mentioned)
 - benefits: What winners/participants get — prize money, stipend, mentorship, \
-certificate, etc. (if mentioned)
+certificate, perks, cash prizes, etc. (if mentioned under rewards and prizes or similar)
 - deadline: Application/registration deadline in YYYY-MM-DD format only. \
 Use the current year when only day/month are given. If unclear or relative ("tomorrow", "next week"), leave null.
 - url: Direct link to the opportunity page (if available, null otherwise)
+- is_active: true if open, false if closed/ended (if explicitly stated)
+- deadline_at: Full deadline timestamp with timezone (ISO 8601) if explicitly shown (e.g., 2026-02-26T12:26:00+05:30)
 - confidence: Your confidence in the extraction accuracy from 0.0 to 1.0
 
 Rules:
@@ -80,11 +84,15 @@ class ExtractedOpportunity:
     description: str
     category: str
     domain_tags: list[str] = field(default_factory=lambda: ["general"])
+    raw_domain_tags: list[str] = field(default_factory=list)
     eligibility: Optional[str] = None
     benefits: Optional[str] = None
     deadline: Optional[date] = None
+    deadline_at: Optional[datetime] = None
     url: Optional[str] = None
     confidence: float = 0.5
+    is_active: bool = True
+    detail_scrape_page_id: Optional[UUID] = None
 
 
 async def extract_opportunities(
@@ -290,22 +298,50 @@ def _parse_single(item: dict) -> Optional[ExtractedOpportunity]:
         return None
 
     deadline = None
+    deadline_at = None
     if item.get("deadline"):
         try:
             deadline = datetime.strptime(item["deadline"], "%Y-%m-%d").date()
         except (ValueError, TypeError):
             pass
+    if item.get("deadline_at"):
+        try:
+            deadline_at = datetime.fromisoformat(str(item["deadline_at"]))
+        except (ValueError, TypeError):
+            deadline_at = None
+
+    raw_active = item.get("is_active", True)
+    is_active = True
+    if isinstance(raw_active, bool):
+        is_active = raw_active
+    elif isinstance(raw_active, str):
+        lowered = raw_active.strip().lower()
+        if "closed" in lowered or "ended" in lowered:
+            is_active = False
+        elif "open" in lowered:
+            is_active = True
+
+    # Heuristic: if description explicitly mentions closed
+    desc_lower = description.lower()
+    if "closed" in desc_lower or "registrations closed" in desc_lower:
+        is_active = False
+
+    raw_tags = item.get("domain_tags") or ["general"]
+    normalized_tags = normalize_domains(raw_tags) or ["general"]
 
     return ExtractedOpportunity(
         title=title,
         description=description,
         category=_normalize_category(item.get("category", "other")),
-        domain_tags=item.get("domain_tags") or ["general"],
+        domain_tags=normalized_tags,
+        raw_domain_tags=raw_tags,
         eligibility=item.get("eligibility"),
         benefits=item.get("benefits"),
         deadline=deadline,
+        deadline_at=deadline_at,
         url=item.get("url"),
         confidence=min(1.0, max(0.0, float(item.get("confidence", 0.5)))),
+        is_active=is_active,
     )
 
 

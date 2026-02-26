@@ -13,6 +13,7 @@ from markdownify import markdownify as md
 
 from app.config import settings
 from app.models.source import Source
+from app.services.chunker import content_hash
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,8 @@ async def scrape_source(source: Source) -> Optional[str]:
     try:
         if source.scraper_type == "html":
             return await _fetch_static(listing_url, source)
+        if config.get("pagination"):
+            return await _fetch_with_crawl4ai_paginated(listing_url, source)
         return await _fetch_with_crawl4ai(listing_url, source)
     except Exception as e:
         logger.error(f"Failed to scrape {source.name} ({listing_url}): {e}")
@@ -41,7 +44,7 @@ async def scrape_detail_url(url: str, source: Source) -> Optional[str]:
     try:
         if source.scraper_type == "html":
             return await _fetch_single_static(url)
-        return await _fetch_with_crawl4ai(url, source)
+        return await _fetch_with_crawl4ai(url, source, delay_override=_detail_delay(source.config or {}))
     except Exception as e:
         logger.warning(f"Failed to scrape detail URL {url}: {e}")
         return None
@@ -50,25 +53,88 @@ async def scrape_detail_url(url: str, source: Source) -> Optional[str]:
 # ── Crawl4AI (JS-heavy, with scroll and optional cookie consent) ──
 
 
-async def _fetch_with_crawl4ai(url: str, source: Source) -> str:
+async def _fetch_with_crawl4ai(url: str, source: Source, delay_override: float | None = None) -> str:
     """JS-heavy scraping with Crawl4AI; supports scroll and optional js_code (e.g. cookie consent)."""
     from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, VirtualScrollConfig
 
     config = source.config or {}
     browser_config = BrowserConfig(headless=True)
-    run_config = _build_crawl4ai_config(config)
+    run_config = _build_crawl4ai_config(config, delay_override=delay_override)
 
     async with AsyncWebCrawler(config=browser_config) as crawler:
-        result = await crawler.arun(url=url, config=run_config)
+        try:
+            result = await crawler.arun(url=url, config=run_config)
 
-        if result.success:
-            return _clean_markdown(result.markdown or "")
+            if result.success:
+                return _clean_markdown(result.markdown or "")
 
-        logger.error(f"Crawl4AI failed for {url}: {result.error_message}")
+            logger.error(f"Crawl4AI failed for {url}: {result.error_message}")
+            return ""
+        finally:
+            await _safe_close_crawler(crawler)
+
+
+async def _fetch_with_crawl4ai_paginated(start_url: str, source: Source) -> str:
+    """JS-heavy scraping with Crawl4AI across numbered pages."""
+    from crawl4ai import AsyncWebCrawler, BrowserConfig
+
+    config = source.config or {}
+    max_pages = _resolve_max_pages(config)
+    page_param = config.get("page_param", "page")
+    pagination_mode = config.get("pagination_mode", "query")
+    pagination_delay = _pagination_delay(config)
+
+    browser_config = BrowserConfig(headless=True)
+
+    parts: list[str] = []
+    seen_hashes: set[str] = set()
+
+    async with AsyncWebCrawler(config=browser_config) as crawler:
+        try:
+            for page_num in range(1, max_pages + 1):
+                url = start_url
+                extra_js_code = None
+                if pagination_mode == "query":
+                    url = _build_paginated_url(start_url, page_param, page_num)
+                elif pagination_mode == "click" and page_num > 1:
+                    extra_js_code = _build_pagination_click_js(page_num)
+
+                run_config = _build_crawl4ai_config(
+                    config,
+                    extra_js_code=extra_js_code,
+                    delay_override=pagination_delay,
+                )
+                result = await crawler.arun(url=url, config=run_config)
+                if not result.success:
+                    logger.warning(f"Crawl4AI failed for {url}: {result.error_message}")
+                    break
+
+                cleaned = _clean_markdown(result.markdown or "")
+                if not cleaned:
+                    break
+
+                content_key = content_hash(cleaned)
+                if content_key in seen_hashes:
+                    logger.info(f"Pagination content repeated at page {page_num}, stopping.")
+                    break
+
+                seen_hashes.add(content_key)
+                parts.append(cleaned)
+                logger.info(f"Fetched JS page {page_num}/{max_pages}: {url}")
+        finally:
+            await _safe_close_crawler(crawler)
+
+    if not parts:
         return ""
+    combined = "\n\n---\n\n".join(parts)
+    return _clean_markdown(combined)
 
 
-def _build_crawl4ai_config(config: dict) -> "CrawlerRunConfig":
+def _build_crawl4ai_config(
+    config: dict,
+    extra_js_code: str | None = None,
+    delay_override: float | None = None,
+) -> "CrawlerRunConfig":
     """Build CrawlerRunConfig from source config (scroll, cookie consent, etc.)."""
     from crawl4ai import CrawlerRunConfig, VirtualScrollConfig
 
@@ -76,9 +142,16 @@ def _build_crawl4ai_config(config: dict) -> "CrawlerRunConfig":
 
     # Optional JS run before capture (e.g. click cookie consent)
     js_code = config.get("js_code")
-    if js_code:
-        kwargs["js_code"] = js_code
-    delay = config.get("delay_before_return_html")
+    combined_js = None
+    if js_code and extra_js_code:
+        combined_js = f"{js_code}\n{extra_js_code}"
+    elif js_code:
+        combined_js = js_code
+    elif extra_js_code:
+        combined_js = extra_js_code
+    if combined_js:
+        kwargs["js_code"] = combined_js
+    delay = delay_override if delay_override is not None else config.get("delay_before_return_html")
     if delay is not None:
         kwargs["delay_before_return_html"] = float(delay)
 
@@ -240,6 +313,79 @@ def _resolve_max_pages(config: dict) -> int:
         return env_pages
     return int(config.get("max_pages", _DEFAULT_MAX_PAGES))
 
+
+def _build_paginated_url(base_url: str, page_param: str, page_num: int) -> str:
+    """Return URL with page_param updated to page_num."""
+    parsed = urlparse(base_url)
+    qs = parse_qs(parsed.query, keep_blank_values=True)
+    qs[page_param] = [str(page_num)]
+    new_query = urlencode(qs, doseq=True)
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+
+
+def _build_pagination_click_js(page_num: int) -> str:
+    """Return JS that clicks a pagination control for the given page number."""
+    return f"""
+(() => {{
+  const target = String({page_num});
+  const clickCookie = () => {{
+    document.querySelector('[id*="cookie"], [class*="cookie"], [data-testid*="cookie"]')
+      ?.querySelector('button, [role=button], a')?.click();
+  }};
+  const jumpInput = () => {{
+    const input = document.querySelector('input#jump');
+    if (!input) return false;
+    input.value = target;
+    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+    input.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', bubbles: true }}));
+    input.dispatchEvent(new KeyboardEvent('keyup', {{ key: 'Enter', bubbles: true }}));
+    return true;
+  }};
+  const clickPage = () => {{
+    const candidates = Array.from(document.querySelectorAll('button, a'));
+    const match = candidates.find(el => (el.textContent || '').trim() === target);
+    if (match) match.click();
+  }};
+  clickCookie();
+  if (!jumpInput()) {{
+    clickPage();
+  }}
+}})();
+"""
+
+
+def _pagination_delay(config: dict) -> float | None:
+    delay = config.get("pagination_delay_before_return_html")
+    if delay is None:
+        return None
+    try:
+        return float(delay)
+    except (TypeError, ValueError):
+        return None
+
+
+def _detail_delay(config: dict) -> float | None:
+    delay = config.get("detail_delay_before_return_html")
+    if delay is None:
+        return None
+    try:
+        return float(delay)
+    except (TypeError, ValueError):
+        return None
+
+
+async def _safe_close_crawler(crawler) -> None:
+    """Best-effort cleanup for Crawl4AI resources."""
+    try:
+        if hasattr(crawler, "aclose"):
+            await crawler.aclose()
+        elif hasattr(crawler, "close"):
+            res = crawler.close()
+            if hasattr(res, "__await__"):
+                await res
+    except Exception:
+        pass
 
 def _resolve_url(href: str, base: str) -> str:
     """Make href absolute against base URL."""

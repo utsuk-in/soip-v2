@@ -1,15 +1,20 @@
 from datetime import date
+import math
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import or_, func, select
 
 from app.database import get_db
-from app.models.opportunity import Opportunity
+from app.models.opportunity import Opportunity, OpportunityCategory
 from app.models.user import User
-from app.schemas.opportunity import OpportunityBrief, OpportunityOut
+from app.schemas.opportunity import OpportunityBrief, OpportunityOut, OpportunityListResponse
 from app.services.embedder import embed_query
 from app.services.relevance import rerank_for_user
+from app.services.reranker import rerank_with_cross_encoder
+from app.services.taxonomy import normalize_domains
 from app.services.retriever import ScoredOpportunity, hybrid_retrieve
 from app.services.query_parser import ParsedQuery
 from app.utils.dependencies import get_current_user
@@ -17,7 +22,7 @@ from app.utils.dependencies import get_current_user
 router = APIRouter(prefix="/api/opportunities", tags=["opportunities"])
 
 
-@router.get("", response_model=list[OpportunityOut])
+@router.get("", response_model=OpportunityListResponse)
 def browse_opportunities(
     category: str | None = None,
     domain: str | None = None,
@@ -36,10 +41,25 @@ def browse_opportunities(
         query = query.filter(Opportunity.is_active.is_(True))
 
     if category:
-        query = query.filter(Opportunity.category == category)
+        normalized = _normalize_categories([category])
+        if normalized:
+            query = query.filter(Opportunity.category.in_([c for c in normalized]))
 
     if domain:
-        query = query.filter(Opportunity.domain_tags.contains([domain]))
+        domains = normalize_domains(_split_list_param(domain))
+        if domains:
+            conditions = []
+            for d in domains:
+                tag = func.jsonb_array_elements_text(
+                    Opportunity.domain_tags.cast(JSONB)
+                ).table_valued("value").alias("tag")
+                conditions.append(
+                    select(1)
+                    .select_from(tag)
+                    .where(func.lower(tag.c.value) == d.lower())
+                    .exists()
+                )
+            query = query.filter(or_(*conditions))
 
     if deadline_before:
         query = query.filter(
@@ -65,8 +85,19 @@ def browse_opportunities(
     else:
         query = query.order_by(Opportunity.created_at.desc())
 
+    total = query.order_by(None).count()
     offset = (page - 1) * page_size
-    return query.offset(offset).limit(page_size).all()
+    items = query.offset(offset).limit(page_size).all()
+    total_pages = math.ceil(total / page_size) if page_size else 1
+    return OpportunityListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+        has_next=page < total_pages,
+        has_prev=page > 1,
+    )
 
 
 @router.get("/recommended", response_model=list[OpportunityOut])
@@ -89,10 +120,12 @@ async def recommended_opportunities(
     query_embedding = await embed_query(profile_text)
 
     parsed = ParsedQuery(intent="explore", search_text=profile_text)
+    parsed.domains = normalize_domains((current_user.interests or []) + (current_user.skills or []))
     candidates = await hybrid_retrieve(db, parsed, query_embedding, limit=30)
 
+    candidates = rerank_with_cross_encoder(profile_text, candidates)
     ranked = rerank_for_user(current_user, candidates)
-    top_ids = [o.id for o in ranked[:limit]]
+    top_ids = [o.id for o in ranked if o.url][:limit]
 
     if not top_ids:
         return (
@@ -134,3 +167,32 @@ def _build_profile_query(user: User) -> str:
     if user.degree_type:
         parts.append(f"{user.degree_type} student")
     return " ".join(parts)
+
+
+def _normalize_domains(raw: list[str]) -> list[str]:
+    # Backward-compatible alias
+    return normalize_domains(raw)
+
+
+def _split_list_param(value: str) -> list[str]:
+    if not value:
+        return []
+    parts = [v.strip() for v in value.split(",")]
+    return [p for p in parts if p]
+
+
+def _normalize_categories(raw: list[str]) -> list[OpportunityCategory]:
+    normalized: list[OpportunityCategory] = []
+    for item in raw:
+        if not item:
+            continue
+        try:
+            normalized.append(OpportunityCategory(item))
+            continue
+        except ValueError:
+            pass
+        try:
+            normalized.append(OpportunityCategory[item.upper()])
+        except KeyError:
+            continue
+    return normalized

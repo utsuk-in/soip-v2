@@ -26,7 +26,7 @@ class ProfileUpdate(BaseModel):
     skills: list[str] | None = None
     interests: list[str] | None = None
     aspirations: list[str] | None = None
-    university_id: str | None = None
+    university_id: UUID | None = None
 
 
 class UniversityOut(BaseModel):

@@ -16,6 +16,7 @@ from app.services.embedder import embed_query
 from app.services.query_parser import understand_query
 from app.services.relevance import rerank_for_user
 from app.services.retriever import ScoredOpportunity, hybrid_retrieve
+from app.services.reranker import rerank_with_cross_encoder
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,8 @@ async def handle_chat_message(
 
     # 5. Hybrid retrieval
     candidates = await hybrid_retrieve(db, parsed, query_embedding, limit=10)
+    # 5b. Cross-encoder rerank (optional)
+    candidates = rerank_with_cross_encoder(parsed.search_text, candidates)
 
     # 6. Profile-aware re-ranking
     ranked = rerank_for_user(user, candidates)

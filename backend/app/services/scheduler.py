@@ -2,17 +2,19 @@
 APScheduler setup — runs inside FastAPI lifespan.
 
 Jobs:
-  - Every 6 hours: full scraping pipeline
+  - Every 24 hours: full scraping pipeline
   - Every hour: auto-expire past-deadline opportunities
 """
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from app.config import settings
 from app.database import get_db_context
 
 logger = logging.getLogger(__name__)
@@ -50,12 +52,25 @@ async def _expire_opportunities() -> None:
         logger.error(f"[scheduler] Expiry job failed: {e}")
 
 
+def _should_start_scheduler() -> bool:
+    if os.environ.get("SCRAPE_CLI_ONLY", "").lower() in {"1", "true", "yes"}:
+        return False
+    if os.environ.get("UVICORN_RELOAD", "").lower() in {"1", "true", "yes"}:
+        return False
+    if getattr(settings, "debug", False) and os.environ.get("RUN_MAIN") == "true":
+        return False
+    return True
+
+
 def start_scheduler() -> None:
     """Register jobs and start the scheduler."""
+    if not _should_start_scheduler():
+        logger.info("[scheduler] Disabled for dev/reload/CLI-only mode")
+        return
     scheduler.add_job(
         _run_scrape_pipeline,
         "interval",
-        hours=6,
+        hours=24,
         id="scrape_pipeline",
         replace_existing=True,
         next_run_time=None,  # don't run immediately on startup
@@ -71,7 +86,7 @@ def start_scheduler() -> None:
     )
 
     scheduler.start()
-    logger.info("[scheduler] Started — scrape every 6h, expire every 1h")
+    logger.info("[scheduler] Started — scrape every 24h, expire every 1h")
 
 
 def stop_scheduler() -> None:
