@@ -107,25 +107,53 @@ async def recommended_opportunities(
     db: Session = Depends(get_db),
 ):
     """Personalized top-N based on user profile + relevance scoring."""
-    profile_text = _build_profile_query(current_user)
-    if not profile_text:
-        return (
-            db.query(Opportunity)
-            .filter(Opportunity.is_active.is_(True))
-            .order_by(Opportunity.created_at.desc())
-            .limit(limit)
+    profile_terms = _build_profile_terms(current_user)
+    profile_text = " ".join(profile_terms).strip()
+    domains = normalize_domains((current_user.interests or []) + (current_user.skills or []))
+    categories = _extract_profile_categories(current_user)
+
+    candidates: list[ScoredOpportunity] = []
+    if profile_text:
+        query_embedding = await embed_query(profile_text)
+        parsed = ParsedQuery(intent="explore", search_text=profile_text)
+        parsed.domains = domains
+        parsed.categories = [c.value for c in categories]
+        candidates = await hybrid_retrieve(db, parsed, query_embedding, limit=30)
+        candidates = rerank_with_cross_encoder(profile_text, candidates)
+        candidates = rerank_for_user(current_user, candidates)
+
+    top_ids = [o.id for o in candidates if o.url][:limit]
+    existing_ids = set(top_ids)
+
+    # Fallback: if retrieval is sparse, fill from direct filtered query.
+    if len(top_ids) < limit and (domains or categories):
+        fallback_query = db.query(Opportunity).filter(Opportunity.is_active.is_(True))
+        if categories:
+            fallback_query = fallback_query.filter(Opportunity.category.in_(categories))
+        if domains:
+            conditions = []
+            for d in domains:
+                tag = func.jsonb_array_elements_text(
+                    Opportunity.domain_tags.cast(JSONB)
+                ).table_valued("value").alias("tag")
+                conditions.append(
+                    select(1)
+                    .select_from(tag)
+                    .where(func.lower(tag.c.value) == d.lower())
+                    .exists()
+                )
+            fallback_query = fallback_query.filter(or_(*conditions))
+        fallback_items = (
+            fallback_query.order_by(Opportunity.created_at.desc())
+            .limit(limit * 2)
             .all()
         )
-
-    query_embedding = await embed_query(profile_text)
-
-    parsed = ParsedQuery(intent="explore", search_text=profile_text)
-    parsed.domains = normalize_domains((current_user.interests or []) + (current_user.skills or []))
-    candidates = await hybrid_retrieve(db, parsed, query_embedding, limit=30)
-
-    candidates = rerank_with_cross_encoder(profile_text, candidates)
-    ranked = rerank_for_user(current_user, candidates)
-    top_ids = [o.id for o in ranked if o.url][:limit]
+        for opp in fallback_items:
+            if opp.id not in existing_ids:
+                top_ids.append(opp.id)
+                existing_ids.add(opp.id)
+            if len(top_ids) >= limit:
+                break
 
     if not top_ids:
         return (
@@ -155,18 +183,38 @@ def get_opportunity(
     return opp
 
 
-def _build_profile_query(user: User) -> str:
-    """Build a natural-language query from the user's profile for recommendation."""
+def _build_profile_terms(user: User) -> list[str]:
+    """Build keyword-oriented terms from the user's profile for retrieval."""
     parts: list[str] = []
     if user.interests:
-        parts.append(f"interested in {', '.join(user.interests)}")
+        parts.extend(user.interests)
     if user.skills:
-        parts.append(f"skilled in {', '.join(user.skills)}")
+        parts.extend(user.skills)
     if user.aspirations:
-        parts.append(f"looking for {', '.join(user.aspirations)}")
+        parts.extend(user.aspirations)
     if user.degree_type:
-        parts.append(f"{user.degree_type} student")
-    return " ".join(parts)
+        parts.append(user.degree_type)
+    return [p for p in (str(x).strip() for x in parts) if p]
+
+
+def _extract_profile_categories(user: User) -> list[OpportunityCategory]:
+    """Infer category filters from profile fields (interests/skills/aspirations)."""
+    raw_terms = []
+    if user.interests:
+        raw_terms.extend(user.interests)
+    if user.skills:
+        raw_terms.extend(user.skills)
+    if user.aspirations:
+        raw_terms.extend(user.aspirations)
+    normalized = _normalize_categories([str(t).strip().lower() for t in raw_terms if t])
+    # Deduplicate while preserving order
+    seen = set()
+    out: list[OpportunityCategory] = []
+    for cat in normalized:
+        if cat not in seen:
+            seen.add(cat)
+            out.append(cat)
+    return out
 
 
 def _normalize_domains(raw: list[str]) -> list[str]:

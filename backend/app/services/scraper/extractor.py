@@ -326,7 +326,9 @@ def _parse_single(item: dict) -> Optional[ExtractedOpportunity]:
     if "closed" in desc_lower or "registrations closed" in desc_lower:
         is_active = False
 
-    raw_tags = item.get("domain_tags") or ["general"]
+    raw_tags = _coerce_domain_tags(item.get("domain_tags"))
+    if not raw_tags:
+        raw_tags = ["general"]
     normalized_tags = normalize_domains(raw_tags) or ["general"]
 
     return ExtractedOpportunity(
@@ -343,6 +345,29 @@ def _parse_single(item: dict) -> Optional[ExtractedOpportunity]:
         confidence=min(1.0, max(0.0, float(item.get("confidence", 0.5)))),
         is_active=is_active,
     )
+
+
+def _coerce_domain_tags(raw) -> list[str]:
+    """Coerce LLM output into a list of strings."""
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return [str(x).strip() for x in raw if str(x).strip()]
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return []
+        # Try JSON list
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return [str(x).strip() for x in parsed if str(x).strip()]
+        except Exception:
+            pass
+        # Fallback: comma-separated
+        return [t.strip() for t in text.split(",") if t.strip()]
+    # Fallback: single value
+    return [str(raw).strip()] if str(raw).strip() else []
 
 
 def _normalize_category(raw: str) -> str:
