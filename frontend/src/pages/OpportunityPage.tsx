@@ -50,28 +50,30 @@ export default function OpportunityPage() {
   const colorClass = CATEGORY_COLORS[opp.category] || CATEGORY_COLORS.other;
 
   return (
-    <div className="p-6 lg:p-8 max-w-3xl mx-auto animate-fade-in">
+    <div className="p-6 lg:p-10 max-w-4xl mx-auto animate-fade-in">
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6"
+        className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-6"
       >
         <ArrowLeft size={16} /> Back
       </button>
 
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 lg:p-8">
-        <div className="flex items-start gap-3 mb-4">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${colorClass}`}>
+      <div className="bg-white/90 backdrop-blur rounded-3xl border border-slate-200 shadow-xl p-6 lg:p-10">
+        <div className="flex items-start gap-3 mb-4 flex-wrap">
+          <span className={`px-3 py-1 rounded-full text-sm font-semibold ${colorClass}`}>
             {opp.category}
           </span>
           {!opp.is_active && (
-            <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-500">
+            <span className="px-3 py-1 rounded-full text-sm font-medium bg-slate-100 text-slate-500">
               Inactive
             </span>
           )}
         </div>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-3">{opp.title}</h1>
-        <p className="text-gray-600 leading-relaxed mb-6">{opp.description}</p>
+        <h1 className="text-3xl font-semibold text-slate-900 mb-3 font-display">{opp.title}</h1>
+        <div className="text-slate-700 leading-relaxed mb-8 space-y-4">
+          {renderDescription(opp.description)}
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           {opp.deadline && (
@@ -84,13 +86,13 @@ export default function OpportunityPage() {
             <InfoBox icon={Award} label="Benefits" value={opp.benefits} />
           )}
           {opp.domain_tags.length > 0 && (
-            <div className="bg-gray-50 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-400 mb-2">
+            <div className="bg-slate-50 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
                 <Tag size={14} /> Domains
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {opp.domain_tags.map((t) => (
-                  <span key={t} className="px-2 py-0.5 bg-white border border-gray-200 rounded text-xs font-medium text-gray-600">{t}</span>
+                  <span key={t} className="px-2 py-0.5 bg-white border border-slate-200 rounded text-xs font-medium text-slate-600">{t}</span>
                 ))}
               </div>
             </div>
@@ -102,13 +104,13 @@ export default function OpportunityPage() {
             href={opp.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-lg font-medium text-sm hover:bg-brand-700 transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-all"
           >
             Apply / Visit <ExternalLink size={14} />
           </a>
           <button
             onClick={() => navigate(`/chat?q=Tell me about "${opp.title}"`)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors"
           >
             <MessageSquare size={14} /> Ask SOIP about this
           </button>
@@ -120,11 +122,112 @@ export default function OpportunityPage() {
 
 function InfoBox({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
-    <div className="bg-gray-50 rounded-xl p-4">
-      <div className="flex items-center gap-2 text-xs font-medium text-gray-400 mb-1">
+    <div className="bg-slate-50 rounded-xl p-4">
+      <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
         <Icon size={14} /> {label}
       </div>
-      <p className="text-sm text-gray-700">{value}</p>
+      <p className="text-sm text-slate-700">{value}</p>
     </div>
   );
+}
+
+function renderDescription(text: string) {
+  const cleaned = sanitizeDescription(text);
+  const headingRegex = /\*\*([^*]+)\*\*/g;
+  const headings: { title: string; index: number }[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = headingRegex.exec(cleaned)) !== null) {
+    headings.push({ title: match[1], index: match.index });
+  }
+
+  if (headings.length === 0) {
+    return <p>{renderInline(cleaned)}</p>;
+  }
+
+  const sections: { title: string; body: string }[] = [];
+  for (let i = 0; i < headings.length; i++) {
+    const start = headings[i].index + headings[i].title.length + 4;
+    const end = i + 1 < headings.length ? headings[i + 1].index : cleaned.length;
+    const body = cleaned.slice(start, end).trim();
+    sections.push({ title: headings[i].title, body });
+  }
+
+  return sections.map((section, idx) => {
+    const bullets = section.body.split(/\s\*\s+/).map((s) => s.trim()).filter(Boolean);
+    return (
+      <div key={`${section.title}-${idx}`} className="bg-white/60 border border-slate-200 rounded-2xl p-4">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400 mb-2">
+          {section.title}
+        </h3>
+        {bullets.length > 1 ? (
+          <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
+            {bullets.map((b, i) => (
+              <li key={i}>{renderInline(b)}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-slate-700">{renderInline(section.body)}</p>
+        )}
+      </div>
+    );
+  });
+}
+
+function renderInline(text: string) {
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  const parts = text.split(linkRegex).filter((p) => p !== "");
+  const nodes: React.ReactNode[] = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 3 === 1) {
+      const label = parts[i];
+      const href = parts[i + 1];
+      nodes.push(
+        <a key={`${href}-${i}`} href={href} target="_blank" rel="noreferrer" className="text-brand-700 underline">
+          {label}
+        </a>
+      );
+      i += 1;
+      continue;
+    }
+
+    const chunk = parts[i];
+    const boldSplit = chunk.split(/(\*\*[^*]+\*\*)/g);
+    boldSplit.forEach((seg, idx) => {
+      if (seg.startsWith("**") && seg.endsWith("**")) {
+        nodes.push(<strong key={`${seg}-${idx}`}>{seg.slice(2, -2)}</strong>);
+      } else {
+        const urlParts = seg.split(urlRegex);
+        urlParts.forEach((u, ui) => {
+          if (u.match(urlRegex) && isCompleteUrl(u)) {
+            nodes.push(
+              <a key={`${u}-${ui}`} href={u} target="_blank" rel="noreferrer" className="text-brand-700 underline">
+                {u}
+              </a>
+            );
+          } else {
+            nodes.push(<span key={`${u}-${ui}`}>{u}</span>);
+          }
+        });
+      }
+    });
+  }
+
+  return <>{nodes}</>;
+}
+
+function sanitizeDescription(raw: string) {
+  const cleaned = raw.replace(/\r\n/g, "\n").replace(/\s{2,}/g, " ").trim();
+  // Drop obvious truncated URLs like https...
+  const noTruncatedUrls = cleaned.replace(/https?:\/\/[^\s]*\.\.\./g, "").replace(/https?:\/\/\.\.\./g, "");
+  // Remove trailing ellipsis-only fragments
+  return noTruncatedUrls.replace(/\.\.\.$/g, "").replace(/\s+\.\.\.$/g, "").trim();
+}
+
+function isCompleteUrl(url: string) {
+  if (url.includes("...") || url.includes("…")) return false;
+  if (url.endsWith("...") || url.endsWith("…")) return false;
+  return url.length > 12;
 }

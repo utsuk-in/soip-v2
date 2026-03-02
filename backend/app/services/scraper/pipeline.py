@@ -9,6 +9,7 @@ Data lineage:
 """
 
 import asyncio
+import json
 import logging
 import re
 import calendar
@@ -109,6 +110,9 @@ async def _process_source(db: Session, source: Source) -> dict:
 
     # --- Step 2: Store raw content (always, even if unchanged) ---
     scrape_page = _store_raw_page(db, source, listing_url, markdown, new_hash)
+    # Commit so concurrent item sessions can reference scrape_page_id safely.
+    db.commit()
+    db.refresh(scrape_page)
 
     # --- Step 3: Check if content changed since last scrape ---
     prev_page = (
@@ -148,37 +152,72 @@ async def _process_source(db: Session, source: Source) -> dict:
         db.commit()
         return stats
 
+    detail_concurrency = int(getattr(settings, "detail_concurrency", 1) or 1)
+
+    async def _process_item(item: ExtractedOpportunity) -> dict:
+        local_db = SessionLocal()
+        try:
+            # Always fetch detail page for full data (all sources)
+            item = await _enrich_from_detail(local_db, source, item)
+            # If deadline already passed, mark inactive early
+            if item.deadline_at and item.deadline_at < datetime.now(timezone.utc):
+                item.is_active = False
+            if item.deadline and item.deadline < date.today():
+                item.is_active = False
+            # Filter by modality/location rules: online OR offline-in-India only
+            if not _passes_location_mode(item):
+                item.is_active = False
+            # Exclude closed opportunities entirely
+            if item.is_active is False:
+                if item.url:
+                    existing = local_db.query(Opportunity).filter(Opportunity.url == item.url).first()
+                    if existing:
+                        if existing.is_active:
+                            existing.is_active = False
+                            existing.updated_at = datetime.now(timezone.utc)
+                        if item.deadline_at and existing.deadline_at != item.deadline_at:
+                            existing.deadline_at = item.deadline_at
+                        if item.deadline and existing.deadline != item.deadline:
+                            existing.deadline = item.deadline
+                        local_db.flush()
+                local_db.commit()
+                return {"status": "skipped", "item": item, "opp_id": None}
+
+            result, opp_id = _upsert_opportunity(local_db, source, item, scrape_page.id)
+            local_db.commit()
+            return {"status": result, "item": item, "opp_id": opp_id}
+        except Exception as e:
+            logger.error(f"Item processing failed ({item.title}): {e}")
+            return {"status": "error", "item": item, "opp_id": None}
+        finally:
+            local_db.close()
+
     # --- Step 7: Upsert opportunities and link chunks ---
-    for item in extracted:
-        # Always fetch detail page for full data (all sources)
-        item = await _enrich_from_detail(db, source, item)
-        # If deadline already passed, mark inactive early
-        if item.deadline_at and item.deadline_at < datetime.now(timezone.utc):
-            item.is_active = False
-        if item.deadline and item.deadline < date.today():
-            item.is_active = False
-        # Filter by modality/location rules: online OR offline-in-India only
-        if not _passes_location_mode(item):
-            item.is_active = False
-        # Exclude closed opportunities entirely
-        if item.is_active is False:
-            # If it already exists, update it to inactive
-            if item.url:
-                existing = db.query(Opportunity).filter(Opportunity.url == item.url).first()
-                if existing:
-                    if existing.is_active:
-                        existing.is_active = False
-                        existing.updated_at = datetime.now(timezone.utc)
-                    if item.deadline_at and existing.deadline_at != item.deadline_at:
-                        existing.deadline_at = item.deadline_at
-                    if item.deadline and existing.deadline != item.deadline:
-                        existing.deadline = item.deadline
-                    db.flush()
+    if detail_concurrency <= 1:
+        results = []
+        for item in extracted:
+            results.append(await _process_item(item))
+    else:
+        sem = asyncio.Semaphore(detail_concurrency)
+
+        async def _run_with_sem(item: ExtractedOpportunity) -> dict:
+            async with sem:
+                return await _process_item(item)
+
+        results = await asyncio.gather(*[_run_with_sem(item) for item in extracted])
+
+    for res in results:
+        status = res.get("status")
+        item = res.get("item")
+        opp_id = res.get("opp_id")
+        if status == "error":
+            stats["errors"] += 1
+            continue
+        if status == "skipped":
             stats["skipped"] += 1
             continue
-        result, opp_id = _upsert_opportunity(db, source, item, scrape_page.id)
-        stats[result] += 1
-        if opp_id:
+        stats[status] += 1
+        if opp_id and item:
             if item.detail_scrape_page_id:
                 _link_detail_chunks(db, item.detail_scrape_page_id, opp_id)
             matched_chunk_id = _link_chunks_to_opportunity(db, chunk_models, item, opp_id)
@@ -276,16 +315,16 @@ def _upsert_opportunity(
     """Insert or update a single opportunity. Returns (status, opportunity_id)."""
     opp_url = item.url or _generate_url(source.base_url, item.title)
 
+    item.domain_tags = _coerce_domain_tags(item.domain_tags) or ["general"]
+    item.raw_domain_tags = _coerce_domain_tags(item.raw_domain_tags)
+
     existing = db.query(Opportunity).filter(Opportunity.url == opp_url).first()
 
     if existing:
         status = _apply_changes(db, existing, item, scrape_page_id)
         return status, existing.id
 
-    try:
-        category = OpportunityCategory(item.category)
-    except ValueError:
-        category = OpportunityCategory.OTHER
+    category = _coerce_category(item.category)
 
     opp = Opportunity(
         title=item.title,
@@ -315,6 +354,9 @@ def _apply_changes(
 ) -> str:
     """Compare and apply field-level changes. Returns 'updated' or 'skipped'."""
     changed = False
+
+    item.domain_tags = _coerce_domain_tags(item.domain_tags) or ["general"]
+    item.raw_domain_tags = _coerce_domain_tags(item.raw_domain_tags)
 
     if item.description and existing.description != item.description:
         existing.description = item.description
@@ -455,11 +497,19 @@ async def _enrich_from_detail(
     if extracted:
         best = _pick_best_match(extracted, item)
         if best:
+            if not best.url and item.url:
+                best.url = item.url
             item = best
 
     # Apply Unstop-specific parsing on detail markdown (if applicable)
-    if "unstop.com/" in item.url.lower():
+    if item.url and "unstop.com/" in item.url.lower():
         item = _apply_unstop_detail_parsing(item, detail_markdown)
+    else:
+        # Generic fallback if description looks truncated
+        if _is_truncated_description(item.description):
+            fallback = _extract_generic_description(detail_markdown)
+            if fallback and len(fallback) > len(item.description or ""):
+                item.description = fallback
 
     return item
 
@@ -527,6 +577,34 @@ def _extract_unstop_status(markdown: str) -> Optional[bool]:
     if any(p in lowered for p in open_patterns):
         return True
     return None
+
+
+def _is_truncated_description(desc: str | None) -> bool:
+    if not desc:
+        return True
+    text = desc.strip()
+    if text.endswith("...") or "https..." in text or "http..." in text:
+        return True
+    return False
+
+
+def _extract_generic_description(markdown: str) -> Optional[str]:
+    """Best-effort long description from detail markdown for non-Unstop sources."""
+    if not markdown:
+        return None
+    text = re.sub(r"!\[[^\]]*\]\([^)]+\)", " ", markdown)  # remove images
+    text = re.sub(r"\[[^\]]+\]\([^)]+\)", " ", text)  # remove markdown links
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"[ \t]{2,}", " ", text)
+
+    # Split into blocks and pick the longest meaningful block
+    blocks = [b.strip() for b in re.split(r"\n#{1,4}\s+|\n\n", text) if b.strip()]
+    candidates = [b for b in blocks if len(b) >= 200]
+    if not candidates:
+        return None
+    best = max(candidates, key=len)
+    # Cap to avoid overly large fields
+    return best[:5000]
 
 
 def _extract_unstop_benefits(markdown: str) -> Optional[str]:
@@ -653,7 +731,7 @@ def _pick_best_match(
 
 
 def _passes_location_mode(item: ExtractedOpportunity) -> bool:
-    tags = [t.lower() for t in (item.domain_tags or [])]
+    tags = [str(t).strip().lower() for t in (item.domain_tags or []) if t]
     is_online = "online" in tags
     is_offline = "offline" in tags
 
@@ -683,3 +761,34 @@ def _passes_location_mode(item: ExtractedOpportunity) -> bool:
 def _normalize_domain_tags(tags: list[str]) -> list[str]:
     # Backward-compatible alias
     return normalize_domains(tags)
+
+
+def _coerce_domain_tags(raw) -> list[str]:
+    """Normalize domain tag input into a list of strings."""
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return [str(x).strip() for x in raw if str(x).strip()]
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return []
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return [str(x).strip() for x in parsed if str(x).strip()]
+        except Exception:
+            pass
+        return [t.strip() for t in text.split(",") if t.strip()]
+    return [str(raw).strip()] if str(raw).strip() else []
+
+
+def _coerce_category(raw: str | None) -> OpportunityCategory:
+    """Coerce category string into enum, tolerating casing."""
+    if not raw:
+        return OpportunityCategory.OTHER
+    normalized = str(raw).strip().lower()
+    try:
+        return OpportunityCategory(normalized)
+    except ValueError:
+        return OpportunityCategory.OTHER
