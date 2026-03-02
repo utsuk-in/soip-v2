@@ -44,5 +44,8 @@ class Settings(BaseSettings):
     # Scrape concurrency (parallel sources)
     scrape_concurrency: int = Field(default=1, ge=1)
 
+    # Detail fetch concurrency (parallel opportunities within a source)
+    detail_concurrency: int = Field(default=1, ge=1)
+
 
 settings = Settings()

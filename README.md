@@ -6,9 +6,9 @@ A RAG-powered platform that aggregates student opportunities (hackathons, intern
 
 - **Backend:** FastAPI + SQLAlchemy + PostgreSQL (pgvector)
 - **Frontend:** React 19 + Bun + TailwindCSS
-- **AI:** OpenAI GPT-4o-mini (extraction + chat) + text-embedding-3-small (embeddings)
+- **AI:** OpenAI GPT-4o-mini (extraction + chat) + text-embedding-3-small (embeddings) + local cross-encoder reranker (optional)
 - **Scraping:** Crawl4AI (JS rendering) + httpx (static HTML)
-- **Search:** Hybrid retrieval — pgvector similarity + PostgreSQL full-text search + metadata filtering + Reciprocal Rank Fusion
+- **Search:** Hybrid retrieval — pgvector similarity + PostgreSQL full-text search + metadata filtering + Reciprocal Rank Fusion + cross-encoder rerank (optional)
 
 ## Prerequisites
 
@@ -52,7 +52,7 @@ make seed
 # 6. Scrape / crawl sources (scrape only those that are marked Enabled True in the sources table will be executed)
 make scrape
 
-# 6. Generate vector embeddings
+# 7. Generate vector embeddings
 make embed
 
 # . Install frontend dependencies
@@ -119,6 +119,41 @@ make clean           # Remove venv + node_modules
      `GET /api/opportunities/recommended?limit=10` with header  
      `Authorization: Bearer <your_jwt_token>`.
    - In the frontend, use the dashboard or “Recommended” section while logged in.
+
+## RAG Retrieval Overview
+
+1. **Metadata filtering** (category, domain tags, deadlines)
+2. **Hybrid retrieval** (pgvector + FTS + chunk search)
+3. **RRF fusion**
+4. **Optional cross-encoder rerank** (local model, unlimited usage)
+5. **Profile-aware rerank**
+6. **Top results to LLM**
+
+## Scraping Pipeline (Two-Level Crawl)
+
+1. **Listing pages** (respect `CRAWL_MAX_PAGES`) are crawled and saved in `scrape_pages`.
+2. **Each opportunity URL** is crawled (detail page):
+   - Raw detail page saved in `scrape_pages`
+   - Detail page chunks saved in `content_chunks`
+   - Full extraction runs on the detail page for accuracy
+3. **Filters before insert**:
+   - must be open
+   - not expired
+   - online OR offline-in-India only
+
+## Tag Standardization
+
+- `raw_domain_tags` preserves tags from the source
+- `domain_tags` stores normalized taxonomy tags
+
+## Environment Flags (selected)
+
+- `RERANK_ENABLED=true|false`
+- `RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2`
+- `RERANK_TOP_K=30`
+- `RERANK_BATCH_SIZE=16`
+- `SCRAPE_CONCURRENCY=1`
+- `SCRAPE_CLI_ONLY=true` (disable scheduler; run `make scrape` manually)
 
 ## API Endpoints
 

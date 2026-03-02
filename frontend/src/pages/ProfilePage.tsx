@@ -45,10 +45,17 @@ export default function ProfilePage() {
     setSkillInput("");
   };
 
+  const hasInterest = (interest: string) =>
+    interests.some((i) => i.toLowerCase() === interest.toLowerCase());
+
   const toggleInterest = (interest: string) => {
-    setInterests((prev) =>
-      prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest]
-    );
+    setInterests((prev) => {
+      const exists = prev.some((i) => i.toLowerCase() === interest.toLowerCase());
+      if (exists) {
+        return prev.filter((i) => i.toLowerCase() !== interest.toLowerCase());
+      }
+      return [...prev, interest];
+    });
   };
 
   const toggleAspiration = (asp: string) => {
@@ -153,7 +160,7 @@ export default function ProfilePage() {
                   type="button"
                   onClick={() => toggleInterest(i)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    interests.includes(i)
+                    hasInterest(i)
                       ? "bg-brand-600 text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
