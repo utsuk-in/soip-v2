@@ -66,14 +66,14 @@ export default function BrowsePage() {
       <div className="flex-1 overflow-auto p-6 lg:p-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-semibold text-slate-900 font-display">Browse opportunities</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <h1 className="text-xl font-semibold text-content font-display">Browse opportunities</h1>
+            <p className="text-sm text-content-tertiary mt-0.5">
               {loading ? "Loading..." : meta ? `Showing ${Math.min((page - 1) * meta.page_size + 1, meta.total)}–${Math.min(page * meta.page_size, meta.total)} of ${meta.total}` : `${opportunities.length} results`}
             </p>
           </div>
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
+            className="lg:hidden flex items-center gap-2 px-3 py-2 bg-surface border border-line rounded-lg text-sm"
           >
             <Filter size={16} /> Filters
           </button>
@@ -85,8 +85,8 @@ export default function BrowsePage() {
           </div>
         ) : opportunities.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-gray-400 text-lg mb-2">No opportunities found</p>
-            <p className="text-sm text-gray-400">Try adjusting your filters.</p>
+            <p className="text-content-muted text-lg mb-2">No opportunities found</p>
+            <p className="text-sm text-content-muted">Try adjusting your filters.</p>
           </div>
         ) : (
           <>
@@ -102,21 +102,21 @@ export default function BrowsePage() {
 
             {/* Pagination */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-8">
-              <div className="text-sm text-slate-500">
+              <div className="text-sm text-content-tertiary">
                 {meta ? `Page ${meta.page} of ${meta.total_pages}` : `Page ${page}`}
               </div>
               <div className="flex justify-center gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-slate-50"
+                className="px-4 py-2 bg-surface border border-line rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-hover"
               >
                 Previous
               </button>
               <button
                 onClick={() => setPage((p) => p + 1)}
                 disabled={meta ? !meta.has_next : opportunities.length < 20}
-                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-slate-50"
+                className="px-4 py-2 bg-surface border border-line rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-hover"
               >
                 Next
               </button>

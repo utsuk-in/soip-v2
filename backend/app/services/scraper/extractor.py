@@ -10,7 +10,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -300,6 +300,32 @@ def _deduplicate(opps: list[ExtractedOpportunity]) -> list[ExtractedOpportunity]
     return unique
 
 
+def _validate_deadline(
+    d: date | None, deadline_at: datetime | None
+) -> tuple[date | None, datetime | None]:
+    """Reject implausible deadlines and ensure date/datetime consistency."""
+    today = date.today()
+    max_future = today.replace(year=today.year + 2)
+    grace_past = today - timedelta(days=30)
+
+    if d is not None and (d < grace_past or d > max_future):
+        logger.warning(f"Rejected implausible deadline date: {d}")
+        d = None
+
+    if deadline_at is not None:
+        dt_date = deadline_at.date()
+        if dt_date < grace_past or dt_date > max_future:
+            logger.warning(f"Rejected implausible deadline_at: {deadline_at}")
+            deadline_at = None
+
+    # Cross-check: if both exist, they should agree
+    if d and deadline_at and d != deadline_at.date():
+        # Prefer deadline_at (more specific), update date to match
+        d = deadline_at.date()
+
+    return d, deadline_at
+
+
 def _parse_single(item: dict) -> Optional[ExtractedOpportunity]:
     """Parse a single opportunity dict into a dataclass."""
     title = (item.get("title") or "").strip()
@@ -319,6 +345,8 @@ def _parse_single(item: dict) -> Optional[ExtractedOpportunity]:
             deadline_at = datetime.fromisoformat(str(item["deadline_at"]))
         except (ValueError, TypeError):
             deadline_at = None
+
+    deadline, deadline_at = _validate_deadline(deadline, deadline_at)
 
     raw_active = item.get("is_active", True)
     is_active = True

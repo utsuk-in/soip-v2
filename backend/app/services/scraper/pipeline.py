@@ -17,6 +17,7 @@ from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 from uuid import UUID
 
+from sqlalchemy import or_ as db_or
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -446,17 +447,23 @@ def _link_detail_chunks(db: Session, scrape_page_id: UUID, opp_id: UUID) -> None
 
 
 def _expire_past_deadlines(db: Session) -> int:
-    """Mark opportunities with past deadlines as inactive."""
+    """Mark opportunities with past deadlines or past deadline_at as inactive."""
+    now = datetime.now(timezone.utc)
+    today = date.today()
+
     count = (
         db.query(Opportunity)
         .filter(
-            Opportunity.deadline < date.today(),
             Opportunity.is_active.is_(True),
+            db_or(
+                Opportunity.deadline < today,
+                Opportunity.deadline_at < now,
+            ),
         )
         .update({
             "is_active": False,
             "status": OpportunityStatus.EXPIRED.value,
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": now,
         })
     )
     db.commit()
@@ -517,9 +524,7 @@ async def _enrich_from_detail(
     if extracted:
         best = _pick_best_match(extracted, item)
         if best:
-            if not best.url and item.url:
-                best.url = item.url
-            item = best
+            item = _merge_detail_into_listing(item, best)
 
     # Apply Unstop-specific parsing on detail markdown (if applicable)
     if item.url and "unstop.com/" in item.url.lower():
@@ -716,6 +721,59 @@ def _store_detail_page_and_chunks(
         _store_chunks(db, detail_page, source, detail_chunks)
     except Exception:
         pass
+
+
+def _merge_detail_into_listing(
+    listing: ExtractedOpportunity, detail: ExtractedOpportunity
+) -> ExtractedOpportunity:
+    """Merge detail-page extraction into listing extraction, preserving good listing values.
+
+    Prefers detail values when present and better, but never overwrites a good
+    listing value with a null/empty detail value.
+    """
+    # Description: prefer detail if longer and not truncated
+    if detail.description and (
+        not listing.description
+        or (len(detail.description) > len(listing.description) and not _is_truncated_description(detail.description))
+    ):
+        listing.description = detail.description
+
+    # Deadline: only overwrite if detail has a value
+    if detail.deadline:
+        listing.deadline = detail.deadline
+    if detail.deadline_at:
+        listing.deadline_at = detail.deadline_at
+
+    # Eligibility / benefits: prefer detail if present and longer
+    if detail.eligibility and (
+        not listing.eligibility or len(detail.eligibility) > len(listing.eligibility)
+    ):
+        listing.eligibility = detail.eligibility
+    if detail.benefits and (
+        not listing.benefits or len(detail.benefits) > len(listing.benefits)
+    ):
+        listing.benefits = detail.benefits
+
+    # Domain tags: union of both, normalized
+    merged_tags = list(set((listing.domain_tags or []) + (detail.domain_tags or [])))
+    listing.domain_tags = normalize_domains(merged_tags) or ["general"]
+    listing.raw_domain_tags = list(set((listing.raw_domain_tags or []) + (detail.raw_domain_tags or [])))
+
+    # Category / confidence: prefer detail (closer to the source)
+    if detail.category and detail.category != "other":
+        listing.category = detail.category
+    if detail.confidence is not None:
+        listing.confidence = detail.confidence
+
+    # Active status: prefer detail (more current)
+    listing.is_active = detail.is_active
+
+    # Always preserve listing URL
+    if not listing.url and detail.url:
+        listing.url = detail.url
+
+    logger.info(f"Merged detail into listing for: {listing.title[:60]}")
+    return listing
 
 
 def _pick_best_match(

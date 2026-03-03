@@ -6,7 +6,6 @@ Bun.serve({
     "/*": homepage,
   },
   development: {
-    hmr: true,
     console: true,
   },
 });

@@ -79,35 +79,35 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-accent-50 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-accent-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 py-12 px-4">
       <div className="max-w-xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold text-slate-900 mb-2 font-display">Tell us about yourself</h1>
-          <p className="text-slate-500">This helps SOIP find the best opportunities for you.</p>
+          <h1 className="text-2xl font-semibold text-content mb-2 font-display">Tell us about yourself</h1>
+          <p className="text-content-tertiary">This helps SOIP find the best opportunities for you.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-slate-100 p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="bg-surface/90 backdrop-blur rounded-2xl shadow-xl border border-line-light p-8 space-y-6">
           {/* First Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">First name</label>
+            <label className="block text-sm font-medium text-content-secondary mb-1">First name</label>
             <input
               type="text"
               required
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              className="w-full px-4 py-2.5 border border-line rounded-lg text-sm bg-surface text-content placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-brand-300"
               placeholder="Your name"
             />
           </div>
 
           {/* Degree */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Degree</label>
+            <label className="block text-sm font-medium text-content-secondary mb-1">Degree</label>
             <select
               required
               value={degreeType}
               onChange={(e) => setDegreeType(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white"
+              className="w-full px-4 py-2.5 border border-line rounded-lg text-sm bg-surface text-content focus:outline-none focus:ring-2 focus:ring-brand-300"
             >
               <option value="">Select degree...</option>
               {DEGREE_OPTIONS.map((d) => (
@@ -118,23 +118,23 @@ export default function OnboardingPage() {
 
           {/* Skills */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Skills</label>
+            <label className="block text-sm font-medium text-content-secondary mb-1">Skills</label>
             <div className="flex gap-2 mb-2">
               <input
                 type="text"
                 value={skillInput}
                 onChange={(e) => setSkillInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }}
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+                className="flex-1 px-4 py-2.5 border border-line rounded-lg text-sm bg-surface text-content placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-brand-300"
                 placeholder="Type a skill and press Enter"
               />
-              <button type="button" onClick={addSkill} className="px-4 py-2.5 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">
+              <button type="button" onClick={addSkill} className="px-4 py-2.5 bg-surface-muted rounded-lg text-sm font-medium hover:bg-hover">
                 Add
               </button>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {skills.map((s) => (
-                <span key={s} className="px-2.5 py-1 bg-brand-50 text-brand-700 rounded-full text-xs font-medium flex items-center gap-1">
+                <span key={s} className="px-2.5 py-1 bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 rounded-full text-xs font-medium flex items-center gap-1">
                   {s}
                   <button type="button" onClick={() => setSkills(skills.filter((x) => x !== s))} className="hover:text-red-600">&times;</button>
                 </span>
@@ -144,7 +144,7 @@ export default function OnboardingPage() {
 
           {/* Interests */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Interests</label>
+            <label className="block text-sm font-medium text-content-secondary mb-2">Interests</label>
             <div className="flex flex-wrap gap-2">
               {INTEREST_SUGGESTIONS.map((i) => (
                 <button
@@ -154,7 +154,7 @@ export default function OnboardingPage() {
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                     hasInterest(i)
                       ? "bg-brand-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      : "bg-surface-muted text-content-secondary hover:bg-hover"
                   }`}
                 >
                   {i}
@@ -165,7 +165,7 @@ export default function OnboardingPage() {
 
           {/* Aspirations */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">What are you looking for?</label>
+            <label className="block text-sm font-medium text-content-secondary mb-2">What are you looking for?</label>
             <div className="grid grid-cols-2 gap-2">
               {ASPIRATION_OPTIONS.map((a) => (
                 <label key={a} className="flex items-center gap-2 text-sm cursor-pointer capitalize">
@@ -181,7 +181,7 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950 rounded-lg px-3 py-2">{error}</p>}
 
           <button
             type="submit"

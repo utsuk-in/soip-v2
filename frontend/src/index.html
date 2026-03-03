@@ -10,6 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
@@ -19,16 +20,84 @@
             colors: {
               brand: { 50:'#ecfeff',100:'#cffafe',200:'#a5f3fc',300:'#67e8f9',400:'#22d3ee',500:'#06b6d4',600:'#0891b2',700:'#0e7490',800:'#155e75',900:'#164e63' },
               accent: { 50:'#fffbeb',100:'#fef3c7',200:'#fde68a',300:'#fcd34d',400:'#fbbf24',500:'#f59e0b',600:'#d97706',700:'#b45309',800:'#92400e',900:'#78350f' },
+              page:    'rgb(var(--color-page) / <alpha-value>)',
+              surface: {
+                DEFAULT: 'rgb(var(--color-surface) / <alpha-value>)',
+                alt:     'rgb(var(--color-surface-alt) / <alpha-value>)',
+                muted:   'rgb(var(--color-surface-muted) / <alpha-value>)',
+              },
+              content: {
+                DEFAULT:   'rgb(var(--color-text-primary) / <alpha-value>)',
+                secondary: 'rgb(var(--color-text-secondary) / <alpha-value>)',
+                tertiary:  'rgb(var(--color-text-tertiary) / <alpha-value>)',
+                muted:     'rgb(var(--color-text-muted) / <alpha-value>)',
+              },
+              line: {
+                DEFAULT: 'rgb(var(--color-border) / <alpha-value>)',
+                light:   'rgb(var(--color-border-light) / <alpha-value>)',
+              },
+              hover: 'rgb(var(--color-hover) / <alpha-value>)',
             },
           },
         },
       }
     </script>
+    <script>
+      // FOUC prevention: apply dark class before first paint
+      (function() {
+        var stored = localStorage.getItem('soip_theme');
+        var isDark = false;
+        if (stored === 'dark') {
+          isDark = true;
+        } else if (stored === 'light') {
+          isDark = false;
+        } else {
+          isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
     <style>
+      :root {
+        --color-page:           246 244 239;
+        --color-surface:        255 255 255;
+        --color-surface-alt:    248 250 252;
+        --color-surface-muted:  241 245 249;
+        --color-text-primary:   15 23 42;
+        --color-text-secondary: 71 85 105;
+        --color-text-tertiary:  100 116 139;
+        --color-text-muted:     148 163 184;
+        --color-border:         226 232 240;
+        --color-border-light:   241 245 249;
+        --color-hover:          241 245 249;
+        --color-scrollbar:      209 213 219;
+        --noise-brand-opacity:  0.12;
+        --noise-accent-opacity: 0.12;
+        --noise-teal-opacity:   0.08;
+      }
+      .dark {
+        --color-page:           15 23 42;
+        --color-surface:        30 41 59;
+        --color-surface-alt:    51 65 85;
+        --color-surface-muted:  51 65 85;
+        --color-text-primary:   241 245 249;
+        --color-text-secondary: 203 213 225;
+        --color-text-tertiary:  148 163 184;
+        --color-text-muted:     100 116 139;
+        --color-border:         51 65 85;
+        --color-border-light:   30 41 59;
+        --color-hover:          51 65 85;
+        --color-scrollbar:      71 85 105;
+        --noise-brand-opacity:  0.06;
+        --noise-accent-opacity: 0.06;
+        --noise-teal-opacity:   0.04;
+      }
       body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
       .scrollbar-thin::-webkit-scrollbar { width: 6px; }
       .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-      .scrollbar-thin::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+      .scrollbar-thin::-webkit-scrollbar-thumb { background: rgb(var(--color-scrollbar)); border-radius: 3px; }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
       .animate-fade-in { animation: fadeIn 0.3s ease-out; }
       @keyframes pulse-dot { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
@@ -37,14 +106,14 @@
       .typing-dot:nth-child(3) { animation-delay: 0.32s; }
       .bg-noise {
         background-image:
-          radial-gradient(circle at 20% 20%, rgba(14, 116, 144, 0.12), transparent 40%),
-          radial-gradient(circle at 80% 10%, rgba(245, 158, 11, 0.12), transparent 35%),
-          radial-gradient(circle at 10% 80%, rgba(6, 182, 212, 0.12), transparent 40%),
-          radial-gradient(circle at 90% 90%, rgba(15, 118, 110, 0.08), transparent 35%);
+          radial-gradient(circle at 20% 20%, rgba(14, 116, 144, var(--noise-brand-opacity)), transparent 40%),
+          radial-gradient(circle at 80% 10%, rgba(245, 158, 11, var(--noise-accent-opacity)), transparent 35%),
+          radial-gradient(circle at 10% 80%, rgba(6, 182, 212, var(--noise-brand-opacity)), transparent 40%),
+          radial-gradient(circle at 90% 90%, rgba(15, 118, 110, var(--noise-teal-opacity)), transparent 35%);
       }
     </style>
   </head>
-  <body class="bg-[#f6f4ef] text-slate-900 antialiased bg-noise">
+  <body class="bg-page text-content antialiased bg-noise">
     <div id="root"></div>
     <script type="module" src="./frontend.tsx"></script>
   </body>

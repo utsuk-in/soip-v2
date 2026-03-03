@@ -36,7 +36,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
       {open && <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={onClose} />}
 
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-40 w-72 bg-white border-r border-gray-200 p-5 overflow-y-auto transform transition-transform lg:translate-x-0 ${
+        className={`fixed lg:static inset-y-0 left-0 z-40 w-72 bg-surface border-r border-line p-5 overflow-y-auto transform transition-transform lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -47,19 +47,19 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
 
         {/* Search */}
         <div className="mb-6">
-          <label className="block text-xs font-medium text-gray-500 mb-1.5">Search</label>
+          <label className="block text-xs font-medium text-content-tertiary mb-1.5">Search</label>
           <input
             type="text"
             value={filters.search}
             onChange={(e) => set("search", e.target.value)}
             placeholder="Keyword..."
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm bg-surface text-content placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-brand-300"
           />
         </div>
 
         {/* Category */}
         <div className="mb-6">
-          <label className="block text-xs font-medium text-gray-500 mb-2">Category</label>
+          <label className="block text-xs font-medium text-content-tertiary mb-2">Category</label>
           <div className="space-y-1.5">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
@@ -88,7 +88,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
 
         {/* Domain */}
         <div className="mb-6">
-          <label className="block text-xs font-medium text-gray-500 mb-2">Domain</label>
+          <label className="block text-xs font-medium text-content-tertiary mb-2">Domain</label>
           <div className="flex flex-wrap gap-1.5">
             {DOMAINS.map((d) => (
               <button
@@ -97,7 +97,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
                 className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                   filters.domain === d
                     ? "bg-brand-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-surface-muted text-content-secondary hover:bg-hover"
                 }`}
               >
                 {d}
@@ -108,11 +108,11 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
 
         {/* Sort */}
         <div className="mb-6">
-          <label className="block text-xs font-medium text-gray-500 mb-1.5">Sort by</label>
+          <label className="block text-xs font-medium text-content-tertiary mb-1.5">Sort by</label>
           <select
             value={filters.sort}
             onChange={(e) => set("sort", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white"
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm bg-surface text-content focus:outline-none focus:ring-2 focus:ring-brand-300"
           >
             <option value="newest">Newest first</option>
             <option value="deadline">Deadline (soonest)</option>

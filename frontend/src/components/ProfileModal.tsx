@@ -109,15 +109,15 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-fade-in">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="w-full max-w-3xl bg-surface rounded-2xl shadow-2xl border border-line overflow-hidden animate-fade-in">
+          <div className="px-6 py-4 border-b border-line-light flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Profile</p>
-              <h2 className="text-xl font-semibold text-slate-900 font-display">Tune your signal</h2>
+              <p className="text-xs uppercase tracking-[0.2em] text-content-muted">Profile</p>
+              <h2 className="text-xl font-semibold text-content font-display">Tune your signal</h2>
             </div>
             <button
               onClick={onClose}
-              className="text-slate-500 hover:text-slate-700 px-2 py-1"
+              className="text-content-tertiary hover:text-content-secondary px-2 py-1"
               aria-label="Close"
             >
               ✕
@@ -127,24 +127,24 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
           <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">First name</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-content-tertiary mb-1">First name</label>
                 <input
                   type="text"
                   required
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  className="w-full px-4 py-2.5 border border-line rounded-xl text-sm bg-surface text-content placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-brand-300"
                   placeholder="Your name"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Degree</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-content-tertiary mb-1">Degree</label>
                 <select
                   required
                   value={degreeType}
                   onChange={(e) => setDegreeType(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white"
+                  className="w-full px-4 py-2.5 border border-line rounded-xl text-sm bg-surface text-content focus:outline-none focus:ring-2 focus:ring-brand-300"
                 >
                   <option value="">Select degree...</option>
                   {DEGREE_OPTIONS.map((d) => (
@@ -154,23 +154,23 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Skills</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-content-tertiary mb-1">Skills</label>
                 <div className="flex gap-2 mb-2">
                   <input
                     type="text"
                     value={skillInput}
                     onChange={(e) => setSkillInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }}
-                    className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+                    className="flex-1 px-4 py-2.5 border border-line rounded-xl text-sm bg-surface text-content placeholder:text-content-muted focus:outline-none focus:ring-2 focus:ring-brand-300"
                     placeholder="Type a skill and press Enter"
                   />
-                  <button type="button" onClick={addSkill} className="px-4 py-2.5 bg-slate-100 rounded-xl text-sm font-medium hover:bg-slate-200">
+                  <button type="button" onClick={addSkill} className="px-4 py-2.5 bg-surface-muted rounded-xl text-sm font-medium hover:bg-hover">
                     Add
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {skills.map((s) => (
-                    <span key={s} className="px-2.5 py-1 bg-brand-50 text-brand-700 rounded-full text-xs font-medium flex items-center gap-1">
+                    <span key={s} className="px-2.5 py-1 bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 rounded-full text-xs font-medium flex items-center gap-1">
                       {s}
                       <button type="button" onClick={() => setSkills(skills.filter((x) => x !== s))} className="hover:text-red-600">&times;</button>
                     </span>
@@ -181,7 +181,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Interests</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-content-tertiary mb-2">Interests</label>
                 <div className="flex flex-wrap gap-2">
                   {INTEREST_SUGGESTIONS.map((i) => (
                     <button
@@ -191,7 +191,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                         hasInterest(i)
                           ? "bg-brand-600 text-white"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          : "bg-surface-muted text-content-secondary hover:bg-hover"
                       }`}
                     >
                       {i}
@@ -201,7 +201,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Looking for</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-content-tertiary mb-2">Looking for</label>
                 <div className="grid grid-cols-2 gap-2">
                   {ASPIRATION_OPTIONS.map((a) => (
                     <label key={a} className="flex items-center gap-2 text-sm cursor-pointer capitalize">
@@ -217,12 +217,12 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
                 </div>
               </div>
 
-              {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-              {success && <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{success}</p>}
+              {error && <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950 rounded-lg px-3 py-2">{error}</p>}
+              {success && <p className="text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950 rounded-lg px-3 py-2">{success}</p>}
             </div>
 
-            <div className="lg:col-span-2 flex items-center justify-between border-t border-slate-100 pt-4">
-              <p className="text-xs text-slate-500">Your changes sharpen recommendations instantly.</p>
+            <div className="lg:col-span-2 flex items-center justify-between border-t border-line-light pt-4">
+              <p className="text-xs text-content-tertiary">Your changes sharpen recommendations instantly.</p>
               <button
                 type="submit"
                 disabled={loading}

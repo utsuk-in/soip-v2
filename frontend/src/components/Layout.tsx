@@ -4,6 +4,7 @@ import { LayoutDashboard, Search, MessageSquare, Bell, LogOut, Menu, X } from "l
 import { useAuth } from "../lib/auth";
 import { getAlerts, type Alert } from "../lib/api";
 import ProfileModal from "./ProfileModal";
+import ThemeToggle from "./ThemeToggle";
 
 const NAV_ITEMS = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -43,7 +44,7 @@ export default function Layout() {
   }, []);
 
   return (
-    <div className="h-screen flex bg-[#f6f4ef]">
+    <div className="h-screen flex bg-page">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -51,13 +52,13 @@ export default function Layout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white/90 backdrop-blur border-r border-slate-200 flex flex-col transform transition-transform lg:translate-x-0 ${
+        className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-surface/90 backdrop-blur border-r border-line flex flex-col transform transition-transform lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="h-16 flex items-center px-6 border-b border-slate-100">
-          <span className="text-xl font-semibold text-slate-900 font-display">SOIP</span>
-          <span className="ml-2 text-xs text-slate-400 font-medium tracking-widest">STUDIO</span>
+        <div className="h-16 flex items-center px-6 border-b border-line-light">
+          <span className="text-xl font-semibold text-content font-display">SOIP</span>
+          <span className="ml-2 text-xs text-content-muted font-medium tracking-widest">STUDIO</span>
           <button className="ml-auto lg:hidden" onClick={() => setSidebarOpen(false)}>
             <X size={20} />
           </button>
@@ -72,8 +73,8 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-brand-100/70 text-brand-800"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-brand-100/70 text-brand-800 dark:bg-brand-900/40 dark:text-brand-200"
+                    : "text-content-secondary hover:bg-hover hover:text-content"
                 }`
               }
             >
@@ -83,10 +84,11 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
-          <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Signal</p>
-            <p className="text-sm font-medium text-slate-900 mt-1">Sharper matches unlock faster.</p>
+        <div className="p-4 border-t border-line-light space-y-3">
+          <ThemeToggle />
+          <div className="rounded-xl bg-surface-alt border border-line-light p-3">
+            <p className="text-xs uppercase tracking-[0.2em] text-content-muted">Signal</p>
+            <p className="text-sm font-medium text-content mt-1">Sharper matches unlock faster.</p>
             <button
               onClick={() => setProfileOpen(true)}
               className="mt-3 w-full text-xs font-semibold uppercase tracking-wide bg-brand-600 text-white rounded-lg py-2 hover:bg-brand-700"
@@ -100,19 +102,19 @@ export default function Layout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-16 bg-white/80 backdrop-blur border-b border-slate-200 flex items-center px-4 lg:px-8 gap-4">
+        <header className="h-16 bg-surface/80 backdrop-blur border-b border-line flex items-center px-4 lg:px-8 gap-4">
           <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu size={20} />
           </button>
           <div className="flex-1">
             <div className="hidden md:block">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Discover</p>
-              <p className="text-sm text-slate-600">New opportunities curated for your ambitions.</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-content-muted">Discover</p>
+              <p className="text-sm text-content-secondary">New opportunities curated for your ambitions.</p>
             </div>
           </div>
           <button
             onClick={() => navigate("/alerts")}
-            className="relative p-2 text-slate-500 hover:text-slate-700 transition-colors"
+            className="relative p-2 text-content-tertiary hover:text-content-secondary transition-colors"
           >
             <Bell size={20} />
             {unreadCount > 0 && (
@@ -124,32 +126,32 @@ export default function Layout() {
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-slate-100 transition-colors"
+              className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-hover transition-colors"
             >
-              <div className="w-9 h-9 rounded-full bg-brand-100 text-brand-800 flex items-center justify-center text-sm font-semibold">
+              <div className="w-9 h-9 rounded-full bg-brand-100 text-brand-800 dark:bg-brand-900/40 dark:text-brand-200 flex items-center justify-center text-sm font-semibold">
                 {(user?.first_name?.[0] || user?.email?.[0] || "?").toUpperCase()}
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-slate-900 leading-tight">{user?.first_name || "Student"}</p>
-                <p className="text-xs text-slate-400 leading-tight">{user?.degree_type || "Profile"}</p>
+                <p className="text-sm font-medium text-content leading-tight">{user?.first_name || "Student"}</p>
+                <p className="text-xs text-content-muted leading-tight">{user?.degree_type || "Profile"}</p>
               </div>
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden animate-fade-in">
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <p className="text-sm font-medium text-slate-900 truncate">{user?.email}</p>
-                  <p className="text-xs text-slate-400 truncate">{user?.degree_type || "Complete your profile"}</p>
+              <div className="absolute right-0 mt-2 w-56 bg-surface border border-line rounded-xl shadow-lg overflow-hidden animate-fade-in">
+                <div className="px-4 py-3 border-b border-line-light">
+                  <p className="text-sm font-medium text-content truncate">{user?.email}</p>
+                  <p className="text-xs text-content-muted truncate">{user?.degree_type || "Complete your profile"}</p>
                 </div>
                 <button
                   onClick={() => { setProfileOpen(true); setMenuOpen(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                  className="w-full text-left px-4 py-2.5 text-sm text-content-secondary hover:bg-hover"
                 >
                   Edit profile
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
                 >
                   Sign out
                 </button>

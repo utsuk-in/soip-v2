@@ -61,11 +61,11 @@ export default function DashboardPage() {
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
       {/* Greeting */}
       <div className="flex flex-col gap-2">
-        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Personal brief</p>
-        <h1 className="text-3xl font-semibold text-slate-900 font-display">
+        <p className="text-xs uppercase tracking-[0.35em] text-content-muted">Personal brief</p>
+        <h1 className="text-3xl font-semibold text-content font-display">
           Welcome back, {user?.first_name || "explorer"}
         </h1>
-        <p className="text-slate-500">Signal captured. Here’s your best next move.</p>
+        <p className="text-content-tertiary">Signal captured. Here’s your best next move.</p>
       </div>
 
       {/* Quick Actions */}
@@ -82,12 +82,12 @@ export default function DashboardPage() {
         </button>
         <button
           onClick={() => navigate("/browse")}
-          className="flex items-center gap-4 bg-white border border-slate-200 text-slate-900 p-5 rounded-2xl hover:border-brand-300 hover:shadow-md transition-all text-left"
+          className="flex items-center gap-4 bg-surface border border-line text-content p-5 rounded-2xl hover:border-brand-300 hover:shadow-md transition-all text-left"
         >
           <Search size={24} className="text-brand-600" />
           <div>
             <p className="font-semibold">Browse opportunities</p>
-            <p className="text-sm text-slate-500">Filter by category, domain, deadline</p>
+            <p className="text-sm text-content-tertiary">Filter by category, domain, deadline</p>
           </div>
         </button>
       </div>
@@ -133,7 +133,7 @@ function Section({ icon: Icon, title, color, children }: {
 }) {
   return (
     <section>
-      <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 mb-4 font-display">
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-content mb-4 font-display">
         <Icon size={20} className={color} />
         {title}
       </h2>
