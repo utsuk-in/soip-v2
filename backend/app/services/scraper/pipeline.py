@@ -21,7 +21,8 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import SessionLocal
-from app.models.opportunity import Opportunity, OpportunityCategory
+from app.models.opportunity import Opportunity
+from app.utils.enums import OpportunityCategory, OpportunityStatus
 from app.models.scrape import ContentChunk, ScrapePage
 from app.models.source import Source
 from app.services.chunker import Chunk, chunk_markdown, content_hash
@@ -159,35 +160,41 @@ async def _process_source(db: Session, source: Source) -> dict:
         try:
             # Always fetch detail page for full data (all sources)
             item = await _enrich_from_detail(local_db, source, item)
-            # If deadline already passed, mark inactive early
-            if item.deadline_at and item.deadline_at < datetime.now(timezone.utc):
-                item.is_active = False
-            if item.deadline and item.deadline < date.today():
-                item.is_active = False
-            # Filter by modality/location rules: online OR offline-in-India only
-            if not _passes_location_mode(item):
-                item.is_active = False
-            # Exclude closed opportunities entirely
-            if item.is_active is False:
-                if item.url:
-                    existing = local_db.query(Opportunity).filter(Opportunity.url == item.url).first()
-                    if existing:
-                        if existing.is_active:
-                            existing.is_active = False
-                            existing.updated_at = datetime.now(timezone.utc)
-                        if item.deadline_at and existing.deadline_at != item.deadline_at:
-                            existing.deadline_at = item.deadline_at
-                        if item.deadline and existing.deadline != item.deadline:
-                            existing.deadline = item.deadline
-                        local_db.flush()
-                local_db.commit()
-                return {"status": "skipped", "item": item, "opp_id": None}
+            # is_active is derived solely from deadline fields
+            item.is_active = _is_active_from_deadline(item)
+            # # Exclude closed opportunities entirely
+            # if item.is_active is False:
+            #     if item.url:
+            #         existing = local_db.query(Opportunity).filter(Opportunity.application_link == item.url).first()
+            #         if existing:
+            #             if existing.is_active:
+            #                 existing.is_active = False
+            #                 existing.status = OpportunityStatus.EXPIRED
+            #                 existing.updated_at = datetime.now(timezone.utc)
+            #             if item.deadline_at and existing.deadline_at != item.deadline_at:
+            #                 existing.deadline_at = item.deadline_at
+            #             if item.deadline and existing.deadline != item.deadline:
+            #                 existing.deadline = item.deadline
+            #             local_db.flush()
+            #     local_db.commit()
+            #     return {"status": "skipped", "item": item, "opp_id": None}
 
             result, opp_id = _upsert_opportunity(local_db, source, item, scrape_page.id)
             local_db.commit()
             return {"status": result, "item": item, "opp_id": opp_id}
         except Exception as e:
-            logger.error(f"Item processing failed ({item.title}): {e}")
+            error_msg = str(e)
+            logger.error(f"Item processing failed ({item.title}): {error_msg}")
+            if item.url:
+                try:
+                    existing = local_db.query(Opportunity).filter(
+                        Opportunity.application_link == item.url
+                    ).first()
+                    if existing:
+                        existing.processing_error = error_msg[:2000]
+                        local_db.commit()
+                except Exception:
+                    pass
             return {"status": "error", "item": item, "opp_id": None}
         finally:
             local_db.close()
@@ -318,13 +325,14 @@ def _upsert_opportunity(
     item.domain_tags = _coerce_domain_tags(item.domain_tags) or ["general"]
     item.raw_domain_tags = _coerce_domain_tags(item.raw_domain_tags)
 
-    existing = db.query(Opportunity).filter(Opportunity.url == opp_url).first()
+    existing = db.query(Opportunity).filter(Opportunity.application_link == opp_url).first()
 
     if existing:
         status = _apply_changes(db, existing, item, scrape_page_id)
         return status, existing.id
 
     category = _coerce_category(item.category)
+    opp_status = OpportunityStatus.OPEN if item.is_active else OpportunityStatus.EXPIRED
 
     opp = Opportunity(
         title=item.title,
@@ -336,12 +344,15 @@ def _upsert_opportunity(
         benefits=item.benefits,
         deadline=item.deadline,
         deadline_at=item.deadline_at,
-        url=opp_url,
+        application_link=opp_url,
+        location=item.location or "online",
         source_id=source.id,
         source_url=source.base_url,
         scrape_page_id=scrape_page_id,
         confidence=item.confidence,
+        status=opp_status,
         is_active=bool(item.is_active),
+        processing_error=None,
         scraped_at=datetime.now(timezone.utc),
     )
     db.add(opp)
@@ -397,6 +408,9 @@ def _apply_changes(
     if existing.is_active != bool(item.is_active):
         existing.is_active = bool(item.is_active)
         changed = True
+    if item.location and existing.location != item.location:
+        existing.location = item.location
+        changed = True
     if scrape_page_id and existing.scrape_page_id != scrape_page_id:
         existing.scrape_page_id = scrape_page_id
         changed = True
@@ -404,6 +418,12 @@ def _apply_changes(
     if not changed:
         return "skipped"
 
+    # Sync status with is_active
+    new_status = OpportunityStatus.OPEN if existing.is_active else OpportunityStatus.EXPIRED
+    if existing.status != new_status:
+        existing.status = new_status
+    # Clear any previous processing error on successful re-process
+    existing.processing_error = None
     existing.updated_at = datetime.now(timezone.utc)
     existing.scraped_at = datetime.now(timezone.utc)
     existing.embedding = None
@@ -433,7 +453,11 @@ def _expire_past_deadlines(db: Session) -> int:
             Opportunity.deadline < date.today(),
             Opportunity.is_active.is_(True),
         )
-        .update({"is_active": False, "updated_at": datetime.now(timezone.utc)})
+        .update({
+            "is_active": False,
+            "status": OpportunityStatus.EXPIRED.value,
+            "updated_at": datetime.now(timezone.utc),
+        })
     )
     db.commit()
     logger.info(f"Expired {count} past-deadline opportunities")
@@ -449,7 +473,7 @@ def _generate_url(base_url: str, title: str) -> str:
 def _apply_unstop_detail_parsing(
     item: ExtractedOpportunity, detail_markdown: str
 ) -> ExtractedOpportunity:
-    """Apply Unstop-specific parsing (description, benefits, tags, deadlines, status)."""
+    """Apply Unstop-specific parsing (description, benefits, tags, deadlines)."""
     improved_desc = _extract_unstop_description(detail_markdown)
     if improved_desc:
         if not item.description or len(improved_desc) > len(item.description) or len(item.description) < 200:
@@ -471,10 +495,6 @@ def _apply_unstop_detail_parsing(
     parsed_deadline_at = _extract_unstop_registration_close_datetime(detail_markdown)
     if parsed_deadline_at:
         item.deadline_at = parsed_deadline_at
-
-    status = _extract_unstop_status(detail_markdown)
-    if status is False:
-        item.is_active = False
 
     return item
 
@@ -552,31 +572,6 @@ def _extract_unstop_description(markdown: str) -> Optional[str]:
     if len(cleaned) < 80:
         return None
     return cleaned
-
-
-def _extract_unstop_status(markdown: str) -> Optional[bool]:
-    """Return False if closed, True if open, None if unknown."""
-    lowered = markdown.lower()
-    closed_patterns = [
-        "registrations closed",
-        "registration closed",
-        "applications closed",
-        "application closed",
-        "opportunity closed",
-        "closed",
-    ]
-    open_patterns = [
-        "registrations open",
-        "registration open",
-        "applications open",
-        "application open",
-        "open",
-    ]
-    if any(p in lowered for p in closed_patterns):
-        return False
-    if any(p in lowered for p in open_patterns):
-        return True
-    return None
 
 
 def _is_truncated_description(desc: str | None) -> bool:
@@ -664,6 +659,16 @@ def _infer_online_offline_tags(markdown: str) -> list[str]:
     return tags
 
 
+def _is_active_from_deadline(item: ExtractedOpportunity) -> bool:
+    """Return active status derived solely from deadline fields."""
+    now = datetime.now(timezone.utc)
+    if item.deadline_at:
+        return item.deadline_at >= now
+    if item.deadline:
+        return item.deadline >= date.today()
+    return True
+
+
 def _extract_unstop_registration_close(markdown: str) -> Optional[date]:
     dt = _extract_unstop_registration_close_datetime(markdown)
     if dt is None:
@@ -728,34 +733,6 @@ def _pick_best_match(
             if opp.title and opp.title.strip().lower() == seed_title:
                 return opp
     return extracted[0] if extracted else None
-
-
-def _passes_location_mode(item: ExtractedOpportunity) -> bool:
-    tags = [str(t).strip().lower() for t in (item.domain_tags or []) if t]
-    is_online = "online" in tags
-    is_offline = "offline" in tags
-
-    # Online is always allowed.
-    if is_online:
-        return True
-
-    # Offline must be in India.
-    if is_offline:
-        location = " ".join([item.description or "", item.eligibility or ""]).lower()
-        if not location:
-            return False
-        if "india" in location:
-            return True
-        non_india = [
-            "usa", "united states", "uk", "united kingdom", "canada", "australia",
-            "germany", "france", "singapore", "uae", "dubai", "abu dhabi",
-        ]
-        if any(n in location for n in non_india):
-            return False
-        return False
-
-    # If neither online nor offline is known, exclude by default.
-    return False
 
 
 def _normalize_domain_tags(tags: list[str]) -> list[str]:

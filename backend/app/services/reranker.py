@@ -66,8 +66,8 @@ def _build_doc_text(opp: ScoredOpportunity) -> str:
         parts.append(f"Benefits: {opp.benefits}")
     if opp.deadline:
         parts.append(f"Deadline: {opp.deadline.isoformat()}")
-    if opp.url:
-        parts.append(f"URL: {opp.url}")
+    if opp.application_link:
+        parts.append(f"URL: {opp.application_link}")
     return "\n".join(parts)
 
 

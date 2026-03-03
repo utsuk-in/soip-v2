@@ -2,6 +2,7 @@
 Scraping client — Crawl4AI (with scroll/pagination) and httpx + BeautifulSoup (with link pagination).
 """
 
+import asyncio
 import logging
 import re
 from typing import Optional
@@ -63,7 +64,14 @@ async def _fetch_with_crawl4ai(url: str, source: Source, delay_override: float |
 
     async with AsyncWebCrawler(config=browser_config) as crawler:
         try:
-            result = await crawler.arun(url=url, config=run_config)
+            try:
+                result = await asyncio.wait_for(
+                    crawler.arun(url=url, config=run_config),
+                    timeout=float(getattr(settings, "crawl4ai_timeout_seconds", 60.0)),
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"Crawl4AI timeout for {url}")
+                return ""
 
             if result.success:
                 return _clean_markdown(result.markdown or "")
@@ -82,7 +90,7 @@ async def _fetch_with_crawl4ai_paginated(start_url: str, source: Source) -> str:
     max_pages = _resolve_max_pages(config)
     page_param = config.get("page_param", "page")
     pagination_mode = config.get("pagination_mode", "query")
-    pagination_delay = _pagination_delay(config)
+    pagination_delay = _pagination_delay(config) if pagination_mode == "query" else None
 
     browser_config = BrowserConfig(headless=True)
 
@@ -104,7 +112,14 @@ async def _fetch_with_crawl4ai_paginated(start_url: str, source: Source) -> str:
                     extra_js_code=extra_js_code,
                     delay_override=pagination_delay,
                 )
-                result = await crawler.arun(url=url, config=run_config)
+                try:
+                    result = await asyncio.wait_for(
+                        crawler.arun(url=url, config=run_config),
+                        timeout=float(getattr(settings, "crawl4ai_timeout_seconds", 60.0)),
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"Crawl4AI timeout for {url}; stopping pagination.")
+                    break
                 if not result.success:
                     logger.warning(f"Crawl4AI failed for {url}: {result.error_message}")
                     break

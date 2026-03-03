@@ -9,6 +9,7 @@ Usage:
 import asyncio
 import logging
 import sys
+import time
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,8 +38,12 @@ def main() -> None:
                 return await run_pipeline(db)
 
         logger.info("Starting scraping pipeline...")
+        t0 = time.monotonic()
         stats = asyncio.run(_run())
-        logger.info(f"Done — {stats}")
+        elapsed = time.monotonic() - t0
+        minutes, seconds = divmod(elapsed, 60)
+        duration_str = f"{int(minutes)}m {seconds:.1f}s" if minutes else f"{seconds:.1f}s"
+        logger.info(f"Done — {stats} | elapsed: {duration_str}")
 
 
 if __name__ == "__main__":

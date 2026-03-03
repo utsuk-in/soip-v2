@@ -19,7 +19,7 @@ from uuid import UUID
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
 
-from app.models.opportunity import OpportunityCategory
+from app.utils.enums import OpportunityCategory
 from app.services.taxonomy import normalize_domains
 from app.services.query_parser import ParsedQuery
 
@@ -39,7 +39,7 @@ class ScoredOpportunity:
     eligibility: Optional[str] = None
     benefits: Optional[str] = None
     deadline: Optional[date] = None
-    url: str = ""
+    application_link: str = ""
     source_url: str = ""
     confidence: Optional[float] = None
     chunk_context: Optional[str] = None
@@ -85,7 +85,7 @@ def _chunk_vector_search(
         placeholders = ", ".join(f":cat_{i}" for i in range(len(categories)))
         opp_filters.append(f"o.category IN ({placeholders})")
         for i, cat in enumerate(categories):
-            params[f"cat_{i}"] = cat.name
+            params[f"cat_{i}"] = cat.value
 
     if query.deadline_before:
         opp_filters.append("(o.deadline IS NULL OR o.deadline <= :dl_before)")
@@ -116,7 +116,7 @@ def _chunk_vector_search(
                c.source_id,
                c.opportunity_id,
                o.id AS opp_id, o.title, o.description, o.category, o.domain_tags,
-               o.eligibility, o.benefits, o.deadline, o.url, o.source_url,
+               o.eligibility, o.benefits, o.deadline, o.application_link, o.source_url,
                o.confidence,
                s.name AS source_name,
                s.base_url AS s_base_url,
@@ -156,7 +156,7 @@ def _chunk_vector_search(
                 eligibility=row.eligibility,
                 benefits=row.benefits,
                 deadline=row.deadline,
-                url=row.url or "",
+                application_link=row.application_link or "",
                 source_url=row.source_url or row.s_base_url or "",
                 confidence=row.confidence,
                 chunk_context=row.chunk_content,
@@ -214,7 +214,7 @@ def _fts_search(
 
     sql = sa_text(f"""
         SELECT id, title, description, category, domain_tags,
-               eligibility, benefits, deadline, url, source_url, confidence,
+               eligibility, benefits, deadline, application_link, source_url, confidence,
                ts_rank(
                    to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '')),
                    plainto_tsquery('english', :q)
@@ -238,7 +238,7 @@ def _fts_search(
             eligibility=row.eligibility,
             benefits=row.benefits,
             deadline=row.deadline,
-            url=row.url,
+            application_link=row.application_link,
             source_url=row.source_url,
             confidence=row.confidence,
             fts_rank=rank,
@@ -273,7 +273,7 @@ def _chunk_fts_search(
                c.content AS chunk_content,
                c.opportunity_id,
                o.id AS opp_id, o.title, o.description, o.category, o.domain_tags,
-               o.eligibility, o.benefits, o.deadline, o.url, o.source_url,
+               o.eligibility, o.benefits, o.deadline, o.application_link, o.source_url,
                o.confidence,
                s.base_url AS s_base_url,
                ts_rank(to_tsvector('english', c.content), plainto_tsquery('english', :q)) AS rank
@@ -310,7 +310,7 @@ def _chunk_fts_search(
                 eligibility=row.eligibility,
                 benefits=row.benefits,
                 deadline=row.deadline,
-                url=row.url or "",
+                application_link=row.application_link or "",
                 source_url=row.source_url or row.s_base_url or "",
                 confidence=row.confidence,
                 chunk_context=row.chunk_content,

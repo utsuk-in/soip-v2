@@ -4,7 +4,8 @@ import pytest
 
 from app.models.alert import UserAlert
 from app.models.chat import ChatMessage, ChatSession
-from app.models.opportunity import Opportunity, OpportunityCategory
+from app.models.opportunity import Opportunity
+from app.utils.enums import OpportunityCategory
 from app.models.university import University
 from app.models.user import User
 from app.services.auth import create_access_token, hash_password

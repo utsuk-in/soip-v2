@@ -37,7 +37,7 @@ SEED_SOURCES: list[dict] = [
             "scroll_steps_per_page": 20,
             "scroll_delay": 2.0,
             "delay_before_return_html": 2.5,
-            "pagination_delay_before_return_html": 1.5,
+            "pagination_delay_before_return_html": 15,
             "detail_delay_before_return_html": 0.4,
             "remove_overlay_elements": True,
             "magic": True,

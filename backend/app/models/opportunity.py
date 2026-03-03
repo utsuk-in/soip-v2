@@ -1,4 +1,3 @@
-import enum
 import uuid
 
 from sqlalchemy import (
@@ -19,17 +18,9 @@ from sqlalchemy.dialects.postgresql import UUID, ENUM
 from pgvector.sqlalchemy import Vector
 
 from app.models.base import Base
+from app.utils.enums import OpportunityCategory, OpportunityStatus
 
-
-class OpportunityCategory(str, enum.Enum):
-    HACKATHON = "hackathon"
-    GRANT = "grant"
-    FELLOWSHIP = "fellowship"
-    INTERNSHIP = "internship"
-    COMPETITION = "competition"
-    SCHOLARSHIP = "scholarship"
-    PROGRAM = "program"
-    OTHER = "other"
+__all__ = ["Opportunity", "OpportunityCategory", "OpportunityStatus"]
 
 
 class Opportunity(Base):
@@ -39,7 +30,12 @@ class Opportunity(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=False)
     category = Column(
-        ENUM(OpportunityCategory, name="opportunitycategory", create_type=False),
+        ENUM(
+            OpportunityCategory,
+            name="opportunitycategory",
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
     )
     domain_tags = Column(JSON, nullable=False, default=list)
@@ -48,7 +44,8 @@ class Opportunity(Base):
     benefits = Column(Text, nullable=True)
     deadline = Column(Date, nullable=True)
     deadline_at = Column(DateTime(timezone=True), nullable=True)
-    url = Column(String(1000), unique=True, nullable=False)
+    application_link = Column(String(1000), unique=True, nullable=False)
+    location = Column(String(500), nullable=False, server_default="")
     source_id = Column(
         UUID(as_uuid=True), ForeignKey("sources.id"), nullable=True
     )
@@ -60,7 +57,18 @@ class Opportunity(Base):
     )
     source_url = Column(String(1000), nullable=False)
     confidence = Column(Float, nullable=True)
+    status = Column(
+        ENUM(
+            OpportunityStatus,
+            name="opportunitystatus",
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=False,
+        server_default="open",
+    )
     is_active = Column(Boolean, default=True)
+    processing_error = Column(Text, nullable=True)
     scraped_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
@@ -73,6 +81,7 @@ class Opportunity(Base):
         Index("ix_opportunities_category", "category"),
         Index("ix_opportunities_deadline", "deadline"),
         Index("ix_opportunities_is_active", "is_active"),
+        Index("ix_opportunities_status", "status"),
         Index(
             "ix_opportunities_embedding_hnsw",
             "embedding",
