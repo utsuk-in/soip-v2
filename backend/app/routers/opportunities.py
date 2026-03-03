@@ -8,7 +8,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import or_, func, select
 
 from app.database import get_db
-from app.models.opportunity import Opportunity, OpportunityCategory
+from app.models.opportunity import Opportunity
+from app.utils.enums import OpportunityCategory
 from app.models.user import User
 from app.schemas.opportunity import OpportunityBrief, OpportunityOut, OpportunityListResponse
 from app.services.embedder import embed_query
@@ -122,7 +123,7 @@ async def recommended_opportunities(
         candidates = rerank_with_cross_encoder(profile_text, candidates)
         candidates = rerank_for_user(current_user, candidates)
 
-    top_ids = [o.id for o in candidates if o.url][:limit]
+    top_ids = [o.id for o in candidates if o.application_link][:limit]
     existing_ids = set(top_ids)
 
     # Fallback: if retrieval is sparse, fill from direct filtered query.

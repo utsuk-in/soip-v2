@@ -49,7 +49,7 @@ def main() -> None:
 
             # List Unstop opportunity titles
             opps = (
-                db.query(Opportunity.title, Opportunity.url)
+                db.query(Opportunity.title, Opportunity.application_link)
                 .filter(Opportunity.source_id == unstop.id)
                 .order_by(Opportunity.created_at.desc())
                 .limit(30)
@@ -65,7 +65,7 @@ def main() -> None:
         if search_title:
             print(f"\n=== Search: title contains '{search_title}' ===\n")
             found = (
-                db.query(Opportunity.title, Opportunity.url, Source.name)
+                db.query(Opportunity.title, Opportunity.application_link, Source.name)
                 .join(Source, Opportunity.source_id == Source.id)
                 .filter(Opportunity.title.ilike(f"%{search_title}%"))
                 .all()

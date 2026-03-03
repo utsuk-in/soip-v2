@@ -170,7 +170,7 @@ def _build_system_prompt(user: User, retrieved: list[ScoredOpportunity]) -> str:
         deadline_str = opp.deadline.isoformat() if opp.deadline else "No deadline"
         context = opp.chunk_context[:300] if opp.chunk_context else opp.description[:200]
         opp_lines.append(
-            f"{i}. [{opp.title}]({opp.url})\n"
+            f"{i}. [{opp.title}]({opp.application_link})\n"
             f"   Category: {opp.category} | Deadline: {deadline_str}\n"
             f"   Context: {context}"
         )

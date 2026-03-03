@@ -15,12 +15,15 @@ class OpportunityOut(BaseModel):
     benefits: str | None = None
     deadline: date | None = None
     deadline_at: datetime | None = None
-    url: str
+    application_link: str
+    location: str = ""
     source_url: str
     scrape_page_id: UUID | None = None
     content_chunk_id: UUID | None = None
     confidence: float | None = None
+    status: str = "open"
     is_active: bool = True
+    processing_error: str | None = None
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
@@ -33,7 +36,9 @@ class OpportunityBrief(BaseModel):
     category: str
     domain_tags: list[str] = []
     deadline: date | None = None
-    url: str
+    application_link: str
+    location: str = ""
+    status: str = "open"
     is_active: bool = True
 
     model_config = {"from_attributes": True}
