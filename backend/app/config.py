@@ -47,5 +47,9 @@ class Settings(BaseSettings):
     # Detail fetch concurrency (parallel opportunities within a source)
     detail_concurrency: int = Field(default=1, ge=1)
 
+    # Timeouts (seconds)
+    crawl4ai_timeout_seconds: float = Field(default=60.0, ge=1)
+    openai_timeout_seconds: float = Field(default=180.0, ge=1)
+
 
 settings = Settings()
