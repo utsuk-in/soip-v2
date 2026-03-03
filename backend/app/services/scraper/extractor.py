@@ -5,6 +5,7 @@ Handles large pages by splitting into segments and extracting from each,
 then deduplicating across segments. Tolerates truncated JSON responses.
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -45,6 +46,7 @@ Use the current year when only day/month are given. If unclear or relative ("tom
 - url: Direct link to the opportunity page (if available, null otherwise)
 - is_active: true if open, false if closed/ended (if explicitly stated)
 - deadline_at: Full deadline timestamp with timezone (ISO 8601) if explicitly shown (e.g., 2026-02-26T12:26:00+05:30)
+- location: Where the opportunity takes place — city/state/country (e.g., "Bengaluru, India", "India", "USA") or "online" for virtual/remote events. Use "online" if no physical venue is mentioned. (required)
 - confidence: Your confidence in the extraction accuracy from 0.0 to 1.0
 
 Rules:
@@ -90,6 +92,7 @@ class ExtractedOpportunity:
     deadline: Optional[date] = None
     deadline_at: Optional[datetime] = None
     url: Optional[str] = None
+    location: str = "online"
     confidence: float = 0.5
     is_active: bool = True
     detail_scrape_page_id: Optional[UUID] = None
@@ -133,24 +136,31 @@ async def _extract_segment(
     seg_label = f"segment {seg_num}/{total_segs}"
 
     try:
-        response = await _client.chat.completions.create(
-            model=settings.openai_model,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        f"Source URL: {source_url}\n"
-                        f"Today's date: {date.today().isoformat()}\n"
-                        f"Segment: {seg_label}\n\n"
-                        f"Content:\n{content}"
-                    ),
-                },
-            ],
-            temperature=0.0,
-            max_tokens=_MAX_OUTPUT_TOKENS,
-        )
+        try:
+            response = await asyncio.wait_for(
+                _client.chat.completions.create(
+                    model=settings.openai_model,
+                    response_format={"type": "json_object"},
+                    messages=[
+                        {"role": "system", "content": _SYSTEM_PROMPT},
+                        {
+                            "role": "user",
+                            "content": (
+                                f"Source URL: {source_url}\n"
+                                f"Today's date: {date.today().isoformat()}\n"
+                                f"Segment: {seg_label}\n\n"
+                                f"Content:\n{content}"
+                            ),
+                        },
+                    ],
+                    temperature=0.0,
+                    max_tokens=_MAX_OUTPUT_TOKENS,
+                ),
+                timeout=float(getattr(settings, "openai_timeout_seconds", 60.0)),
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"OpenAI extraction timeout for {source_url} ({seg_label})")
+            return []
 
         raw = response.choices[0].message.content
         finish_reason = response.choices[0].finish_reason
@@ -321,15 +331,18 @@ def _parse_single(item: dict) -> Optional[ExtractedOpportunity]:
         elif "open" in lowered:
             is_active = True
 
-    # Heuristic: if description explicitly mentions closed
+    # Heuristic: only mark inactive when registration is explicitly closed
     desc_lower = description.lower()
-    if "closed" in desc_lower or "registrations closed" in desc_lower:
+    if "registrations closed" in desc_lower or "applications closed" in desc_lower:
         is_active = False
 
     raw_tags = _coerce_domain_tags(item.get("domain_tags"))
     if not raw_tags:
         raw_tags = ["general"]
     normalized_tags = normalize_domains(raw_tags) or ["general"]
+
+    raw_location = (item.get("location") or "").strip()
+    location = raw_location if raw_location else "online"
 
     return ExtractedOpportunity(
         title=title,
@@ -342,6 +355,7 @@ def _parse_single(item: dict) -> Optional[ExtractedOpportunity]:
         deadline=deadline,
         deadline_at=deadline_at,
         url=item.get("url"),
+        location=location,
         confidence=min(1.0, max(0.0, float(item.get("confidence", 0.5)))),
         is_active=is_active,
     )
