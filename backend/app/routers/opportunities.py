@@ -193,8 +193,8 @@ def _build_profile_terms(user: User) -> list[str]:
         parts.extend(user.skills)
     if user.aspirations:
         parts.extend(user.aspirations)
-    if user.degree_type:
-        parts.append(user.degree_type)
+    if user.academic_background:
+        parts.append(user.academic_background)
     return [p for p in (str(x).strip() for x in parts) if p]
 
 

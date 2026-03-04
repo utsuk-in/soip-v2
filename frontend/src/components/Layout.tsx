@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Search, MessageSquare, Bell, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, Search, MessageSquare, Bell, LogOut, Menu, X, Sparkles } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { getAlerts, type Alert } from "../lib/api";
 import ProfileModal from "./ProfileModal";
@@ -43,22 +43,24 @@ export default function Layout() {
   }, []);
 
   return (
-    <div className="h-screen flex bg-[#f6f4ef]">
+    <div className="h-screen flex bg-stone-50">
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white/90 backdrop-blur border-r border-slate-200 flex flex-col transform transition-transform lg:translate-x-0 ${
+        className={`fixed lg:static inset-y-0 left-0 z-40 w-56 bg-white/80 backdrop-blur-xl border-r border-stone-200/60 flex flex-col transform transition-transform lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="h-16 flex items-center px-6 border-b border-slate-100">
-          <span className="text-xl font-semibold text-slate-900 font-display">SOIP</span>
-          <span className="ml-2 text-xs text-slate-400 font-medium tracking-widest">STUDIO</span>
-          <button className="ml-auto lg:hidden" onClick={() => setSidebarOpen(false)}>
+        <div className="h-16 flex items-center px-5 border-b border-stone-100">
+          <div>
+            <h1 className="text-xl font-bold font-display gradient-text leading-tight">SOIP</h1>
+            <p className="text-[10px] font-medium text-stone-400 tracking-widest uppercase">opp radar</p>
+          </div>
+          <button className="ml-auto lg:hidden text-stone-400 hover:text-stone-600" onClick={() => setSidebarOpen(false)}>
             <X size={20} />
           </button>
         </div>
@@ -70,10 +72,10 @@ export default function Layout() {
               to={to}
               onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   isActive
-                    ? "bg-brand-100/70 text-brand-800"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-brand-50 text-brand-700 border-l-2 border-brand-500 shadow-sm"
+                    : "text-stone-500 hover:bg-stone-100 hover:text-stone-800"
                 }`
               }
             >
@@ -83,15 +85,18 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
-          <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Signal</p>
-            <p className="text-sm font-medium text-slate-900 mt-1">Sharper matches unlock faster.</p>
+        <div className="p-3">
+          <div className="rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 p-4 text-white">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles size={16} className="text-brand-200" />
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-200">Signal</p>
+            </div>
+            <p className="text-sm font-medium mb-3 leading-snug">sharper profile = better matches</p>
             <button
               onClick={() => setProfileOpen(true)}
-              className="mt-3 w-full text-xs font-semibold uppercase tracking-wide bg-brand-600 text-white rounded-lg py-2 hover:bg-brand-700"
+              className="w-full text-xs font-semibold uppercase tracking-wide bg-white/20 hover:bg-white/30 text-white rounded-xl py-2 transition-colors"
             >
-              Edit profile
+              tune your vibe
             </button>
           </div>
         </div>
@@ -100,58 +105,56 @@ export default function Layout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-16 bg-white/80 backdrop-blur border-b border-slate-200 flex items-center px-4 lg:px-8 gap-4">
-          <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
+        <header className="h-16 bg-white/70 backdrop-blur-xl border-b border-stone-200/60 flex items-center px-4 lg:px-6 gap-4">
+          <button className="lg:hidden text-stone-500" onClick={() => setSidebarOpen(true)}>
             <Menu size={20} />
           </button>
-          <div className="flex-1">
-            <div className="hidden md:block">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Discover</p>
-              <p className="text-sm text-slate-600">New opportunities curated for your ambitions.</p>
-            </div>
-          </div>
+
+          <div className="flex-1" />
+
           <button
             onClick={() => navigate("/alerts")}
-            className="relative p-2 text-slate-500 hover:text-slate-700 transition-colors"
+            className="relative p-2 text-stone-400 hover:text-stone-600 transition-colors"
           >
             <Bell size={20} />
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 bg-hot text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
           </button>
+
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-slate-100 transition-colors"
+              className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-stone-100 transition-colors"
             >
-              <div className="w-9 h-9 rounded-full bg-brand-100 text-brand-800 flex items-center justify-center text-sm font-semibold">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-accent-500 text-white flex items-center justify-center text-sm font-bold shadow-sm">
                 {(user?.first_name?.[0] || user?.email?.[0] || "?").toUpperCase()}
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-slate-900 leading-tight">{user?.first_name || "Student"}</p>
-                <p className="text-xs text-slate-400 leading-tight">{user?.degree_type || "Profile"}</p>
+                <p className="text-sm font-semibold text-stone-800 leading-tight">{user?.first_name || "Student"}</p>
+                <p className="text-[11px] text-stone-400 leading-tight">{user?.academic_background || "Profile"}</p>
               </div>
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden animate-fade-in">
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <p className="text-sm font-medium text-slate-900 truncate">{user?.email}</p>
-                  <p className="text-xs text-slate-400 truncate">{user?.degree_type || "Complete your profile"}</p>
+              <div className="absolute right-0 mt-2 w-56 bg-white/90 backdrop-blur-xl border border-stone-200 rounded-2xl shadow-xl overflow-hidden animate-fade-in">
+                <div className="px-4 py-3 border-b border-stone-100">
+                  <p className="text-sm font-semibold text-stone-800 truncate">{user?.email}</p>
+                  <p className="text-xs text-stone-400 truncate">{user?.academic_background || "complete your profile"}</p>
                 </div>
                 <button
                   onClick={() => { setProfileOpen(true); setMenuOpen(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                  className="w-full text-left px-4 py-2.5 text-sm text-stone-600 hover:bg-brand-50 hover:text-brand-700 transition-colors"
                 >
-                  Edit profile
+                  tune your vibe
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                  className="w-full text-left px-4 py-2.5 text-sm text-hot hover:bg-red-50 transition-colors"
                 >
-                  Sign out
+                  sign out
                 </button>
               </div>
             )}

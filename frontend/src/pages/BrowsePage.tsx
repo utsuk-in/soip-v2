@@ -54,7 +54,6 @@ export default function BrowsePage() {
 
   return (
     <div className="flex h-full">
-      {/* Sidebar */}
       <FilterSidebar
         filters={filters}
         onChange={setFilters}
@@ -62,20 +61,19 @@ export default function BrowsePage() {
         onClose={() => setSidebarOpen(false)}
       />
 
-      {/* Main */}
       <div className="flex-1 overflow-auto p-6 lg:p-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-semibold text-slate-900 font-display">Browse opportunities</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {loading ? "Loading..." : meta ? `Showing ${Math.min((page - 1) * meta.page_size + 1, meta.total)}–${Math.min(page * meta.page_size, meta.total)} of ${meta.total}` : `${opportunities.length} results`}
+            <h1 className="text-xl font-bold text-stone-800 font-display">explore opps</h1>
+            <p className="text-sm text-stone-400 mt-0.5">
+              {loading ? "loading..." : meta ? `showing ${Math.min((page - 1) * meta.page_size + 1, meta.total)}–${Math.min(page * meta.page_size, meta.total)} of ${meta.total}` : `${opportunities.length} results`}
             </p>
           </div>
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
+            className="lg:hidden flex items-center gap-2 px-4 py-2.5 bg-white/70 backdrop-blur border border-stone-200 rounded-xl text-sm font-medium text-stone-600 hover:bg-brand-50 hover:text-brand-600 transition-all"
           >
-            <Filter size={16} /> Filters
+            <Filter size={16} /> filters
           </button>
         </div>
 
@@ -85,41 +83,42 @@ export default function BrowsePage() {
           </div>
         ) : opportunities.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-gray-400 text-lg mb-2">No opportunities found</p>
-            <p className="text-sm text-gray-400">Try adjusting your filters.</p>
+            <p className="text-stone-400 text-lg mb-2 font-display">nothing here yet</p>
+            <p className="text-sm text-stone-400">try switching it up -- different filters maybe?</p>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {opportunities.map((opp) => (
-                <OpportunityCard
-                  key={opp.id}
-                  opportunity={opp}
-                  onClick={() => navigate(`/browse/${opp.id}`)}
-                />
+              {opportunities.map((opp, i) => (
+                <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 40}ms` }}>
+                  <OpportunityCard
+                    opportunity={opp}
+                    onClick={() => navigate(`/browse/${opp.id}`)}
+                  />
+                </div>
               ))}
             </div>
 
             {/* Pagination */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-8">
-              <div className="text-sm text-slate-500">
-                {meta ? `Page ${meta.page} of ${meta.total_pages}` : `Page ${page}`}
+              <div className="text-sm text-stone-400">
+                {meta ? `page ${meta.page} of ${meta.total_pages}` : `page ${page}`}
               </div>
               <div className="flex justify-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-slate-50"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setPage((p) => p + 1)}
-                disabled={meta ? !meta.has_next : opportunities.length < 20}
-                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-slate-50"
-              >
-                Next
-              </button>
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="px-5 py-2.5 bg-white/70 backdrop-blur border border-stone-200 rounded-xl text-sm font-medium disabled:opacity-40 hover:bg-brand-50 hover:text-brand-600 transition-all"
+                >
+                  prev
+                </button>
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={meta ? !meta.has_next : opportunities.length < 20}
+                  className="px-5 py-2.5 bg-white/70 backdrop-blur border border-stone-200 rounded-xl text-sm font-medium disabled:opacity-40 hover:bg-brand-50 hover:text-brand-600 transition-all"
+                >
+                  next
+                </button>
               </div>
             </div>
           </>
