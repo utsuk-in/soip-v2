@@ -1,20 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { updateProfile } from "../lib/api";
+import React, { useEffect } from "react";
 import { useAuth } from "../lib/auth";
-
-const DEGREE_OPTIONS = ["B.Tech", "B.Sc", "M.Tech", "M.Sc", "MBA", "PhD", "Other"];
-
-const ASPIRATION_OPTIONS = [
-  "hackathons", "internships", "grants", "fellowships",
-  "competitions", "scholarships", "research", "startups",
-];
-
-const INTEREST_SUGGESTIONS = [
-  "AI", "ML", "Data", "Robotics", "Web", "Mobile", "Cloud",
-  "Security", "Blockchain", "Fintech", "Health", "Climate",
-  "Education", "Social Impact", "Design", "Product", "Startup",
-  "Research", "Hardware", "IoT",
-];
+import useProfileForm from "../hooks/useProfileForm";
+import { YEAR_OF_STUDY_OPTIONS, INDIAN_STATES, ASPIRATION_OPTIONS, INTEREST_SUGGESTIONS } from "../lib/constants";
 
 interface ProfileModalProps {
   open: boolean;
@@ -22,28 +9,8 @@ interface ProfileModalProps {
 }
 
 export default function ProfileModal({ open, onClose }: ProfileModalProps) {
-  const { user, refreshUser } = useAuth();
-
-  const [firstName, setFirstName] = useState("");
-  const [degreeType, setDegreeType] = useState("");
-  const [skills, setSkills] = useState<string[]>([]);
-  const [interests, setInterests] = useState<string[]>([]);
-  const [aspirations, setAspirations] = useState<string[]>([]);
-  const [skillInput, setSkillInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  useEffect(() => {
-    if (!open || !user) return;
-    setFirstName(user.first_name || "");
-    setDegreeType(user.degree_type || "");
-    setSkills(user.skills || []);
-    setInterests(user.interests || []);
-    setAspirations(user.aspirations || []);
-    setError("");
-    setSuccess("");
-  }, [open, user]);
+  const { user } = useAuth();
+  const form = useProfileForm(user);
 
   useEffect(() => {
     if (!open) return;
@@ -56,123 +23,106 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
 
   if (!open) return null;
 
-  const addSkill = () => {
-    const tag = skillInput.trim();
-    if (tag && !skills.includes(tag)) {
-      setSkills([...skills, tag]);
-    }
-    setSkillInput("");
-  };
-
-  const hasInterest = (interest: string) =>
-    interests.some((i) => i.toLowerCase() === interest.toLowerCase());
-
-  const toggleInterest = (interest: string) => {
-    setInterests((prev) => {
-      const exists = prev.some((i) => i.toLowerCase() === interest.toLowerCase());
-      if (exists) {
-        return prev.filter((i) => i.toLowerCase() !== interest.toLowerCase());
-      }
-      return [...prev, interest];
-    });
-  };
-
-  const toggleAspiration = (asp: string) => {
-    setAspirations((prev) =>
-      prev.includes(asp) ? prev.filter((a) => a !== asp) : [...prev, asp]
-    );
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-    setSuccess("");
-    try {
-      await updateProfile({
-        first_name: firstName,
-        degree_type: degreeType,
-        skills,
-        interests,
-        aspirations,
-      });
-      await refreshUser();
-      setSuccess("Profile updated.");
-    } catch (err: any) {
-      setError(err.message || "Failed to update profile");
-    } finally {
-      setLoading(false);
-    }
+    await form.submitProfile();
   };
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-stone-950/40 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-fade-in">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="w-full max-w-3xl bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 overflow-hidden animate-fade-in max-h-[90vh] flex flex-col">
+          <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Profile</p>
-              <h2 className="text-xl font-semibold text-slate-900 font-display">Tune your signal</h2>
+              <p className="text-[10px] uppercase tracking-widest text-stone-400 font-semibold">profile</p>
+              <h2 className="text-xl font-bold text-stone-800 font-display">tune your vibe</h2>
             </div>
             <button
               onClick={onClose}
-              className="text-slate-500 hover:text-slate-700 px-2 py-1"
+              className="text-stone-400 hover:text-stone-600 px-2 py-1 transition-colors"
               aria-label="Close"
             >
-              ✕
+              &times;
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto">
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">First name</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">first name</label>
                 <input
                   type="text"
                   required
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-                  placeholder="Your name"
+                  value={form.firstName}
+                  onChange={(e) => form.setFirstName(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+                  placeholder="what should we call you?"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Degree</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">academic background</label>
+                <input
+                  type="text"
+                  required
+                  value={form.academicBackground}
+                  onChange={(e) => form.setAcademicBackground(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+                  placeholder="e.g. B.Tech Computer Science, MBA"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">year of study</label>
                 <select
                   required
-                  value={degreeType}
-                  onChange={(e) => setDegreeType(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white"
+                  value={form.yearOfStudy}
+                  onChange={(e) => form.setYearOfStudy(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
                 >
-                  <option value="">Select degree...</option>
-                  {DEGREE_OPTIONS.map((d) => (
-                    <option key={d} value={d}>{d}</option>
+                  <option value="">select year...</option>
+                  {YEAR_OF_STUDY_OPTIONS.map((y) => (
+                    <option key={y} value={y}>{y}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Skills</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">state / location</label>
+                <select
+                  required
+                  value={form.userState}
+                  onChange={(e) => form.setUserState(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+                >
+                  <option value="">select state...</option>
+                  {INDIAN_STATES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">skills</label>
                 <div className="flex gap-2 mb-2">
                   <input
                     type="text"
-                    value={skillInput}
-                    onChange={(e) => setSkillInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }}
-                    className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-                    placeholder="Type a skill and press Enter"
+                    value={form.skillInput}
+                    onChange={(e) => form.setSkillInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); form.addSkill(); } }}
+                    className="flex-1 px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+                    placeholder="type a skill + enter"
                   />
-                  <button type="button" onClick={addSkill} className="px-4 py-2.5 bg-slate-100 rounded-xl text-sm font-medium hover:bg-slate-200">
-                    Add
+                  <button type="button" onClick={form.addSkill} className="px-4 py-2.5 bg-brand-50 text-brand-600 rounded-xl text-sm font-semibold hover:bg-brand-100 transition-colors">
+                    add
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {skills.map((s) => (
-                    <span key={s} className="px-2.5 py-1 bg-brand-50 text-brand-700 rounded-full text-xs font-medium flex items-center gap-1">
+                  {form.skills.map((s) => (
+                    <span key={s} className="px-2.5 py-1 bg-brand-100 text-brand-700 rounded-full text-xs font-medium flex items-center gap-1">
                       {s}
-                      <button type="button" onClick={() => setSkills(skills.filter((x) => x !== s))} className="hover:text-red-600">&times;</button>
+                      <button type="button" onClick={() => form.setSkills(form.skills.filter((x) => x !== s))} className="hover:text-hot">&times;</button>
                     </span>
                   ))}
                 </div>
@@ -181,17 +131,17 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Interests</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">interests</label>
                 <div className="flex flex-wrap gap-2">
                   {INTEREST_SUGGESTIONS.map((i) => (
                     <button
                       key={i}
                       type="button"
-                      onClick={() => toggleInterest(i)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                        hasInterest(i)
-                          ? "bg-brand-600 text-white"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      onClick={() => form.toggleInterest(i)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        form.hasInterest(i)
+                          ? "bg-brand-600 text-white shadow-sm"
+                          : "bg-stone-100 text-stone-500 hover:bg-brand-50 hover:text-brand-600"
                       }`}
                     >
                       {i}
@@ -201,15 +151,15 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Looking for</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">looking for</label>
                 <div className="grid grid-cols-2 gap-2">
                   {ASPIRATION_OPTIONS.map((a) => (
-                    <label key={a} className="flex items-center gap-2 text-sm cursor-pointer capitalize">
+                    <label key={a} className="flex items-center gap-2 text-sm cursor-pointer capitalize text-stone-600">
                       <input
                         type="checkbox"
-                        checked={aspirations.includes(a)}
-                        onChange={() => toggleAspiration(a)}
-                        className="accent-brand-600 w-4 h-4"
+                        checked={form.aspirations.includes(a)}
+                        onChange={() => form.toggleAspiration(a)}
+                        className="accent-brand-600 w-4 h-4 rounded"
                       />
                       {a}
                     </label>
@@ -217,18 +167,18 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
                 </div>
               </div>
 
-              {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-              {success && <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{success}</p>}
+              {form.error && <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{form.error}</p>}
+              {form.success && <p className="text-sm text-pop bg-emerald-50 rounded-xl px-3 py-2">{form.success}</p>}
             </div>
 
-            <div className="lg:col-span-2 flex items-center justify-between border-t border-slate-100 pt-4">
-              <p className="text-xs text-slate-500">Your changes sharpen recommendations instantly.</p>
+            <div className="lg:col-span-2 flex items-center justify-between border-t border-stone-100 pt-4">
+              <p className="text-xs text-stone-400">changes sharpen your recs instantly</p>
               <button
                 type="submit"
-                disabled={loading}
-                className="px-6 py-2.5 bg-brand-600 text-white rounded-xl font-medium text-sm hover:bg-brand-700 transition-colors disabled:opacity-50"
+                disabled={form.loading}
+                className="px-6 py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50"
               >
-                {loading ? "Saving..." : "Save changes"}
+                {form.loading ? "saving..." : "lock it in"}
               </button>
             </div>
           </form>

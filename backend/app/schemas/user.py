@@ -8,7 +8,9 @@ class UserOut(BaseModel):
     id: UUID
     email: EmailStr
     first_name: str | None = None
-    degree_type: str | None = None
+    academic_background: str | None = None
+    year_of_study: str | None = None
+    state: str | None = None
     skills: list[str] = []
     interests: list[str] = []
     aspirations: list[str] = []
@@ -22,7 +24,9 @@ class UserOut(BaseModel):
 class ProfileUpdate(BaseModel):
     """Onboarding + profile edit payload."""
     first_name: str | None = None
-    degree_type: str | None = None
+    academic_background: str | None = None
+    year_of_study: str | None = None
+    state: str | None = None
     skills: list[str] | None = None
     interests: list[str] | None = None
     aspirations: list[str] | None = None

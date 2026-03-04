@@ -49,11 +49,16 @@ def register_user(
     db: Session,
     email: str,
     password: str,
+    first_name: str,
+    academic_background: str,
+    year_of_study: str,
+    state: str,
+    skills: list[str],
+    interests: list[str],
+    aspirations: list[str],
     university_id: UUID | None = None,
-    skills: list[str] | None = None,
-    interests: list[str] | None = None,
 ) -> User:
-    """Create a new user. Raises ValueError if email already taken."""
+    """Create a new user with full profile. Raises ValueError if email already taken."""
     existing = db.query(User).filter(User.email == email).first()
     if existing:
         raise ValueError("Email already registered")
@@ -61,8 +66,14 @@ def register_user(
     user = User(
         email=email,
         password_hash=hash_password(password),
-        skills=skills or [],
-        interests=interests or [],
+        first_name=first_name,
+        academic_background=academic_background,
+        year_of_study=year_of_study,
+        state=state,
+        skills=skills,
+        interests=interests,
+        aspirations=aspirations,
+        is_onboarded=True,
     )
     if university_id:
         user.university_id = university_id

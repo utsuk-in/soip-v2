@@ -18,7 +18,9 @@ export default function ChatBubble({ role, content, citedOpportunities, onOpport
     <div className={`flex gap-3 animate-fade-in ${isUser ? "flex-row-reverse" : ""}`}>
       <div
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-          isUser ? "bg-brand-100 text-brand-700" : "bg-gray-100 text-gray-600"
+          isUser
+            ? "bg-gradient-to-br from-brand-500 to-accent-500 text-white"
+            : "bg-gradient-to-br from-brand-100 to-brand-200 text-brand-700"
         }`}
       >
         {isUser ? <User size={16} /> : <Bot size={16} />}
@@ -26,10 +28,10 @@ export default function ChatBubble({ role, content, citedOpportunities, onOpport
 
       <div className={`max-w-[75%] ${isUser ? "text-right" : ""}`}>
         <div
-          className={`inline-block px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+          className={`inline-block px-4 py-3 text-sm leading-relaxed ${
             isUser
-              ? "bg-brand-600 text-white rounded-tr-sm"
-              : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm"
+              ? "bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-2xl rounded-tr-md shadow-sm"
+              : "bg-white/80 backdrop-blur border border-stone-200 text-stone-800 rounded-2xl rounded-tl-md"
           }`}
         >
           {isUser ? (
@@ -53,7 +55,6 @@ export default function ChatBubble({ role, content, citedOpportunities, onOpport
           )}
         </div>
 
-        {/* Inline opportunity cards */}
         {!isUser && citedOpportunities && citedOpportunities.length > 0 && (
           <div className="mt-2 space-y-2">
             {citedOpportunities.slice(0, 3).map((opp) => (
@@ -74,14 +75,14 @@ export default function ChatBubble({ role, content, citedOpportunities, onOpport
 export function TypingIndicator() {
   return (
     <div className="flex gap-3 animate-fade-in">
-      <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center flex-shrink-0">
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-100 to-brand-200 text-brand-700 flex items-center justify-center flex-shrink-0">
         <Bot size={16} />
       </div>
-      <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3">
+      <div className="bg-white/80 backdrop-blur border border-stone-200 rounded-2xl rounded-tl-md px-4 py-3">
         <div className="flex gap-1">
-          <span className="typing-dot w-2 h-2 bg-gray-400 rounded-full" />
-          <span className="typing-dot w-2 h-2 bg-gray-400 rounded-full" />
-          <span className="typing-dot w-2 h-2 bg-gray-400 rounded-full" />
+          <span className="typing-dot w-2 h-2 bg-brand-400 rounded-full" />
+          <span className="typing-dot w-2 h-2 bg-brand-400 rounded-full" />
+          <span className="typing-dot w-2 h-2 bg-brand-400 rounded-full" />
         </div>
       </div>
     </div>

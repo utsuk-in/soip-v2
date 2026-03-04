@@ -60,44 +60,45 @@ export default function DashboardPage() {
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
       {/* Greeting */}
-      <div className="flex flex-col gap-2">
-        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Personal brief</p>
-        <h1 className="text-3xl font-semibold text-slate-900 font-display">
-          Welcome back, {user?.first_name || "explorer"}
+      <div>
+        <h1 className="text-3xl font-bold text-stone-900 font-display">
+          hey <span className="gradient-text">{user?.first_name || "explorer"}</span>, what's the move?
         </h1>
-        <p className="text-slate-500">Signal captured. Here’s your best next move.</p>
+        <p className="text-stone-400 mt-1">here's what's hot for you right now</p>
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <button
           onClick={() => navigate("/chat")}
-          className="flex items-center gap-4 bg-gradient-to-r from-brand-600 to-brand-500 text-white p-5 rounded-2xl hover:shadow-lg transition-all text-left"
+          className="flex items-center gap-4 bg-gradient-to-r from-brand-600 to-brand-500 text-white p-5 rounded-2xl hover:shadow-lg hover:shadow-brand-500/25 hover:-translate-y-0.5 transition-all text-left"
         >
           <MessageSquare size={24} />
           <div>
-            <p className="font-semibold">Chat with SOIP</p>
-            <p className="text-sm text-brand-100">Ask about opportunities, get personalized recommendations</p>
+            <p className="font-bold">ask soip anything</p>
+            <p className="text-sm text-brand-100">get personalized recs, powered by AI</p>
           </div>
         </button>
         <button
           onClick={() => navigate("/browse")}
-          className="flex items-center gap-4 bg-white border border-slate-200 text-slate-900 p-5 rounded-2xl hover:border-brand-300 hover:shadow-md transition-all text-left"
+          className="flex items-center gap-4 bg-white/70 backdrop-blur border border-white/30 text-stone-900 p-5 rounded-2xl hover:shadow-lg hover:shadow-brand-500/10 hover:-translate-y-0.5 transition-all text-left"
         >
           <Search size={24} className="text-brand-600" />
           <div>
-            <p className="font-semibold">Browse opportunities</p>
-            <p className="text-sm text-slate-500">Filter by category, domain, deadline</p>
+            <p className="font-bold">explore opps</p>
+            <p className="text-sm text-stone-400">filter by category, domain, deadline</p>
           </div>
         </button>
       </div>
 
       {/* Recommended */}
       {recommended.length > 0 && (
-        <Section icon={Sparkles} title="Recommended for you" color="text-brand-600">
+        <Section icon={Sparkles} title="picked for you" color="text-brand-600">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recommended.map((opp) => (
-              <OpportunityCard key={opp.id} opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+            {recommended.map((opp, i) => (
+              <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
+                <OpportunityCard opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+              </div>
             ))}
           </div>
         </Section>
@@ -105,10 +106,12 @@ export default function DashboardPage() {
 
       {/* Expiring Soon */}
       {expiring.length > 0 && (
-        <Section icon={AlertTriangle} title="Expiring soon" color="text-orange-600">
+        <Section icon={AlertTriangle} title="closing soon -- don't sleep" color="text-hot">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {expiring.map((opp) => (
-              <OpportunityCard key={opp.id} opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+            {expiring.map((opp, i) => (
+              <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
+                <OpportunityCard opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+              </div>
             ))}
           </div>
         </Section>
@@ -116,10 +119,12 @@ export default function DashboardPage() {
 
       {/* New This Week */}
       {recent.length > 0 && (
-        <Section icon={Clock} title="Recently added" color="text-green-600">
+        <Section icon={Clock} title="fresh drops" color="text-pop">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recent.map((opp) => (
-              <OpportunityCard key={opp.id} opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+            {recent.map((opp, i) => (
+              <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
+                <OpportunityCard opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+              </div>
             ))}
           </div>
         </Section>
@@ -133,7 +138,7 @@ function Section({ icon: Icon, title, color, children }: {
 }) {
   return (
     <section>
-      <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 mb-4 font-display">
+      <h2 className="flex items-center gap-2 text-lg font-bold text-stone-800 mb-4 font-display">
         <Icon size={20} className={color} />
         {title}
       </h2>

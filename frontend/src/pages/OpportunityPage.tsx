@@ -2,16 +2,17 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Calendar, ExternalLink, Tag, Award, Users, MessageSquare } from "lucide-react";
 import { getOpportunity, type Opportunity } from "../lib/api";
+import { CATEGORY_COLORS } from "../lib/constants";
 
-const CATEGORY_COLORS: Record<string, string> = {
-  hackathon: "bg-purple-100 text-purple-700",
-  grant: "bg-green-100 text-green-700",
-  fellowship: "bg-blue-100 text-blue-700",
-  internship: "bg-orange-100 text-orange-700",
-  competition: "bg-red-100 text-red-700",
-  scholarship: "bg-teal-100 text-teal-700",
-  program: "bg-indigo-100 text-indigo-700",
-  other: "bg-gray-100 text-gray-700",
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  hackathon: "from-violet-500 to-violet-400",
+  grant: "from-emerald-500 to-emerald-400",
+  fellowship: "from-sky-500 to-sky-400",
+  internship: "from-amber-500 to-amber-400",
+  competition: "from-rose-500 to-rose-400",
+  scholarship: "from-teal-500 to-teal-400",
+  program: "from-indigo-500 to-indigo-400",
+  other: "from-stone-400 to-stone-300",
 };
 
 export default function OpportunityPage() {
@@ -41,79 +42,85 @@ export default function OpportunityPage() {
   if (error || !opp) {
     return (
       <div className="p-8 text-center">
-        <p className="text-red-600 mb-4">{error || "Opportunity not found"}</p>
-        <button onClick={() => navigate(-1)} className="text-brand-600 font-medium">Go back</button>
+        <p className="text-hot mb-4">{error || "opp not found"}</p>
+        <button onClick={() => navigate(-1)} className="text-brand-600 font-semibold hover:text-brand-700">go back</button>
       </div>
     );
   }
 
   const colorClass = CATEGORY_COLORS[opp.category] || CATEGORY_COLORS.other;
+  const gradientClass = CATEGORY_GRADIENTS[opp.category] || CATEGORY_GRADIENTS.other;
 
   return (
     <div className="p-6 lg:p-10 max-w-4xl mx-auto animate-fade-in">
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-6"
+        className="flex items-center gap-1 text-sm text-stone-400 hover:text-brand-600 mb-6 transition-colors"
       >
-        <ArrowLeft size={16} /> Back
+        <ArrowLeft size={16} /> back
       </button>
 
-      <div className="bg-white/90 backdrop-blur rounded-3xl border border-slate-200 shadow-xl p-6 lg:p-10">
-        <div className="flex items-start gap-3 mb-4 flex-wrap">
-          <span className={`px-3 py-1 rounded-full text-sm font-semibold ${colorClass}`}>
-            {opp.category}
-          </span>
-          {!opp.is_active && (
-            <span className="px-3 py-1 rounded-full text-sm font-medium bg-slate-100 text-slate-500">
-              Inactive
+      <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-white/30 shadow-xl overflow-hidden">
+        {/* Category accent bar */}
+        <div className={`h-1.5 bg-gradient-to-r ${gradientClass}`} />
+
+        <div className="p-6 lg:p-10">
+          <div className="flex items-start gap-3 mb-4 flex-wrap">
+            <span className={`px-3 py-1 rounded-full text-sm font-semibold capitalize ${colorClass}`}>
+              {opp.category}
             </span>
-          )}
-        </div>
+            {!opp.is_active && (
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-stone-100 text-stone-500">
+                inactive
+              </span>
+            )}
+          </div>
 
-        <h1 className="text-3xl font-semibold text-slate-900 mb-3 font-display">{opp.title}</h1>
-        <div className="text-slate-700 leading-relaxed mb-8 space-y-4">
-          {renderDescription(opp.description)}
-        </div>
+          <h1 className="text-4xl font-bold text-stone-900 mb-3 font-display">{opp.title}</h1>
+          <div className="text-stone-700 leading-relaxed mb-8 space-y-4">
+            {renderDescription(opp.description)}
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-          {opp.deadline && (
-            <InfoBox icon={Calendar} label="Deadline" value={new Date(opp.deadline).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })} />
-          )}
-          {opp.eligibility && (
-            <InfoBox icon={Users} label="Eligibility" value={opp.eligibility} />
-          )}
-          {opp.benefits && (
-            <InfoBox icon={Award} label="Benefits" value={opp.benefits} />
-          )}
-          {opp.domain_tags.length > 0 && (
-            <div className="bg-slate-50 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
-                <Tag size={14} /> Domains
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            {opp.deadline && (
+              <InfoBox icon={Calendar} label="deadline" value={new Date(opp.deadline).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })} />
+            )}
+            {opp.eligibility && (
+              <InfoBox icon={Users} label="eligibility" value={opp.eligibility} />
+            )}
+            {opp.benefits && (
+              <InfoBox icon={Award} label="benefits" value={opp.benefits} />
+            )}
+            {opp.domain_tags.length > 0 && (
+              <div className="bg-white/60 backdrop-blur border border-stone-200/50 rounded-2xl p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">
+                  <Tag size={14} /> domains
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {opp.domain_tags.map((t) => (
+                    <span key={t} className="px-2.5 py-0.5 bg-brand-50 text-brand-700 rounded-full text-xs font-medium">{t}</span>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {opp.domain_tags.map((t) => (
-                  <span key={t} className="px-2 py-0.5 bg-white border border-slate-200 rounded text-xs font-medium text-slate-600">{t}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="flex flex-wrap gap-3">
-          <a
-            href={opp.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-all"
-          >
-            Apply / Visit <ExternalLink size={14} />
-          </a>
-          <button
-            onClick={() => navigate(`/chat?q=Tell me about "${opp.title}"`)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors"
-          >
-            <MessageSquare size={14} /> Ask SOIP about this
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <a
+              href={opp.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-brand-500/25 hover:-translate-y-0.5 transition-all"
+            >
+              check it out <ExternalLink size={14} />
+            </a>
+            <button
+              onClick={() => navigate(`/chat?q=Tell me about "${opp.title}"`)}
+              className="flex items-center gap-2 px-6 py-3 bg-white/60 backdrop-blur border border-stone-200 text-stone-700 rounded-xl font-semibold text-sm hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-all"
+            >
+              <MessageSquare size={14} /> ask soip
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -122,11 +129,11 @@ export default function OpportunityPage() {
 
 function InfoBox({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
-    <div className="bg-slate-50 rounded-xl p-4">
-      <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
+    <div className="bg-white/60 backdrop-blur border border-stone-200/50 rounded-2xl p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">
         <Icon size={14} /> {label}
       </div>
-      <p className="text-sm text-slate-700">{value}</p>
+      <p className="text-sm text-stone-700">{value}</p>
     </div>
   );
 }
@@ -155,18 +162,18 @@ function renderDescription(text: string) {
   return sections.map((section, idx) => {
     const bullets = section.body.split(/\s\*\s+/).map((s) => s.trim()).filter(Boolean);
     return (
-      <div key={`${section.title}-${idx}`} className="bg-white/60 border border-slate-200 rounded-2xl p-4">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400 mb-2">
+      <div key={`${section.title}-${idx}`} className="bg-white/60 backdrop-blur border border-stone-200/50 rounded-2xl p-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">
           {section.title}
         </h3>
         {bullets.length > 1 ? (
-          <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
+          <ul className="list-disc pl-5 space-y-1 text-sm text-stone-700">
             {bullets.map((b, i) => (
               <li key={i}>{renderInline(b)}</li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-slate-700">{renderInline(section.body)}</p>
+          <p className="text-sm text-stone-700">{renderInline(section.body)}</p>
         )}
       </div>
     );
@@ -185,7 +192,7 @@ function renderInline(text: string) {
       const label = parts[i];
       const href = parts[i + 1];
       nodes.push(
-        <a key={`${href}-${i}`} href={href} target="_blank" rel="noreferrer" className="text-brand-700 underline">
+        <a key={`${href}-${i}`} href={href} target="_blank" rel="noreferrer" className="text-brand-600 underline hover:text-brand-700">
           {label}
         </a>
       );
@@ -203,7 +210,7 @@ function renderInline(text: string) {
         urlParts.forEach((u, ui) => {
           if (u.match(urlRegex) && isCompleteUrl(u)) {
             nodes.push(
-              <a key={`${u}-${ui}`} href={u} target="_blank" rel="noreferrer" className="text-brand-700 underline">
+              <a key={`${u}-${ui}`} href={u} target="_blank" rel="noreferrer" className="text-brand-600 underline hover:text-brand-700">
                 {u}
               </a>
             );
@@ -220,14 +227,12 @@ function renderInline(text: string) {
 
 function sanitizeDescription(raw: string) {
   const cleaned = raw.replace(/\r\n/g, "\n").replace(/\s{2,}/g, " ").trim();
-  // Drop obvious truncated URLs like https...
   const noTruncatedUrls = cleaned.replace(/https?:\/\/[^\s]*\.\.\./g, "").replace(/https?:\/\/\.\.\./g, "");
-  // Remove trailing ellipsis-only fragments
   return noTruncatedUrls.replace(/\.\.\.$/g, "").replace(/\s+\.\.\.$/g, "").trim();
 }
 
 function isCompleteUrl(url: string) {
-  if (url.includes("...") || url.includes("…")) return false;
-  if (url.endsWith("...") || url.endsWith("…")) return false;
+  if (url.includes("...") || url.includes("\u2026")) return false;
+  if (url.endsWith("...") || url.endsWith("\u2026")) return false;
   return url.length > 12;
 }
