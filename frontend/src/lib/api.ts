@@ -62,7 +62,7 @@ export interface User {
   degree_type: string | null;
   skills: string[];
   interests: string[];
-  aspirations: string[];
+  looking_for: string[];
   university_id: string | null;
   is_onboarded: boolean;
 }
@@ -78,7 +78,7 @@ export interface ProfileUpdate {
   degree_type?: string;
   skills?: string[];
   interests?: string[];
-  aspirations?: string[];
+  looking_for?: string[];
 }
 
 export async function updateProfile(data: ProfileUpdate): Promise<User> {

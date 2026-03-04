@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 
 const DEGREE_OPTIONS = ["B.Tech", "B.Sc", "M.Tech", "M.Sc", "MBA", "PhD", "Other"];
 
-const ASPIRATION_OPTIONS = [
+const LOOKINGFOR_OPTIONS = [
   "hackathons", "internships", "grants", "fellowships",
   "competitions", "scholarships", "research", "startups",
 ];
@@ -28,7 +28,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
   const [degreeType, setDegreeType] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [interests, setInterests] = useState<string[]>([]);
-  const [aspirations, setAspirations] = useState<string[]>([]);
+  const [lookingFors, setlookingFors] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -40,7 +40,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
     setDegreeType(user.degree_type || "");
     setSkills(user.skills || []);
     setInterests(user.interests || []);
-    setAspirations(user.aspirations || []);
+    setlookingFors(user.looking_for || []);
     setError("");
     setSuccess("");
   }, [open, user]);
@@ -77,8 +77,8 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
     });
   };
 
-  const toggleAspiration = (asp: string) => {
-    setAspirations((prev) =>
+  const togglelooking_for = (asp: string) => {
+    setlookingFors((prev) =>
       prev.includes(asp) ? prev.filter((a) => a !== asp) : [...prev, asp]
     );
   };
@@ -94,7 +94,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
         degree_type: degreeType,
         skills,
         interests,
-        aspirations,
+        looking_for: lookingFors,
       });
       await refreshUser();
       setSuccess("Profile updated.");
@@ -203,12 +203,12 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-content-tertiary mb-2">Looking for</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {ASPIRATION_OPTIONS.map((a) => (
+                  {LOOKINGFOR_OPTIONS.map((a) => (
                     <label key={a} className="flex items-center gap-2 text-sm cursor-pointer capitalize">
                       <input
                         type="checkbox"
-                        checked={aspirations.includes(a)}
-                        onChange={() => toggleAspiration(a)}
+                        checked={lookingFors.includes(a)}
+                        onChange={() => togglelooking_for(a)}
                         className="accent-brand-600 w-4 h-4"
                       />
                       {a}

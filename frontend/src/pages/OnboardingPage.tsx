@@ -5,7 +5,7 @@ import { useAuth } from "../lib/auth";
 
 const DEGREE_OPTIONS = ["B.Tech", "B.Sc", "M.Tech", "M.Sc", "MBA", "PhD", "Other"];
 
-const ASPIRATION_OPTIONS = [
+const LOOKINGFOR_OPTIONS = [
   "hackathons", "internships", "grants", "fellowships",
   "competitions", "scholarships", "research", "startups",
 ];
@@ -25,7 +25,7 @@ export default function OnboardingPage() {
   const [degreeType, setDegreeType] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [interests, setInterests] = useState<string[]>([]);
-  const [aspirations, setAspirations] = useState<string[]>([]);
+  const [lookingFor, setLookingFors] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -51,8 +51,8 @@ export default function OnboardingPage() {
     });
   };
 
-  const toggleAspiration = (asp: string) => {
-    setAspirations((prev) =>
+  const toggleLookingFors = (asp: string) => {
+    setLookingFors((prev) =>
       prev.includes(asp) ? prev.filter((a) => a !== asp) : [...prev, asp]
     );
   };
@@ -67,7 +67,7 @@ export default function OnboardingPage() {
         degree_type: degreeType,
         skills,
         interests,
-        aspirations,
+        looking_for: lookingFor,
       });
       await refreshUser();
       navigate("/dashboard");
@@ -163,16 +163,16 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Aspirations */}
+          {/* Looking For */}
           <div>
             <label className="block text-sm font-medium text-content-secondary mb-2">What are you looking for?</label>
             <div className="grid grid-cols-2 gap-2">
-              {ASPIRATION_OPTIONS.map((a) => (
+              {LOOKINGFOR_OPTIONS.map((a) => (
                 <label key={a} className="flex items-center gap-2 text-sm cursor-pointer capitalize">
                   <input
                     type="checkbox"
-                    checked={aspirations.includes(a)}
-                    onChange={() => toggleAspiration(a)}
+                    checked={lookingFor.includes(a)}
+                    onChange={() => toggleLookingFors(a)}
                     className="accent-brand-600 w-4 h-4"
                   />
                   {a}
