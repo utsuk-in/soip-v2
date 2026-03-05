@@ -60,44 +60,53 @@ export default function DashboardPage() {
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
       {/* Greeting */}
-      <div className="flex flex-col gap-2">
-        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Personal brief</p>
-        <h1 className="text-3xl font-semibold text-slate-900 font-display">
-          Welcome back, {user?.first_name || "explorer"}
+      <div>
+        <h1 className="text-3xl font-bold text-stone-900 font-display">
+          Hello <span className="gradient-text">{user?.first_name || "there"}</span>, what would you like to do?
         </h1>
-        <p className="text-slate-500">Signal captured. Here’s your best next move.</p>
+        <p className="text-stone-400 mt-1">Here are your top opportunities right now.</p>
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <button
           onClick={() => navigate("/chat")}
-          className="flex items-center gap-4 bg-gradient-to-r from-brand-600 to-brand-500 text-white p-5 rounded-2xl hover:shadow-lg transition-all text-left"
+          className="flex items-center gap-4 bg-gradient-to-r from-brand-600 to-brand-500 text-white p-5 rounded-2xl hover:shadow-lg hover:shadow-brand-500/25 hover:-translate-y-0.5 transition-all text-left"
         >
           <MessageSquare size={24} />
           <div>
-            <p className="font-semibold">Chat with SOIP</p>
-            <p className="text-sm text-brand-100">Ask about opportunities, get personalized recommendations</p>
+            <p className="font-bold">Ask SOIP Anything</p>
+            <p className="text-sm text-brand-100">Get personalized recommendations, powered by AI.</p>
           </div>
         </button>
         <button
           onClick={() => navigate("/browse")}
-          className="flex items-center gap-4 bg-white border border-slate-200 text-slate-900 p-5 rounded-2xl hover:border-brand-300 hover:shadow-md transition-all text-left"
+          className="flex items-center gap-4 bg-white/70 backdrop-blur border border-white/30 text-stone-900 p-5 rounded-2xl hover:shadow-lg hover:shadow-brand-500/10 hover:-translate-y-0.5 transition-all text-left"
         >
           <Search size={24} className="text-brand-600" />
           <div>
-            <p className="font-semibold">Browse opportunities</p>
-            <p className="text-sm text-slate-500">Filter by category, domain, deadline</p>
+            <p className="font-bold">Explore Opportunities</p>
+            <p className="text-sm text-stone-400">Filter by category, domain, or deadline.</p>
           </div>
         </button>
       </div>
 
       {/* Recommended */}
       {recommended.length > 0 && (
-        <Section icon={Sparkles} title="Recommended for you" color="text-brand-600">
+        <Section
+          icon={Sparkles}
+          title="Recommended for You"
+          color="text-brand-600"
+          surface="bg-brand-100/70 border-brand-200/80"
+          art={`url("data:image/svg+xml;utf8,${encodeURIComponent(
+            "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='140' viewBox='0 0 240 140'><g fill='none' stroke='%2306b6d4' stroke-width='1.2' opacity='0.22'><path d='M10 32c32-18 72-18 104 0s72 18 104 0'/><circle cx='186' cy='30' r='6'/><circle cx='40' cy='98' r='5'/></g></svg>"
+          )}"), radial-gradient(120% 140% at 0% 0%, rgba(6,182,212,0.18) 0%, rgba(255,255,255,0) 55%), radial-gradient(120% 140% at 100% 0%, rgba(34,197,94,0.12) 0%, rgba(255,255,255,0) 60%)`}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recommended.map((opp) => (
-              <OpportunityCard key={opp.id} opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+            {recommended.map((opp, i) => (
+              <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
+                <OpportunityCard opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+              </div>
             ))}
           </div>
         </Section>
@@ -105,10 +114,20 @@ export default function DashboardPage() {
 
       {/* Expiring Soon */}
       {expiring.length > 0 && (
-        <Section icon={AlertTriangle} title="Expiring soon" color="text-orange-600">
+        <Section
+          icon={AlertTriangle}
+          title="Closing Soon"
+          color="text-hot"
+          surface="bg-accent-100/70 border-accent-200/80"
+          art={`url("data:image/svg+xml;utf8,${encodeURIComponent(
+            "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='140' viewBox='0 0 240 140'><g fill='none' stroke='%23f43f5e' stroke-width='1.2' opacity='0.22'><path d='M20 110l40-60 40 60 40-60 40 60'/><circle cx='30' cy='26' r='5'/><circle cx='210' cy='112' r='6'/></g></svg>"
+          )}"), radial-gradient(140% 120% at 0% 0%, rgba(244,63,94,0.22) 0%, rgba(255,255,255,0) 55%), radial-gradient(140% 120% at 100% 100%, rgba(245,158,11,0.14) 0%, rgba(255,255,255,0) 60%)`}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {expiring.map((opp) => (
-              <OpportunityCard key={opp.id} opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+            {expiring.map((opp, i) => (
+              <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
+                <OpportunityCard opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+              </div>
             ))}
           </div>
         </Section>
@@ -116,10 +135,20 @@ export default function DashboardPage() {
 
       {/* New This Week */}
       {recent.length > 0 && (
-        <Section icon={Clock} title="Recently added" color="text-green-600">
+        <Section
+          icon={Clock}
+          title="New Opportunities"
+          color="text-pop"
+          surface="bg-brand-50/80 border-brand-200/70"
+          art={`url("data:image/svg+xml;utf8,${encodeURIComponent(
+            "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='140' viewBox='0 0 240 140'><g fill='none' stroke='%2322c55e' stroke-width='1.2' opacity='0.22'><path d='M14 24h70m-60 22h90m-80 22h120'/><circle cx='200' cy='26' r='6'/><circle cx='160' cy='92' r='5'/></g></svg>"
+          )}"), radial-gradient(120% 120% at 0% 100%, rgba(6,182,212,0.16) 0%, rgba(255,255,255,0) 55%), radial-gradient(140% 120% at 100% 0%, rgba(34,197,94,0.14) 0%, rgba(255,255,255,0) 60%)`}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recent.map((opp) => (
-              <OpportunityCard key={opp.id} opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+            {recent.map((opp, i) => (
+              <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
+                <OpportunityCard opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+              </div>
             ))}
           </div>
         </Section>
@@ -128,12 +157,15 @@ export default function DashboardPage() {
   );
 }
 
-function Section({ icon: Icon, title, color, children }: {
-  icon: React.ElementType; title: string; color: string; children: React.ReactNode;
+function Section({ icon: Icon, title, color, surface, art, children }: {
+  icon: React.ElementType; title: string; color: string; surface: string; art: string; children: React.ReactNode;
 }) {
   return (
-    <section>
-      <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 mb-4 font-display">
+    <section
+      className={`rounded-2xl border ${surface} p-4 sm:p-5`}
+      style={{ backgroundImage: art }}
+    >
+      <h2 className="flex items-center gap-2 text-lg font-bold text-stone-800 mb-4 font-display">
         <Icon size={20} className={color} />
         {title}
       </h2>

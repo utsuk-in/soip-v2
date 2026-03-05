@@ -193,8 +193,8 @@ def _build_profile_terms(user: User) -> list[str]:
         parts.extend(user.skills)
     if user.aspirations:
         parts.extend(user.aspirations)
-    if user.degree_type:
-        parts.append(user.degree_type)
+    if user.academic_background:
+        parts.append(user.academic_background)
     return [p for p in (str(x).strip() for x in parts) if p]
 
 
@@ -231,17 +231,27 @@ def _split_list_param(value: str) -> list[str]:
 
 
 def _normalize_categories(raw: list[str]) -> list[OpportunityCategory]:
+    alias_map = {
+        "hackathons": "hackathon",
+        "internships": "internship",
+        "grants": "grant",
+        "fellowships": "fellowship",
+        "competitions": "competition",
+        "scholarships": "scholarship",
+    }
     normalized: list[OpportunityCategory] = []
     for item in raw:
         if not item:
             continue
+        key = str(item).strip().lower()
+        key = alias_map.get(key, key)
         try:
-            normalized.append(OpportunityCategory(item))
+            normalized.append(OpportunityCategory(key))
             continue
         except ValueError:
             pass
         try:
-            normalized.append(OpportunityCategory[item.upper()])
+            normalized.append(OpportunityCategory[key.upper()])
         except KeyError:
             continue
     return normalized

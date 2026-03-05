@@ -41,10 +41,23 @@ export interface TokenResponse {
   token_type: string;
 }
 
-export async function register(email: string, password: string): Promise<TokenResponse> {
+export interface RegisterData {
+  email: string;
+  password: string;
+  first_name: string;
+  academic_background: string;
+  year_of_study: string;
+  state: string;
+  skills: string[];
+  interests: string[];
+  aspirations: string[];
+  university_id?: string | null;
+}
+
+export async function register(data: RegisterData): Promise<TokenResponse> {
   return request("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(data),
   });
 }
 
@@ -59,7 +72,9 @@ export interface User {
   id: string;
   email: string;
   first_name: string | null;
-  degree_type: string | null;
+  academic_background: string | null;
+  year_of_study: string | null;
+  state: string | null;
   skills: string[];
   interests: string[];
   aspirations: string[];
@@ -75,7 +90,9 @@ export async function getMe(): Promise<User> {
 
 export interface ProfileUpdate {
   first_name?: string;
-  degree_type?: string;
+  academic_background?: string;
+  year_of_study?: string;
+  state?: string;
   skills?: string[];
   interests?: string[];
   aspirations?: string[];
@@ -100,6 +117,8 @@ export interface Opportunity {
   benefits: string | null;
   deadline: string | null;
   url: string;
+  application_url?: string;
+  application_link?: string;
   source_url: string;
   confidence: number | null;
   is_active: boolean;
@@ -127,20 +146,34 @@ export interface OpportunityListResponse {
   has_prev: boolean;
 }
 
+function normalizeOpportunity(raw: any): Opportunity {
+  const applicationUrl =
+    raw.application_url || raw.application_link || raw.url || "";
+  return {
+    ...raw,
+    url: applicationUrl,
+    application_url: raw.application_url,
+    application_link: raw.application_link,
+  };
+}
+
 export async function browseOpportunities(params: BrowseParams = {}): Promise<OpportunityListResponse> {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== "") qs.set(k, String(v));
   }
-  return request(`/api/opportunities?${qs}`);
+  const res = await request<OpportunityListResponse>(`/api/opportunities?${qs}`);
+  return { ...res, items: res.items.map(normalizeOpportunity) };
 }
 
 export async function getOpportunity(id: string): Promise<Opportunity> {
-  return request(`/api/opportunities/${id}`);
+  const res = await request<Opportunity>(`/api/opportunities/${id}`);
+  return normalizeOpportunity(res);
 }
 
 export async function getRecommended(limit = 10): Promise<Opportunity[]> {
-  return request(`/api/opportunities/recommended?limit=${limit}`);
+  const res = await request<Opportunity[]>(`/api/opportunities/recommended?limit=${limit}`);
+  return res.map(normalizeOpportunity);
 }
 
 // --- Chat ---

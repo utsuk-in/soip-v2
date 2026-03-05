@@ -10,9 +10,14 @@ _BCRYPT_MAX_BYTES = 72
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    first_name: str
+    academic_background: str
+    year_of_study: str
+    state: str
+    skills: list[str]
+    interests: list[str]
+    aspirations: list[str]
     university_id: UUID | None = None
-    skills: list[str] | None = None
-    interests: list[str] | None = None
 
     @field_validator("password")
     @classmethod

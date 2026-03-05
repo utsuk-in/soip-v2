@@ -17,7 +17,9 @@ class User(Base):
     )
 
     first_name = Column(String(100), nullable=True)
-    degree_type = Column(String(50), nullable=True)
+    academic_background = Column(String(255), nullable=True)
+    year_of_study = Column(String(50), nullable=True)
+    state = Column(String(100), nullable=True)
     skills = Column(JSON, default=list)
     interests = Column(JSON, default=list)
     aspirations = Column(JSON, default=list)

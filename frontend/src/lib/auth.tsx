@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { getMe, login as apiLogin, register as apiRegister, type User } from "./api";
+import { getMe, login as apiLogin, register as apiRegister, type User, type RegisterData } from "./api";
 
 interface AuthState {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -44,8 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refreshUser();
   };
 
-  const register = async (email: string, password: string) => {
-    const res = await apiRegister(email, password);
+  const register = async (data: RegisterData) => {
+    const res = await apiRegister(data);
     localStorage.setItem("soip_token", res.access_token);
     await refreshUser();
   };

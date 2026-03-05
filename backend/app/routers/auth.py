@@ -15,14 +15,18 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
     try:
-        skills = body.skills
         user = register_user(
             db,
-            body.email,
-            body.password,
-            body.university_id,
-            skills=normalize_domains(skills) if skills else None,
-            interests=normalize_domains(body.interests) if body.interests else None,
+            email=body.email,
+            password=body.password,
+            first_name=body.first_name,
+            academic_background=body.academic_background,
+            year_of_study=body.year_of_study,
+            state=body.state,
+            skills=normalize_domains(body.skills) or body.skills,
+            interests=normalize_domains(body.interests) or body.interests,
+            aspirations=body.aspirations,
+            university_id=body.university_id,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
