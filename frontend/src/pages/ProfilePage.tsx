@@ -19,63 +19,63 @@ export default function ProfilePage() {
 
       <div className="max-w-2xl mx-auto relative z-10">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-stone-900 font-display">tune your vibe</h1>
-          <p className="text-stone-400">sharper profile = better recs</p>
+          <h1 className="text-2xl font-bold text-stone-900 font-display">Update Your Profile</h1>
+          <p className="text-stone-400">A stronger profile enables better recommendations.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-2xl shadow-brand-500/10 border border-white/30 p-8 space-y-5">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">first name</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">First Name</label>
             <input
               type="text"
               required
               value={form.firstName}
               onChange={(e) => form.setFirstName(e.target.value)}
               className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
-              placeholder="what should we call you?"
+              placeholder="What should we call you?"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">academic background</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">Academic Background</label>
             <input
               type="text"
               required
               value={form.academicBackground}
               onChange={(e) => form.setAcademicBackground(e.target.value)}
               className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
-              placeholder="e.g. B.Tech Computer Science, MBA"
+              placeholder="e.g., B.Tech Computer Science, MBA"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">year of study</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">Year of Study</label>
             <select
               required
               value={form.yearOfStudy}
               onChange={(e) => form.setYearOfStudy(e.target.value)}
               className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
             >
-              <option value="">select year...</option>
+              <option value="">Select year...</option>
               {YEAR_OF_STUDY_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">state / location</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">State / Location</label>
             <select
               required
               value={form.userState}
               onChange={(e) => form.setUserState(e.target.value)}
               className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
             >
-              <option value="">select state...</option>
+              <option value="">Select state...</option>
               {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">skills</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">Skills</label>
             <div className="flex gap-2 mb-2">
               <input
                 type="text"
@@ -83,10 +83,10 @@ export default function ProfilePage() {
                 onChange={(e) => form.setSkillInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); form.addSkill(); } }}
                 className="flex-1 px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
-                placeholder="type a skill + enter"
+                placeholder="Type a skill and press Enter"
               />
               <button type="button" onClick={form.addSkill}
-                className="px-4 py-2.5 bg-brand-50 text-brand-600 rounded-xl text-sm font-semibold hover:bg-brand-100 transition-colors">add</button>
+                className="px-4 py-2.5 bg-brand-50 text-brand-600 rounded-xl text-sm font-semibold hover:bg-brand-100 transition-colors">Add</button>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {form.skills.map((s) => (
@@ -99,7 +99,7 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">interests</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">Interests</label>
             <div className="flex flex-wrap gap-2">
               {INTEREST_SUGGESTIONS.map((i) => (
                 <button key={i} type="button" onClick={() => form.toggleInterest(i)}
@@ -115,7 +115,7 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">what are you looking for?</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">What are you looking for?</label>
             <div className="grid grid-cols-2 gap-2">
               {ASPIRATION_OPTIONS.map((a) => (
                 <label key={a} className="flex items-center gap-2 text-sm cursor-pointer capitalize text-stone-600">
@@ -132,7 +132,7 @@ export default function ProfilePage() {
 
           <button type="submit" disabled={form.loading}
             className="w-full py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50">
-            {form.loading ? "saving..." : "lock it in"}
+            {form.loading ? "Saving..." : "Save Profile"}
           </button>
         </form>
       </div>

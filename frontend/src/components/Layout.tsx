@@ -58,7 +58,7 @@ export default function Layout() {
         <div className="h-16 flex items-center px-5 border-b border-stone-100">
           <div>
             <h1 className="text-xl font-bold font-display gradient-text leading-tight">SOIP</h1>
-            <p className="text-[10px] font-medium text-stone-400 tracking-widest uppercase">opp radar</p>
+            <p className="text-[10px] font-medium text-stone-400 tracking-widest uppercase">Opportunity Radar</p>
           </div>
           <button className="ml-auto lg:hidden text-stone-400 hover:text-stone-600" onClick={() => setSidebarOpen(false)}>
             <X size={20} />
@@ -96,7 +96,7 @@ export default function Layout() {
               onClick={() => setProfileOpen(true)}
               className="w-full text-xs font-semibold uppercase tracking-wide bg-white/20 hover:bg-white/30 text-white rounded-xl py-2 transition-colors"
             >
-              tune your vibe
+              Update Profile
             </button>
           </div>
         </div>
@@ -148,7 +148,7 @@ export default function Layout() {
                   onClick={() => { setProfileOpen(true); setMenuOpen(false); }}
                   className="w-full text-left px-4 py-2.5 text-sm text-stone-600 hover:bg-brand-50 hover:text-brand-700 transition-colors"
                 >
-                  tune your vibe
+                  Update Profile
                 </button>
                 <button
                   onClick={handleLogout}

@@ -2,6 +2,16 @@ export const YEAR_OF_STUDY_OPTIONS = [
   "1st Year", "2nd Year", "3rd Year", "Final Year", "Postgraduate",
 ];
 
+export const DEGREE_OPTIONS = [
+  "Undergraduate (BA/BS/BSc)",
+  "Engineering (B.Tech/B.E.)",
+  "Masters (MA/MS/MSc)",
+  "MBA/PGDM",
+  "PhD/Doctoral",
+  "Diploma/Certificate",
+  "Other",
+];
+
 export const INDIAN_STATES = [
   "Pan India",
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",

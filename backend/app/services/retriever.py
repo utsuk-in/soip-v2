@@ -97,10 +97,14 @@ def _chunk_vector_search(
 
     domains = normalize_domains(query.domains)
     if domains:
-        placeholders = ", ".join(f":dom_{i}" for i in range(len(domains)))
-        opp_filters.append(f"o.domain_tags::jsonb ?| array[{placeholders}]")
+        domain_clauses = []
         for i, dom in enumerate(domains):
             params[f"dom_{i}"] = dom
+            domain_clauses.append(
+                f"EXISTS (SELECT 1 FROM jsonb_array_elements_text(o.domain_tags::jsonb) AS tag(value) "
+                f"WHERE lower(tag.value) = :dom_{i})"
+            )
+        opp_filters.append("(" + " OR ".join(domain_clauses) + ")")
 
     where = " AND ".join(where_clauses)
 
@@ -205,10 +209,14 @@ def _fts_search(
 
     domains = normalize_domains(query.domains)
     if domains:
-        placeholders = ", ".join(f":dom_{i}" for i in range(len(domains)))
-        where_clauses.append(f"domain_tags::jsonb ?| array[{placeholders}]")
+        domain_clauses = []
         for i, dom in enumerate(domains):
             params[f"dom_{i}"] = dom
+            domain_clauses.append(
+                f"EXISTS (SELECT 1 FROM jsonb_array_elements_text(domain_tags::jsonb) AS tag(value) "
+                f"WHERE lower(tag.value) = :dom_{i})"
+            )
+        where_clauses.append("(" + " OR ".join(domain_clauses) + ")")
 
     where = " AND ".join(where_clauses)
 
@@ -263,10 +271,14 @@ def _chunk_fts_search(
     domain_filter = ""
     domains = normalize_domains(query.domains)
     if domains:
-        placeholders = ", ".join(f":dom_{i}" for i in range(len(domains)))
-        domain_filter = f" AND (o.domain_tags::jsonb ?| array[{placeholders}])"
+        domain_clauses = []
         for i, dom in enumerate(domains):
             params[f"dom_{i}"] = dom
+            domain_clauses.append(
+                f"EXISTS (SELECT 1 FROM jsonb_array_elements_text(o.domain_tags::jsonb) AS tag(value) "
+                f"WHERE lower(tag.value) = :dom_{i})"
+            )
+        domain_filter = " AND (" + " OR ".join(domain_clauses) + ")"
 
     sql = sa_text("""
         SELECT c.id AS chunk_id,

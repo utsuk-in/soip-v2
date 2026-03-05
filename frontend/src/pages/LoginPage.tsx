@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { YEAR_OF_STUDY_OPTIONS, INDIAN_STATES, ASPIRATION_OPTIONS, INTEREST_SUGGESTIONS } from "../lib/constants";
+import { YEAR_OF_STUDY_OPTIONS, INDIAN_STATES, ASPIRATION_OPTIONS, INTEREST_SUGGESTIONS, DEGREE_OPTIONS } from "../lib/constants";
 import { ArrowLeft } from "lucide-react";
 
-const STEPS = ["account", "about you", "interests"];
+const STEPS = ["Account", "About You", "Interests"];
 
 function StepIndicator({ current }: { current: number }) {
   return (
@@ -161,7 +161,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold font-display gradient-text mb-1">SOIP</h1>
-          <p className="text-stone-400 text-sm font-medium">your opp radar</p>
+          <p className="text-stone-400 text-sm font-medium">Opportunity Radar</p>
         </div>
 
         {/* Card */}
@@ -170,13 +170,13 @@ export default function LoginPage() {
 
           <h2 className="text-xl font-bold text-stone-900 mb-1 font-display">
             {isRegister
-              ? step === 0 ? "join the wave" : step === 1 ? "let's get to know you" : "what are you into?"
-              : "jump back in"}
+              ? step === 0 ? "Create Your Account" : step === 1 ? "Tell Us About You" : "Your Interests"
+              : "Welcome Back"}
           </h2>
           <p className="text-stone-400 text-sm mb-6">
             {isRegister
-              ? step === 0 ? "create your account to get started" : step === 1 ? "this helps us find the best opps for you" : "almost there -- pick what vibes with you"
-              : "sign in to your account"}
+              ? step === 0 ? "Create your account to get started." : step === 1 ? "This helps us personalize opportunities for you." : "Almost there—choose what interests you most."
+              : "Sign in to your account."}
           </p>
 
           {/* Back button for steps 2-3 */}
@@ -185,7 +185,7 @@ export default function LoginPage() {
               onClick={() => { setStep(step - 1); setError(""); }}
               className="flex items-center gap-1 text-sm text-stone-400 hover:text-brand-600 mb-4 transition-colors"
             >
-              <ArrowLeft size={14} /> back
+              <ArrowLeft size={14} /> Back
             </button>
           )}
 
@@ -207,7 +207,7 @@ export default function LoginPage() {
               {error && <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{error}</p>}
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50">
-                {loading ? "please wait..." : "jump back in"}
+                {loading ? "Please wait..." : "Sign In"}
               </button>
             </form>
           )}
@@ -230,7 +230,7 @@ export default function LoginPage() {
               {error && <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{error}</p>}
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50">
-                {loading ? "creating account..." : "next"}
+                {loading ? "Creating account..." : "Next"}
               </button>
             </form>
           )}
@@ -239,22 +239,24 @@ export default function LoginPage() {
           {isRegister && step === 1 && (
             <form onSubmit={handleRegisterStep} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">First name</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">First Name</label>
                 <input type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)}
                   className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
-                  placeholder="what should we call you?" />
+                  placeholder="What should we call you?" />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Academic background</label>
-                <input type="text" required value={academicBackground} onChange={(e) => setAcademicBackground(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
-                  placeholder="e.g. B.Tech Computer Science, MBA" />
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Academic Background</label>
+                <select required value={academicBackground} onChange={(e) => setAcademicBackground(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50">
+                  <option value="">Select degree...</option>
+                  {DEGREE_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Year of study</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Year of Study</label>
                 <select required value={yearOfStudy} onChange={(e) => setYearOfStudy(e.target.value)}
                   className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50">
-                  <option value="">select year...</option>
+                  <option value="">Select year...</option>
                   {YEAR_OF_STUDY_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
@@ -262,14 +264,14 @@ export default function LoginPage() {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">State / Location</label>
                 <select required value={userState} onChange={(e) => setUserState(e.target.value)}
                   className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50">
-                  <option value="">select state...</option>
+                  <option value="">Select state...</option>
                   {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               {error && <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{error}</p>}
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50">
-                next
+                Next
               </button>
             </form>
           )}
@@ -284,10 +286,10 @@ export default function LoginPage() {
                   <input type="text" value={skillInput} onChange={(e) => setSkillInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }}
                     className="flex-1 px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
-                    placeholder="type a skill + enter" />
+                    placeholder="Type a skill and press Enter" />
                   <button type="button" onClick={addSkill}
                     className="px-4 py-2.5 bg-brand-50 text-brand-600 rounded-xl text-sm font-semibold hover:bg-brand-100 transition-colors">
-                    add
+                    Add
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -334,16 +336,16 @@ export default function LoginPage() {
               {error && <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{error}</p>}
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50">
-                {loading ? "setting up..." : "let's go"}
+                {loading ? "Setting up..." : "Finish Registration"}
               </button>
             </form>
           )}
 
           {/* Toggle login/register */}
           <p className="mt-6 text-center text-sm text-stone-400">
-            {isRegister ? "already on board?" : "new here?"}{" "}
+            {isRegister ? "Already have an account?" : "New here?"}{" "}
             <button onClick={switchMode} className="text-brand-600 font-semibold hover:text-brand-700 transition-colors">
-              {isRegister ? "jump back in" : "join the wave"}
+              {isRegister ? "Sign In" : "Create an Account"}
             </button>
           </p>
         </div>

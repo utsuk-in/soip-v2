@@ -42,8 +42,8 @@ export default function OpportunityPage() {
   if (error || !opp) {
     return (
       <div className="p-8 text-center">
-        <p className="text-hot mb-4">{error || "opp not found"}</p>
-        <button onClick={() => navigate(-1)} className="text-brand-600 font-semibold hover:text-brand-700">go back</button>
+        <p className="text-hot mb-4">{error || "Opportunity not found"}</p>
+        <button onClick={() => navigate(-1)} className="text-brand-600 font-semibold hover:text-brand-700">Go Back</button>
       </div>
     );
   }
@@ -83,18 +83,18 @@ export default function OpportunityPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             {opp.deadline && (
-              <InfoBox icon={Calendar} label="deadline" value={new Date(opp.deadline).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })} />
+              <InfoBox icon={Calendar} label="Deadline" value={new Date(opp.deadline).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })} />
             )}
             {opp.eligibility && (
-              <InfoBox icon={Users} label="eligibility" value={opp.eligibility} />
+              <InfoBox icon={Users} label="Eligibility" value={opp.eligibility} />
             )}
             {opp.benefits && (
-              <InfoBox icon={Award} label="benefits" value={opp.benefits} />
+              <InfoBox icon={Award} label="Benefits" value={opp.benefits} />
             )}
             {opp.domain_tags.length > 0 && (
               <div className="bg-white/60 backdrop-blur border border-stone-200/50 rounded-2xl p-4">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">
-                  <Tag size={14} /> domains
+                  <Tag size={14} /> Domains
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {opp.domain_tags.map((t) => (
@@ -112,13 +112,13 @@ export default function OpportunityPage() {
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-brand-500/25 hover:-translate-y-0.5 transition-all"
             >
-              check it out <ExternalLink size={14} />
+              View application <ExternalLink size={14} />
             </a>
             <button
               onClick={() => navigate(`/chat?q=Tell me about "${opp.title}"`)}
               className="flex items-center gap-2 px-6 py-3 bg-white/60 backdrop-blur border border-stone-200 text-stone-700 rounded-xl font-semibold text-sm hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-all"
             >
-              <MessageSquare size={14} /> ask soip
+              <MessageSquare size={14} /> Ask SOIP
             </button>
           </div>
         </div>
