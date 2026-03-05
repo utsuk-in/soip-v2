@@ -1,26 +1,16 @@
 import React from "react";
 import { Calendar, ExternalLink } from "lucide-react";
 import type { Opportunity } from "../lib/api";
-
-const CATEGORY_COLORS: Record<string, string> = {
-  hackathon: "bg-brand-100 text-brand-800",
-  grant: "bg-emerald-100 text-emerald-800",
-  fellowship: "bg-sky-100 text-sky-800",
-  internship: "bg-accent-100 text-accent-800",
-  competition: "bg-rose-100 text-rose-800",
-  scholarship: "bg-teal-100 text-teal-800",
-  program: "bg-indigo-100 text-indigo-800",
-  other: "bg-slate-100 text-slate-700",
-};
+import { CATEGORY_COLORS } from "../lib/constants";
 
 function deadlineLabel(deadline: string | null): { text: string; urgent: boolean } | null {
   if (!deadline) return null;
   const days = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
-  if (days < 0) return { text: "Expired", urgent: true };
-  if (days === 0) return { text: "Today!", urgent: true };
-  if (days === 1) return { text: "Tomorrow", urgent: true };
-  if (days <= 7) return { text: `${days} days left`, urgent: true };
-  if (days <= 30) return { text: `${days} days left`, urgent: false };
+  if (days < 0) return { text: "expired", urgent: true };
+  if (days === 0) return { text: "today!", urgent: true };
+  if (days === 1) return { text: "tomorrow", urgent: true };
+  if (days <= 7) return { text: `${days}d left`, urgent: true };
+  if (days <= 30) return { text: `${days}d left`, urgent: false };
   return { text: new Date(deadline).toLocaleDateString("en-IN", { month: "short", day: "numeric" }), urgent: false };
 }
 
@@ -37,33 +27,33 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
   return (
     <div
       onClick={onClick}
-      className={`bg-white rounded-2xl border border-slate-200 hover:border-brand-300 hover:shadow-lg transition-all ${
+      className={`bg-white/70 backdrop-blur border border-white/30 rounded-2xl hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-500/10 transition-all ${
         onClick ? "cursor-pointer" : ""
       } ${compact ? "p-3" : "p-5"} animate-fade-in`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${colorClass}`}>
           {opp.category}
         </span>
         {dl && (
-          <span className={`flex items-center gap-1 text-xs font-medium ${dl.urgent ? "text-red-600" : "text-gray-500"}`}>
+          <span className={`flex items-center gap-1 text-xs font-medium ${dl.urgent ? "text-hot bg-hot/10 px-2 py-0.5 rounded-full" : "text-stone-500"}`}>
             <Calendar size={12} />
             {dl.text}
           </span>
         )}
       </div>
 
-      <h3 className={`font-semibold text-slate-900 ${compact ? "text-sm" : "text-base"} line-clamp-2 mb-1`}>
+      <h3 className={`font-semibold text-stone-900 ${compact ? "text-sm" : "text-base"} line-clamp-2 mb-1`}>
         {opp.title}
       </h3>
 
       {!compact && (
-        <p className="text-sm text-slate-500 line-clamp-2 mb-3">{opp.description}</p>
+        <p className="text-sm text-stone-500 line-clamp-2 mb-3">{opp.description}</p>
       )}
 
       <div className="flex flex-wrap gap-1.5 mb-2">
         {(opp.domain_tags || []).slice(0, 4).map((tag) => (
-          <span key={tag} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[11px] font-medium">
+          <span key={tag} className="px-2 py-0.5 bg-stone-100 text-stone-600 rounded-full text-[11px] font-medium">
             {tag}
           </span>
         ))}
@@ -75,9 +65,9 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 text-xs text-brand-700 hover:text-brand-800 font-medium"
+          className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-semibold"
         >
-          Visit <ExternalLink size={11} />
+          View application <ExternalLink size={11} />
         </a>
       )}
     </div>

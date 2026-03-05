@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Send, PanelLeftClose, PanelLeft, Plus } from "lucide-react";
+import { Send, PanelLeftClose, PanelLeft, Plus, Sparkles } from "lucide-react";
 import { sendChatMessage, getChatSessions, getChatSession, type ChatMessage, type ChatSession, type Opportunity } from "../lib/api";
 import ChatBubble, { TypingIndicator } from "../components/ChatBubble";
 
 const SUGGESTED_PROMPTS = [
-  "What hackathons are coming up?",
-  "Show me AI internships",
-  "Fellowships for engineering students",
-  "What should I explore based on my skills?",
+  "what hackathons are coming up?",
+  "show me AI internships",
+  "fellowships for engineering students",
+  "what should I explore based on my skills?",
 ];
 
 interface DisplayMessage {
@@ -93,7 +93,7 @@ export default function ChatPage() {
       const errMsg: DisplayMessage = {
         id: `err-${Date.now()}`,
         role: "assistant",
-        content: "Sorry, something went wrong. Please try again.",
+        content: "oops, something broke. try again?",
       };
       setMessages((prev) => [...prev, errMsg]);
     } finally {
@@ -113,15 +113,15 @@ export default function ChatPage() {
     <div className="flex h-full">
       {/* Session sidebar */}
       {sidebarOpen && (
-        <aside className="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
-          <div className="p-3 border-b border-gray-100 flex items-center justify-between">
+        <aside className="w-64 bg-white/80 backdrop-blur-xl border-r border-stone-200/60 flex flex-col flex-shrink-0">
+          <div className="p-3 border-b border-stone-100 flex items-center justify-between">
             <button
               onClick={startNew}
-              className="flex items-center gap-2 px-3 py-2 bg-brand-50 text-brand-700 rounded-lg text-sm font-medium hover:bg-brand-100 flex-1"
+              className="flex items-center gap-2 px-3 py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-brand-500/25 transition-all flex-1"
             >
-              <Plus size={16} /> New chat
+              <Plus size={16} /> new chat
             </button>
-            <button onClick={() => setSidebarOpen(false)} className="ml-2 p-1.5 text-gray-400 hover:text-gray-600">
+            <button onClick={() => setSidebarOpen(false)} className="ml-2 p-1.5 text-stone-400 hover:text-stone-600 transition-colors">
               <PanelLeftClose size={18} />
             </button>
           </div>
@@ -130,17 +130,17 @@ export default function ChatPage() {
               <button
                 key={s.id}
                 onClick={() => loadSession(s.id)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate transition-colors ${
+                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm truncate transition-all ${
                   s.id === activeSessionId
-                    ? "bg-brand-50 text-brand-700 font-medium"
-                    : "text-gray-600 hover:bg-gray-100"
+                    ? "bg-brand-50 text-brand-700 font-medium border-l-2 border-brand-500"
+                    : "text-stone-500 hover:bg-stone-100 hover:text-stone-700"
                 }`}
               >
-                {s.title || "Untitled"}
+                {s.title || "untitled"}
               </button>
             ))}
             {sessions.length === 0 && (
-              <p className="text-xs text-gray-400 text-center py-4">No conversations yet</p>
+              <p className="text-xs text-stone-400 text-center py-4">No conversations yet.</p>
             )}
           </div>
         </aside>
@@ -148,11 +148,10 @@ export default function ChatPage() {
 
       {/* Chat area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Toggle sidebar button */}
         {!sidebarOpen && (
           <button
             onClick={() => setSidebarOpen(true)}
-            className="absolute left-0 top-1/2 z-10 p-1.5 bg-white border border-gray-200 rounded-r-lg text-gray-400 hover:text-gray-600"
+            className="absolute left-0 top-1/2 z-10 p-1.5 bg-white/80 backdrop-blur border border-stone-200 rounded-r-xl text-stone-400 hover:text-brand-600 transition-colors"
           >
             <PanelLeft size={16} />
           </button>
@@ -162,19 +161,19 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
           {isEmpty ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="w-16 h-16 rounded-2xl bg-brand-100 text-brand-600 flex items-center justify-center mb-4">
-                <Send size={28} />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 text-white flex items-center justify-center mb-4 shadow-glow">
+                <Sparkles size={28} />
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Ask SOIP anything</h2>
-              <p className="text-gray-500 mb-8 max-w-md">
-                Get personalized opportunity recommendations powered by AI.
+              <h2 className="text-xl font-bold text-stone-800 mb-1 font-display">Ask SOIP Anything</h2>
+              <p className="text-stone-400 mb-8 max-w-md text-sm">
+                Get personalized opportunity recommendations, powered by AI.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
                 {SUGGESTED_PROMPTS.map((prompt) => (
                   <button
                     key={prompt}
                     onClick={() => handleSend(prompt)}
-                    className="px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 hover:border-brand-300 hover:shadow-sm transition-all text-left"
+                    className="px-4 py-3 bg-white/70 backdrop-blur border border-stone-200 rounded-2xl text-sm text-stone-600 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 hover:-translate-y-0.5 hover:shadow-md transition-all text-left"
                   >
                     {prompt}
                   </button>
@@ -199,7 +198,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input */}
-        <div className="border-t border-gray-200 bg-white p-4">
+        <div className="border-t border-stone-200/60 bg-white/70 backdrop-blur-xl p-4">
           <form
             onSubmit={(e) => { e.preventDefault(); handleSend(); }}
             className="flex gap-3 max-w-3xl mx-auto"
@@ -208,14 +207,14 @@ export default function ChatPage() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about opportunities..."
+              placeholder="What are you looking for?"
               disabled={sending}
-              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:opacity-50"
+              className="flex-1 px-5 py-3 bg-stone-100 border-0 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:opacity-50"
             />
             <button
               type="submit"
               disabled={!input.trim() || sending}
-              className="px-4 py-3 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors disabled:opacity-40"
+              className="px-4 py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-full hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-40"
             >
               <Send size={18} />
             </button>

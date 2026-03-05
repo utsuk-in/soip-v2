@@ -116,7 +116,9 @@ def test_users_profile_update(client, db_session, unique_id):
             headers=_auth_headers(token),
             json={
                 "first_name": "Test",
-                "degree_type": "Masters",
+                "academic_background": "M.Tech Computer Science",
+                "year_of_study": "2nd Year",
+                "state": "Tamil Nadu",
                 "skills": ["Python"],
                 "interests": ["AI"],
                 "aspirations": ["hackathon"],

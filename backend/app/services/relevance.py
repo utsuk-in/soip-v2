@@ -7,6 +7,7 @@ from datetime import date
 
 from app.models.user import User
 from app.services.retriever import ScoredOpportunity
+from app.utils.enums import OpportunityCategory
 
 # Weights for the final relevance score
 W_HYBRID = 0.4
@@ -26,7 +27,7 @@ def rerank_for_user(
         return candidates
 
     user_tags = set(_lower_list(user.interests) + _lower_list(user.skills))
-    user_aspirations = set(_lower_list(user.aspirations))
+    user_categories = _extract_user_categories(user)
 
     for opp in candidates:
         opp_tags = set(t.lower() for t in (opp.domain_tags or []))
@@ -35,7 +36,7 @@ def rerank_for_user(
         tag_score = tag_overlap / max(len(opp_tags), 1)
 
         cat_lower = (opp.category or "").lower()
-        category_match = 1.0 if cat_lower in user_aspirations else 0.0
+        category_match = 1.0 if cat_lower in user_categories else 0.0
 
         urgency = _deadline_urgency(opp.deadline)
 
@@ -61,3 +62,28 @@ def _deadline_urgency(deadline: date | None) -> float:
 
 def _lower_list(items: list | None) -> list[str]:
     return [s.lower() for s in (items or [])]
+
+
+def _extract_user_categories(user: User) -> set[str]:
+    alias_map = {
+        "hackathons": "hackathon",
+        "internships": "internship",
+        "grants": "grant",
+        "fellowships": "fellowship",
+        "competitions": "competition",
+        "scholarships": "scholarship",
+    }
+    raw_terms = _lower_list(user.aspirations) + _lower_list(user.interests) + _lower_list(user.skills)
+    categories: set[str] = set()
+    for term in raw_terms:
+        key = alias_map.get(term, term)
+        try:
+            categories.add(OpportunityCategory(key).value)
+            continue
+        except ValueError:
+            pass
+        try:
+            categories.add(OpportunityCategory[key.upper()].value)
+        except KeyError:
+            continue
+    return categories

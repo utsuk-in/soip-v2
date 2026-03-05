@@ -41,7 +41,12 @@ def update_profile(
 
     has_profile_fields = all([
         current_user.first_name,
-        current_user.degree_type,
+        current_user.academic_background,
+        current_user.skills,
+        current_user.interests,
+        current_user.aspirations,
+        current_user.year_of_study,
+        current_user.state,
     ])
     if has_profile_fields and not current_user.is_onboarded:
         current_user.is_onboarded = True

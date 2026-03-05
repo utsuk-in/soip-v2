@@ -159,7 +159,9 @@ def _build_system_prompt(user: User, retrieved: list[ScoredOpportunity]) -> str:
     profile_section = (
         f"Student profile:\n"
         f"- Name: {user.first_name or 'Student'}\n"
-        f"- Degree: {user.degree_type or 'Not specified'}\n"
+        f"- Academic Background: {user.academic_background or 'Not specified'}\n"
+        f"- Year of Study: {user.year_of_study or 'Not specified'}\n"
+        f"- State: {user.state or 'Not specified'}\n"
         f"- Skills: {', '.join(user.skills or []) or 'Not specified'}\n"
         f"- Interests: {', '.join(user.interests or []) or 'Not specified'}\n"
         f"- Looking for: {', '.join(user.aspirations or []) or 'Not specified'}"
