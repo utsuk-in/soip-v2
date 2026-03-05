@@ -42,25 +42,25 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
         }`}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-stone-800 font-display">filters</h2>
+          <h2 className="text-lg font-bold text-stone-800 font-display">Filters</h2>
           <button className="lg:hidden text-stone-400 hover:text-stone-600" onClick={onClose}><X size={20} /></button>
         </div>
 
         {/* Search */}
         <div className="mb-6">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1.5">search</label>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1.5">Search</label>
           <input
             type="text"
             value={filters.search}
             onChange={(e) => set("search", e.target.value)}
-            placeholder="keyword..."
+            placeholder="Keyword..."
             className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
           />
         </div>
 
         {/* Category pills */}
         <div className="mb-6">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">category</label>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">Category</label>
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => set("category", "")}
@@ -70,7 +70,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
                   : "bg-stone-100 text-stone-500 hover:bg-stone-200"
               }`}
             >
-              all
+              All
             </button>
             {CATEGORIES.map((cat) => {
               const colorClass = CATEGORY_COLORS[cat] || CATEGORY_COLORS.other;
@@ -93,7 +93,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
 
         {/* Domain pills */}
         <div className="mb-6">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">domain</label>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">Domain</label>
           <div className="flex flex-wrap gap-1.5">
             {DOMAINS.map((d) => (
               <button
@@ -113,14 +113,14 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
 
         {/* Sort */}
         <div className="mb-6">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1.5">sort by</label>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1.5">Sort By</label>
           <select
             value={filters.sort}
             onChange={(e) => set("sort", e.target.value)}
             className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
           >
-            <option value="newest">newest first</option>
-            <option value="deadline">deadline (soonest)</option>
+            <option value="newest">Newest First</option>
+            <option value="deadline">Deadline (Soonest)</option>
           </select>
         </div>
 
@@ -129,7 +129,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
           onClick={() => onChange({ category: "", domain: "", search: "", sort: "newest" })}
           className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium text-stone-500 hover:text-brand-600 hover:bg-brand-50 transition-all"
         >
-          <RotateCcw size={14} /> reset all
+          <RotateCcw size={14} /> Reset All
         </button>
       </aside>
     </>

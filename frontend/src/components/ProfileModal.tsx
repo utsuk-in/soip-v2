@@ -36,7 +36,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
           <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-stone-400 font-semibold">profile</p>
-              <h2 className="text-xl font-bold text-stone-800 font-display">tune your vibe</h2>
+              <h2 className="text-xl font-bold text-stone-800 font-display">Update Your Profile</h2>
             </div>
             <button
               onClick={onClose}
@@ -50,38 +50,38 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
           <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto">
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">first name</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">First Name</label>
                 <input
                   type="text"
                   required
                   value={form.firstName}
                   onChange={(e) => form.setFirstName(e.target.value)}
                   className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
-                  placeholder="what should we call you?"
+                  placeholder="What should we call you?"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">academic background</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">Academic Background</label>
                 <input
                   type="text"
                   required
                   value={form.academicBackground}
                   onChange={(e) => form.setAcademicBackground(e.target.value)}
                   className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
-                  placeholder="e.g. B.Tech Computer Science, MBA"
+                  placeholder="e.g., B.Tech Computer Science, MBA"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">year of study</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">Year of Study</label>
                 <select
                   required
                   value={form.yearOfStudy}
                   onChange={(e) => form.setYearOfStudy(e.target.value)}
                   className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
                 >
-                  <option value="">select year...</option>
+                  <option value="">Select year...</option>
                   {YEAR_OF_STUDY_OPTIONS.map((y) => (
                     <option key={y} value={y}>{y}</option>
                   ))}
@@ -89,14 +89,14 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">state / location</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">State / Location</label>
                 <select
                   required
                   value={form.userState}
                   onChange={(e) => form.setUserState(e.target.value)}
                   className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
                 >
-                  <option value="">select state...</option>
+                  <option value="">Select state...</option>
                   {INDIAN_STATES.map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
@@ -104,7 +104,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">skills</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">Skills</label>
                 <div className="flex gap-2 mb-2">
                   <input
                     type="text"
@@ -112,10 +112,10 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
                     onChange={(e) => form.setSkillInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); form.addSkill(); } }}
                     className="flex-1 px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
-                    placeholder="type a skill + enter"
+                    placeholder="Type a skill and press Enter"
                   />
                   <button type="button" onClick={form.addSkill} className="px-4 py-2.5 bg-brand-50 text-brand-600 rounded-xl text-sm font-semibold hover:bg-brand-100 transition-colors">
-                    add
+                    Add
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -131,7 +131,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">interests</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">Interests</label>
                 <div className="flex flex-wrap gap-2">
                   {INTEREST_SUGGESTIONS.map((i) => (
                     <button
@@ -151,7 +151,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">looking for</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">What are you looking for?</label>
                 <div className="grid grid-cols-2 gap-2">
                   {ASPIRATION_OPTIONS.map((a) => (
                     <label key={a} className="flex items-center gap-2 text-sm cursor-pointer capitalize text-stone-600">
@@ -172,13 +172,13 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
             </div>
 
             <div className="lg:col-span-2 flex items-center justify-between border-t border-stone-100 pt-4">
-              <p className="text-xs text-stone-400">changes sharpen your recs instantly</p>
+              <p className="text-xs text-stone-400">Updates improve your recommendations instantly.</p>
               <button
                 type="submit"
                 disabled={form.loading}
                 className="px-6 py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50"
               >
-                {form.loading ? "saving..." : "lock it in"}
+                {form.loading ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </form>

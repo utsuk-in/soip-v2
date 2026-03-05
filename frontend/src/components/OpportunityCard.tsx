@@ -67,7 +67,7 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
           onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-semibold"
         >
-          check it out <ExternalLink size={11} />
+          View application <ExternalLink size={11} />
         </a>
       )}
     </div>

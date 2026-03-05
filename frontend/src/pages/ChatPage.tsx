@@ -140,7 +140,7 @@ export default function ChatPage() {
               </button>
             ))}
             {sessions.length === 0 && (
-              <p className="text-xs text-stone-400 text-center py-4">no convos yet</p>
+              <p className="text-xs text-stone-400 text-center py-4">No conversations yet.</p>
             )}
           </div>
         </aside>
@@ -164,9 +164,9 @@ export default function ChatPage() {
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 text-white flex items-center justify-center mb-4 shadow-glow">
                 <Sparkles size={28} />
               </div>
-              <h2 className="text-xl font-bold text-stone-800 mb-1 font-display">ask soip anything</h2>
+              <h2 className="text-xl font-bold text-stone-800 mb-1 font-display">Ask SOIP Anything</h2>
               <p className="text-stone-400 mb-8 max-w-md text-sm">
-                get personalized opp recs, powered by AI
+                Get personalized opportunity recommendations, powered by AI.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
                 {SUGGESTED_PROMPTS.map((prompt) => (
@@ -207,7 +207,7 @@ export default function ChatPage() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="what are you looking for?"
+              placeholder="What are you looking for?"
               disabled={sending}
               className="flex-1 px-5 py-3 bg-stone-100 border-0 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:opacity-50"
             />

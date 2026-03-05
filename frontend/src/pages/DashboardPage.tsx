@@ -62,9 +62,9 @@ export default function DashboardPage() {
       {/* Greeting */}
       <div>
         <h1 className="text-3xl font-bold text-stone-900 font-display">
-          hey <span className="gradient-text">{user?.first_name || "explorer"}</span>, what's the move?
+          Hello <span className="gradient-text">{user?.first_name || "there"}</span>, what would you like to do?
         </h1>
-        <p className="text-stone-400 mt-1">here's what's hot for you right now</p>
+        <p className="text-stone-400 mt-1">Here are your top opportunities right now.</p>
       </div>
 
       {/* Quick Actions */}
@@ -75,8 +75,8 @@ export default function DashboardPage() {
         >
           <MessageSquare size={24} />
           <div>
-            <p className="font-bold">ask soip anything</p>
-            <p className="text-sm text-brand-100">get personalized recs, powered by AI</p>
+            <p className="font-bold">Ask SOIP Anything</p>
+            <p className="text-sm text-brand-100">Get personalized recommendations, powered by AI.</p>
           </div>
         </button>
         <button
@@ -85,15 +85,23 @@ export default function DashboardPage() {
         >
           <Search size={24} className="text-brand-600" />
           <div>
-            <p className="font-bold">explore opps</p>
-            <p className="text-sm text-stone-400">filter by category, domain, deadline</p>
+            <p className="font-bold">Explore Opportunities</p>
+            <p className="text-sm text-stone-400">Filter by category, domain, or deadline.</p>
           </div>
         </button>
       </div>
 
       {/* Recommended */}
       {recommended.length > 0 && (
-        <Section icon={Sparkles} title="picked for you" color="text-brand-600">
+        <Section
+          icon={Sparkles}
+          title="Recommended for You"
+          color="text-brand-600"
+          surface="bg-brand-100/70 border-brand-200/80"
+          art={`url("data:image/svg+xml;utf8,${encodeURIComponent(
+            "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='140' viewBox='0 0 240 140'><g fill='none' stroke='%2306b6d4' stroke-width='1.2' opacity='0.22'><path d='M10 32c32-18 72-18 104 0s72 18 104 0'/><circle cx='186' cy='30' r='6'/><circle cx='40' cy='98' r='5'/></g></svg>"
+          )}"), radial-gradient(120% 140% at 0% 0%, rgba(6,182,212,0.18) 0%, rgba(255,255,255,0) 55%), radial-gradient(120% 140% at 100% 0%, rgba(34,197,94,0.12) 0%, rgba(255,255,255,0) 60%)`}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {recommended.map((opp, i) => (
               <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
@@ -106,7 +114,15 @@ export default function DashboardPage() {
 
       {/* Expiring Soon */}
       {expiring.length > 0 && (
-        <Section icon={AlertTriangle} title="closing soon -- don't sleep" color="text-hot">
+        <Section
+          icon={AlertTriangle}
+          title="Closing Soon"
+          color="text-hot"
+          surface="bg-accent-100/70 border-accent-200/80"
+          art={`url("data:image/svg+xml;utf8,${encodeURIComponent(
+            "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='140' viewBox='0 0 240 140'><g fill='none' stroke='%23f43f5e' stroke-width='1.2' opacity='0.22'><path d='M20 110l40-60 40 60 40-60 40 60'/><circle cx='30' cy='26' r='5'/><circle cx='210' cy='112' r='6'/></g></svg>"
+          )}"), radial-gradient(140% 120% at 0% 0%, rgba(244,63,94,0.22) 0%, rgba(255,255,255,0) 55%), radial-gradient(140% 120% at 100% 100%, rgba(245,158,11,0.14) 0%, rgba(255,255,255,0) 60%)`}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {expiring.map((opp, i) => (
               <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
@@ -119,7 +135,15 @@ export default function DashboardPage() {
 
       {/* New This Week */}
       {recent.length > 0 && (
-        <Section icon={Clock} title="fresh drops" color="text-pop">
+        <Section
+          icon={Clock}
+          title="New Opportunities"
+          color="text-pop"
+          surface="bg-brand-50/80 border-brand-200/70"
+          art={`url("data:image/svg+xml;utf8,${encodeURIComponent(
+            "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='140' viewBox='0 0 240 140'><g fill='none' stroke='%2322c55e' stroke-width='1.2' opacity='0.22'><path d='M14 24h70m-60 22h90m-80 22h120'/><circle cx='200' cy='26' r='6'/><circle cx='160' cy='92' r='5'/></g></svg>"
+          )}"), radial-gradient(120% 120% at 0% 100%, rgba(6,182,212,0.16) 0%, rgba(255,255,255,0) 55%), radial-gradient(140% 120% at 100% 0%, rgba(34,197,94,0.14) 0%, rgba(255,255,255,0) 60%)`}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {recent.map((opp, i) => (
               <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
@@ -133,11 +157,14 @@ export default function DashboardPage() {
   );
 }
 
-function Section({ icon: Icon, title, color, children }: {
-  icon: React.ElementType; title: string; color: string; children: React.ReactNode;
+function Section({ icon: Icon, title, color, surface, art, children }: {
+  icon: React.ElementType; title: string; color: string; surface: string; art: string; children: React.ReactNode;
 }) {
   return (
-    <section>
+    <section
+      className={`rounded-2xl border ${surface} p-4 sm:p-5`}
+      style={{ backgroundImage: art }}
+    >
       <h2 className="flex items-center gap-2 text-lg font-bold text-stone-800 mb-4 font-display">
         <Icon size={20} className={color} />
         {title}
