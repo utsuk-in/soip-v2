@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import useProfileForm from "../hooks/useProfileForm";
@@ -7,6 +7,9 @@ import { YEAR_OF_STUDY_OPTIONS, INDIAN_STATES, ASPIRATION_OPTIONS, INTEREST_SUGG
 export default function OnboardingPage() {
   const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const [validationError, setValidationError] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const form = useProfileForm(user, async () => {
     await refreshUser();
@@ -15,7 +18,14 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await form.submitProfile();
+    if (form.skills.length === 0) { setValidationError("Add at least one skill to continue."); return; }
+    if (form.interests.length === 0) { setValidationError("Select at least one interest to continue."); return; }
+    if (form.aspirations.length === 0) { setValidationError("Select at least one aspiration to continue."); return; }
+    if (!password) { setValidationError("Set a password so you can log back in."); return; }
+    if (password.length < 8) { setValidationError("Password must be at least 8 characters."); return; }
+    if (password !== confirmPassword) { setValidationError("Passwords don't match."); return; }
+    setValidationError("");
+    await form.submitProfile(password);
   };
 
   return (
@@ -111,7 +121,31 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {form.error && <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{form.error}</p>}
+          <div className="border-t border-stone-100 pt-5 space-y-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Set a Password</label>
+              <p className="text-xs text-stone-400 mb-2">You'll use this to log back in next time.</p>
+              <input
+                type="password" required minLength={8} value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+                placeholder="Min 8 characters"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Confirm Password</label>
+              <input
+                type="password" required value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+                placeholder="Repeat password"
+              />
+            </div>
+          </div>
+
+          {(validationError || form.error) && (
+            <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{validationError || form.error}</p>
+          )}
 
           <button type="submit" disabled={form.loading}
             className="w-full py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50">

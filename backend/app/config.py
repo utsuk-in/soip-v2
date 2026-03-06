@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
 
+    admin_invite_code: str = Field(default="soip-admin-2026")
+
     # Crawl depth:
     # - html paginated sources: max pages
     # - crawl4ai full_page (infinite scroll): max scroll steps

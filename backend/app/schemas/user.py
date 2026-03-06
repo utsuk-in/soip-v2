@@ -16,6 +16,9 @@ class UserOut(BaseModel):
     aspirations: list[str] = []
     university_id: UUID | None = None
     is_onboarded: bool = False
+    role: str = "student"
+    department: str | None = None
+    roll_number: str | None = None
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
@@ -31,6 +34,7 @@ class ProfileUpdate(BaseModel):
     interests: list[str] | None = None
     aspirations: list[str] | None = None
     university_id: UUID | None = None
+    password: str | None = None
 
 
 class UniversityOut(BaseModel):
