@@ -9,3 +9,6 @@ __pycache__/
 *.env
 *.venv
 venv/
+
+# Rough Work
+.ruf/
