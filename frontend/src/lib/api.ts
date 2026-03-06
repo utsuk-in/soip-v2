@@ -126,8 +126,10 @@ export interface Opportunity {
 }
 
 export interface BrowseParams {
-  category?: string;
-  domain?: string;
+  category?: string | string[];
+  domain?: string | string[];
+  location?: string | string[];
+  mode?: string;
   search?: string;
   deadline_before?: string;
   deadline_after?: string;
@@ -160,7 +162,12 @@ function normalizeOpportunity(raw: any): Opportunity {
 export async function browseOpportunities(params: BrowseParams = {}): Promise<OpportunityListResponse> {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null && v !== "") qs.set(k, String(v));
+    if (v === undefined || v === null || v === "") continue;
+    if (Array.isArray(v)) {
+      if (v.length > 0) qs.set(k, v.join(","));
+      continue;
+    }
+    qs.set(k, String(v));
   }
   const res = await request<OpportunityListResponse>(`/api/opportunities?${qs}`);
   return { ...res, items: res.items.map(normalizeOpportunity) };

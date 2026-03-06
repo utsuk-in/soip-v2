@@ -1,7 +1,9 @@
 import homepage from "./index.html";
 
+const port = Number(process.env.PORT) || 3000;
+
 Bun.serve({
-  port: 3000,
+  port: port,
   routes: {
     "/*": homepage,
   },
@@ -11,4 +13,4 @@ Bun.serve({
   },
 });
 
-console.log("SOIP frontend running on http://localhost:3000");
+console.log(`SOIP frontend running on port ${port}`);

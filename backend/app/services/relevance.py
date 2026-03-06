@@ -11,9 +11,9 @@ from app.utils.enums import OpportunityCategory
 
 # Weights for the final relevance score
 W_HYBRID = 0.4
-W_TAG_OVERLAP = 0.3
+W_TAG_OVERLAP = 0.35
 W_CATEGORY = 0.2
-W_URGENCY = 0.1
+W_URGENCY = 0.05
 
 _URGENCY_WINDOW_DAYS = 14
 
