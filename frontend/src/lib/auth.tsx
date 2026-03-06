@@ -17,7 +17,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
-    const token = localStorage.getItem("soip_token");
+    const token = sessionStorage.getItem("soip_admin_token") || localStorage.getItem("soip_token");
     if (!token) {
       setUser(null);
       setLoading(false);
@@ -27,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const u = await getMe();
       setUser(u);
     } catch {
+      sessionStorage.removeItem("soip_admin_token");
       localStorage.removeItem("soip_token");
       setUser(null);
     } finally {
@@ -51,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    sessionStorage.removeItem("soip_admin_token");
     localStorage.removeItem("soip_token");
     setUser(null);
   };

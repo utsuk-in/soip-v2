@@ -48,3 +48,15 @@ def get_current_user(
             detail="User not found or inactive",
         )
     return user
+
+
+def get_current_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Require the authenticated user to have the admin role."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user

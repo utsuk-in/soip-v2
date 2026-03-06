@@ -1,0 +1,171 @@
+import React, { useEffect, useState } from "react";
+import { BarChart3, TrendingUp, Users, Link, Info } from "lucide-react";
+import { getEngagementReport, type EngagementReport } from "../../lib/api";
+
+export default function AdminEngagementPage() {
+  const [report, setReport] = useState<EngagementReport | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getEngagementReport(8)
+      .then(setReport)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!report) {
+    return <div className="p-6 text-center text-stone-400">Failed to load engagement data</div>;
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold text-stone-800">Engagement Report</h1>
+
+      {/* Mixpanel Placeholder */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+        <Info size={18} className="text-blue-500 mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-blue-700">Mixpanel Integration Planned</p>
+          <p className="text-xs text-blue-600 mt-0.5">
+            All metrics below are DB-driven for the PoC. Mixpanel (SOIP-49) will augment these with richer event tracking in MVP.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Weekly Activity Trend */}
+        <div className="bg-white rounded-xl border border-stone-200 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={18} className="text-brand-500" />
+            <h2 className="text-sm font-semibold text-stone-700">Weekly Activity Trend</h2>
+          </div>
+          {report.weekly_trends.length === 0 ? (
+            <p className="text-sm text-stone-400 text-center py-8">No activity data yet</p>
+          ) : (
+            <div className="space-y-2">
+              {report.weekly_trends.map((w) => {
+                const max = Math.max(...report.weekly_trends.map((t) => t.interactions), 1);
+                const pct = (w.interactions / max) * 100;
+                return (
+                  <div key={w.week} className="flex items-center gap-3">
+                    <span className="text-xs text-stone-500 w-20 flex-shrink-0">{w.week}</span>
+                    <div className="flex-1 bg-stone-100 rounded-full h-5">
+                      <div className="bg-brand-500 h-5 rounded-full transition-all flex items-center justify-end pr-2" style={{ width: `${Math.max(pct, 5)}%` }}>
+                        <span className="text-[10px] font-bold text-white">{w.interactions}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Category Breakdown */}
+        <div className="bg-white rounded-xl border border-stone-200 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 size={18} className="text-amber-500" />
+            <h2 className="text-sm font-semibold text-stone-700">Top Categories Engaged</h2>
+          </div>
+          {report.category_breakdown.length === 0 ? (
+            <p className="text-sm text-stone-400 text-center py-8">No category data yet</p>
+          ) : (
+            <div className="space-y-2">
+              {report.category_breakdown.map((c) => {
+                const max = Math.max(...report.category_breakdown.map((x) => x.count), 1);
+                const pct = (c.count / max) * 100;
+                return (
+                  <div key={c.category} className="flex items-center gap-3">
+                    <span className="text-xs text-stone-600 w-24 flex-shrink-0 capitalize">{c.category}</span>
+                    <div className="flex-1 bg-stone-100 rounded-full h-5">
+                      <div className="bg-amber-400 h-5 rounded-full transition-all flex items-center justify-end pr-2" style={{ width: `${Math.max(pct, 5)}%` }}>
+                        <span className="text-[10px] font-bold text-white">{c.count}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Engagement Distribution */}
+        <div className="bg-white rounded-xl border border-stone-200 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Users size={18} className="text-purple-500" />
+            <h2 className="text-sm font-semibold text-stone-700">Student Engagement Distribution</h2>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {report.engagement_distribution.map((b) => (
+              <div key={b.bucket} className="bg-stone-50 rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-stone-800">{b.count}</p>
+                <p className="text-xs text-stone-500 mt-1">
+                  {b.bucket === "0" ? "No interactions" : b.bucket === "1-5" ? "1–5 interactions" : "5+ interactions"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Magic Link Stats */}
+        <div className="bg-white rounded-xl border border-stone-200 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Link size={18} className="text-green-500" />
+            <h2 className="text-sm font-semibold text-stone-700">Magic Link Stats</h2>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-stone-50 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-stone-800">{report.magic_link_stats.total_sent}</p>
+              <p className="text-xs text-stone-500">Sent</p>
+            </div>
+            <div className="bg-stone-50 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-green-600">{report.magic_link_stats.total_used}</p>
+              <p className="text-xs text-stone-500">Used</p>
+            </div>
+            <div className="bg-stone-50 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-brand-600">{report.magic_link_stats.open_rate}%</p>
+              <p className="text-xs text-stone-500">Open Rate</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Top Viewed Opportunities */}
+      <div className="bg-white rounded-xl border border-stone-200 p-5">
+        <h2 className="text-sm font-semibold text-stone-700 mb-4">Top Viewed Opportunities</h2>
+        {report.top_opportunities.length === 0 ? (
+          <p className="text-sm text-stone-400 text-center py-4">No opportunity views yet</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-stone-50">
+                <tr>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-stone-500">#</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-stone-500">Opportunity</th>
+                  <th className="text-right px-4 py-2 text-xs font-semibold text-stone-500">Views</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.top_opportunities.map((o, i) => (
+                  <tr key={o.opportunity_id} className="border-t border-stone-100">
+                    <td className="px-4 py-2 text-stone-400">{i + 1}</td>
+                    <td className="px-4 py-2 text-stone-800 font-medium">{o.title}</td>
+                    <td className="px-4 py-2 text-right text-stone-600 font-semibold">{o.view_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
