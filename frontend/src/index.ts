@@ -7,10 +7,6 @@ Bun.serve({
   routes: {
     "/*": homepage,
   },
-  development: {
-    hmr: true,
-    console: true,
-  },
 });
 
 console.log(`SOIP frontend running on port ${port}`);
