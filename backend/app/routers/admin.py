@@ -101,7 +101,7 @@ def validate_student_upload(
     )
 
 
-@router.post("/students/student_registration", response_model=UploadSummary)
+@router.post("/students/upload", response_model=UploadSummary)
 def register_students(
     body: UploadConfirmRequest,
     db: Session = Depends(get_db),
