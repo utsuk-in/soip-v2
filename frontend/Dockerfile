@@ -13,9 +13,13 @@ RUN bun install
 # copy source
 COPY . .
 
+# build static assets with Vite (env injected at build time)
+RUN bunx vite build
+
 # render provides PORT env variable
 ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["bun", "src/index.ts"]
+# inject runtime API base for browser code, then serve built assets
+CMD ["sh", "-c", "printf 'window.__SOIP_CONFIG__ = { API_BASE: \"%s\" };\\n' \"${VITE_API_BASE:-}\" > dist/env.js && bunx vite preview --host 0.0.0.0 --port ${PORT:-3000}"]
