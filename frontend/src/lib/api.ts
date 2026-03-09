@@ -1,5 +1,23 @@
-const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:8000";
+declare global {
+  interface Window {
+    __SOIP_CONFIG__?: {
+      API_BASE?: string;
+    };
+  }
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, "");
+}
+
+const runtimeApiBase =
+  typeof window !== "undefined" ? window.__SOIP_CONFIG__?.API_BASE : undefined;
+
+const API_BASE = normalizeBaseUrl(
+  runtimeApiBase ||
+    (import.meta as any).env?.VITE_API_BASE ||
+    "http://localhost:8000"
+);
 
 function getToken(): string | null {
   return localStorage.getItem("soip_token");
