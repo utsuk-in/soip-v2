@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     jwt_secret: str = Field(default="change-me-in-production")
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60 * 24 * 7  # 1 week
+    jwt_expire_minutes: int = 60 * 24 * 1  # 1 day
 
     allowed_origins: list[str] = Field(
         default=["http://localhost:3000", "http://localhost:8000", "http://localhost:5173"]
