@@ -17,7 +17,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const rec = await getRecommended(36).catch(() => []);
+        const rec = await getRecommended(20).catch(() => []);
         const recommendedTop = rec.slice(0, 6);
         setRecommended(recommendedTop);
 

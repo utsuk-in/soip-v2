@@ -58,8 +58,19 @@ class Settings(BaseSettings):
     detail_concurrency: int = Field(default=1, ge=1)
 
     # Timeouts (seconds)
+    crawl4ai_startup_timeout_seconds: float = Field(default=30.0, ge=1, description="Timeout for Crawl4AI browser startup.")
     crawl4ai_timeout_seconds: float = Field(default=60.0, ge=1)
+    scrape_timeout_seconds: float = Field(default=300.0, ge=1, description="Timeout for the full scrape_source call per source.")
     openai_timeout_seconds: float = Field(default=180.0, ge=1)
+    extraction_timeout_seconds: float = Field(
+        default=180.0, ge=1, description="Timeout for extraction step per source."
+    )
+    detail_timeout_seconds: float = Field(
+        default=120.0, ge=1, description="Timeout for per-item detail enrichment (fetch + extract)."
+    )
+    item_processing_timeout_seconds: float = Field(
+        default=240.0, ge=1, description="Timeout for per-item processing (detail + upsert)."
+    )
 
 
 settings = Settings()

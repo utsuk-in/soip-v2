@@ -173,6 +173,45 @@ def test_opportunities_browse_recommended_get(client, db_session, unique_id):
         _cleanup(db_session, suffix)
 
 
+def test_recommended_includes_relevance_explanation(client, db_session, unique_id, monkeypatch):
+    suffix = unique_id
+
+    async def _fake_generate_relevance_explanations(user, query_text, opportunities):
+        ids = [str(o.id) for o in opportunities]
+        if not ids:
+            return {}
+        return {
+            ids[0]: "Because your profile mentions AI, this fits your interests. It also aligns with your hackathon goals."
+        }
+
+    monkeypatch.setattr(
+        "app.routers.opportunities.generate_relevance_explanations",
+        _fake_generate_relevance_explanations,
+    )
+
+    try:
+        user = _create_user(db_session, suffix)
+        user.skills = ["Python"]
+        user.interests = ["AI"]
+        user.aspirations = ["hackathon"]
+        db_session.commit()
+
+        opp = _create_opportunity(db_session, suffix)
+        token = create_access_token(user.id)
+
+        recommended = client.get(
+            "/api/opportunities/recommended",
+            headers=_auth_headers(token),
+        )
+        assert recommended.status_code == 200
+        data = recommended.json()
+        match = next((o for o in data if o["id"] == str(opp.id)), None)
+        assert match is not None
+        assert match["relevance_explanation"] is not None
+    finally:
+        _cleanup(db_session, suffix)
+
+
 def test_alerts_list_mark_read(client, db_session, unique_id):
     suffix = unique_id
     try:

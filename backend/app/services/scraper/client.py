@@ -22,6 +22,7 @@ _HTTPX_TIMEOUT = 30.0
 _MAX_CONTENT_LENGTH = 500_000
 _USER_AGENT = "SOIP-Bot/1.0 (Student Opportunity Aggregator)"
 _DEFAULT_MAX_PAGES = 3
+_CRAWLER_CLOSE_TIMEOUT = 10.0
 
 
 async def scrape_source(source: Source) -> Optional[str]:
@@ -62,24 +63,42 @@ async def _fetch_with_crawl4ai(url: str, source: Source, delay_override: float |
     browser_config = BrowserConfig(headless=True)
     run_config = _build_crawl4ai_config(config, delay_override=delay_override)
 
-    async with AsyncWebCrawler(config=browser_config) as crawler:
-        try:
-            try:
-                result = await asyncio.wait_for(
-                    crawler.arun(url=url, config=run_config),
-                    timeout=float(getattr(settings, "crawl4ai_timeout_seconds", 60.0)),
-                )
-            except asyncio.TimeoutError:
-                logger.error(f"Crawl4AI timeout for {url}")
-                return ""
+    startup_timeout = float(getattr(settings, "crawl4ai_startup_timeout_seconds", 30.0))
+    crawl_timeout = float(getattr(settings, "crawl4ai_timeout_seconds", 60.0))
+    crawler = AsyncWebCrawler(config=browser_config)
 
-            if result.success:
-                return _clean_markdown(result.markdown or "")
+    # Use create_task + asyncio.wait instead of wait_for: on Python <3.12, wait_for
+    # awaits the cancelled coroutine after timeout, which hangs when Playwright is
+    # blocked on a Chromium subprocess pipe that never responds to CancelledError.
+    startup_task = asyncio.create_task(crawler.__aenter__())
+    done, pending = await asyncio.wait([startup_task], timeout=startup_timeout)
+    if pending:
+        startup_task.cancel()
+        logger.error(f"Crawl4AI browser startup timeout for {url}")
+        await _safe_close_crawler(crawler)
+        return ""
+    if startup_task.exception():
+        logger.error(f"Crawl4AI browser startup failed for {url}: {startup_task.exception()}")
+        await _safe_close_crawler(crawler)
+        return ""
 
-            logger.error(f"Crawl4AI failed for {url}: {result.error_message}")
+    try:
+        run_task = asyncio.create_task(crawler.arun(url=url, config=run_config))
+        done, pending = await asyncio.wait([run_task], timeout=crawl_timeout)
+        if pending:
+            run_task.cancel()
+            logger.error(f"Crawl4AI timeout for {url}")
             return ""
-        finally:
-            await _safe_close_crawler(crawler)
+        if run_task.exception():
+            logger.error(f"Crawl4AI failed for {url}: {run_task.exception()}")
+            return ""
+        result = run_task.result()
+        if result.success:
+            return _clean_markdown(result.markdown or "")
+        logger.error(f"Crawl4AI failed for {url}: {result.error_message}")
+        return ""
+    finally:
+        await _safe_close_crawler(crawler)
 
 
 async def _fetch_with_crawl4ai_paginated(start_url: str, source: Source) -> str:
@@ -92,52 +111,68 @@ async def _fetch_with_crawl4ai_paginated(start_url: str, source: Source) -> str:
     pagination_mode = config.get("pagination_mode", "query")
     pagination_delay = _pagination_delay(config) if pagination_mode == "query" else None
 
+    startup_timeout = float(getattr(settings, "crawl4ai_startup_timeout_seconds", 30.0))
+    crawl_timeout = float(getattr(settings, "crawl4ai_timeout_seconds", 60.0))
     browser_config = BrowserConfig(headless=True)
 
     parts: list[str] = []
     seen_hashes: set[str] = set()
 
-    async with AsyncWebCrawler(config=browser_config) as crawler:
-        try:
-            for page_num in range(1, max_pages + 1):
-                url = start_url
-                extra_js_code = None
-                if pagination_mode == "query":
-                    url = _build_paginated_url(start_url, page_param, page_num)
-                elif pagination_mode == "click" and page_num > 1:
-                    extra_js_code = _build_pagination_click_js(page_num)
+    crawler = AsyncWebCrawler(config=browser_config)
+    startup_task = asyncio.create_task(crawler.__aenter__())
+    done, pending = await asyncio.wait([startup_task], timeout=startup_timeout)
+    if pending:
+        startup_task.cancel()
+        logger.error(f"Crawl4AI browser startup timeout for {start_url}")
+        await _safe_close_crawler(crawler)
+        return ""
+    if startup_task.exception():
+        logger.error(f"Crawl4AI browser startup failed for {start_url}: {startup_task.exception()}")
+        await _safe_close_crawler(crawler)
+        return ""
 
-                run_config = _build_crawl4ai_config(
-                    config,
-                    extra_js_code=extra_js_code,
-                    delay_override=pagination_delay,
-                )
-                try:
-                    result = await asyncio.wait_for(
-                        crawler.arun(url=url, config=run_config),
-                        timeout=float(getattr(settings, "crawl4ai_timeout_seconds", 60.0)),
-                    )
-                except asyncio.TimeoutError:
-                    logger.warning(f"Crawl4AI timeout for {url}; stopping pagination.")
-                    break
-                if not result.success:
-                    logger.warning(f"Crawl4AI failed for {url}: {result.error_message}")
-                    break
+    try:
+        for page_num in range(1, max_pages + 1):
+            url = start_url
+            extra_js_code = None
+            if pagination_mode == "query":
+                url = _build_paginated_url(start_url, page_param, page_num)
+            elif pagination_mode == "click" and page_num > 1:
+                extra_js_code = _build_pagination_click_js(page_num)
 
-                cleaned = _clean_markdown(result.markdown or "")
-                if not cleaned:
-                    break
+            run_config = _build_crawl4ai_config(
+                config,
+                extra_js_code=extra_js_code,
+                delay_override=pagination_delay,
+            )
+            run_task = asyncio.create_task(crawler.arun(url=url, config=run_config))
+            done, pending = await asyncio.wait([run_task], timeout=crawl_timeout)
+            if pending:
+                run_task.cancel()
+                logger.warning(f"Crawl4AI timeout for {url}; stopping pagination.")
+                break
+            if run_task.exception():
+                logger.warning(f"Crawl4AI failed for {url}: {run_task.exception()}")
+                break
+            result = run_task.result()
+            if not result.success:
+                logger.warning(f"Crawl4AI failed for {url}: {result.error_message}")
+                break
 
-                content_key = content_hash(cleaned)
-                if content_key in seen_hashes:
-                    logger.info(f"Pagination content repeated at page {page_num}, stopping.")
-                    break
+            cleaned = _clean_markdown(result.markdown or "")
+            if not cleaned:
+                break
 
-                seen_hashes.add(content_key)
-                parts.append(cleaned)
-                logger.info(f"Fetched JS page {page_num}/{max_pages}: {url}")
-        finally:
-            await _safe_close_crawler(crawler)
+            content_key = content_hash(cleaned)
+            if content_key in seen_hashes:
+                logger.info(f"Pagination content repeated at page {page_num}, stopping.")
+                break
+
+            seen_hashes.add(content_key)
+            parts.append(cleaned)
+            logger.info(f"Fetched JS page {page_num}/{max_pages}: {url}")
+    finally:
+        await _safe_close_crawler(crawler)
 
     if not parts:
         return ""
@@ -391,16 +426,25 @@ def _detail_delay(config: dict) -> float | None:
 
 
 async def _safe_close_crawler(crawler) -> None:
-    """Best-effort cleanup for Crawl4AI resources."""
-    try:
-        if hasattr(crawler, "aclose"):
-            await crawler.aclose()
-        elif hasattr(crawler, "close"):
-            res = crawler.close()
-            if hasattr(res, "__await__"):
-                await res
-    except Exception:
-        pass
+    """Best-effort cleanup for Crawl4AI resources.
+
+    Uses create_task + asyncio.wait instead of wait_for to avoid Python <3.12
+    hang: wait_for in Python <3.12 awaits the cancelled coroutine, which blocks
+    forever when Playwright doesn't respond to CancelledError.
+    """
+    for attr in ("close", "__aexit__"):
+        method = getattr(crawler, attr, None)
+        if method is None:
+            continue
+        try:
+            coro = method() if attr == "close" else method(None, None, None)
+            task = asyncio.create_task(coro)
+            done, _ = await asyncio.wait([task], timeout=_CRAWLER_CLOSE_TIMEOUT)
+            if not done:
+                task.cancel()  # fire-and-forget — never await on Python 3.11
+            return
+        except Exception:
+            pass
 
 def _resolve_url(href: str, base: str) -> str:
     """Make href absolute against base URL."""

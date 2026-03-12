@@ -95,11 +95,22 @@ async def run_pipeline(db: Session) -> dict:
 
 async def _process_source(db: Session, source: Source) -> dict:
     """Scrape, store raw content, chunk, extract, and upsert."""
-    stats = {"new": 0, "updated": 0, "skipped": 0, "chunks": 0}
+    stats = {"new": 0, "updated": 0, "skipped": 0, "chunks": 0, "errors": 0}
     logger.info(f"Processing source: {source.name} ({source.base_url})")
 
     # --- Step 1: Scrape ---
-    markdown = await scrape_source(source)
+    # Use create_task + asyncio.wait instead of wait_for to avoid Python <3.12 hang.
+    scrape_timeout = float(getattr(settings, "scrape_timeout_seconds", 300.0))
+    scrape_task = asyncio.create_task(scrape_source(source))
+    done, pending = await asyncio.wait([scrape_task], timeout=scrape_timeout)
+    if pending:
+        scrape_task.cancel()
+        logger.error(f"Scrape timeout for {source.name} after {scrape_timeout:.0f}s")
+        return stats
+    if scrape_task.exception():
+        logger.error(f"Scrape failed for {source.name}: {scrape_task.exception()}")
+        return stats
+    markdown = scrape_task.result()
     if not markdown:
         logger.warning(f"No content from {source.name}")
         return stats
@@ -146,7 +157,21 @@ async def _process_source(db: Session, source: Source) -> dict:
     logger.info(f"Created {len(chunk_models)} chunks from {source.name}")
 
     # --- Step 6: Extract structured opportunities ---
-    extracted = await extract_opportunities(markdown, listing_url)
+    extract_timeout = float(getattr(settings, "extraction_timeout_seconds", 180.0))
+    extract_task = asyncio.create_task(extract_opportunities(markdown, listing_url))
+    done, pending = await asyncio.wait([extract_task], timeout=extract_timeout)
+    if pending:
+        extract_task.cancel()
+        logger.error("Extraction timeout for %s after %.0fs", listing_url, extract_timeout)
+        source.last_scraped_at = datetime.now(timezone.utc)
+        db.commit()
+        return stats
+    if extract_task.exception():
+        logger.error("Extraction failed for %s: %s", listing_url, extract_task.exception())
+        source.last_scraped_at = datetime.now(timezone.utc)
+        db.commit()
+        return stats
+    extracted = extract_task.result()
     if not extracted:
         logger.warning(f"No opportunities extracted from {source.name}")
         source.last_scraped_at = datetime.now(timezone.utc)
@@ -157,31 +182,81 @@ async def _process_source(db: Session, source: Source) -> dict:
 
     async def _process_item(item: ExtractedOpportunity) -> dict:
         local_db = SessionLocal()
-        try:
+
+        async def _process_item_inner(item_inner: ExtractedOpportunity) -> dict:
+            detail_error: str | None = None
             # Always fetch detail page for full data (all sources)
-            item = await _enrich_from_detail(local_db, source, item)
+            detail_timeout = float(getattr(settings, "detail_timeout_seconds", 120.0))
+            detail_task = asyncio.create_task(_enrich_from_detail(local_db, source, item_inner))
+            done, pending = await asyncio.wait([detail_task], timeout=detail_timeout)
+            if pending:
+                detail_task.cancel()
+                detail_error = f"detail_enrich_timeout after {detail_timeout:.0f}s"
+                logger.warning(
+                    "Detail enrich timeout (title=%s url=%s): %s",
+                    item_inner.title, item_inner.url, detail_error,
+                )
+            elif detail_task.exception():
+                detail_error = f"detail_enrich_failed: {detail_task.exception()}"
+                logger.warning(
+                    "Detail enrich failed (title=%s url=%s): %s",
+                    item_inner.title, item_inner.url, detail_task.exception(),
+                )
+            else:
+                item_inner = detail_task.result()
             # is_active is derived solely from deadline fields
-            item.is_active = _is_active_from_deadline(item)
+            item_inner.is_active = _is_active_from_deadline(item_inner)
             # # Exclude closed opportunities entirely
-            # if item.is_active is False:
-            #     if item.url:
-            #         existing = local_db.query(Opportunity).filter(Opportunity.application_link == item.url).first()
+            # if item_inner.is_active is False:
+            #     if item_inner.url:
+            #         existing = local_db.query(Opportunity).filter(Opportunity.application_link == item_inner.url).first()
             #         if existing:
             #             if existing.is_active:
             #                 existing.is_active = False
             #                 existing.status = OpportunityStatus.EXPIRED
             #                 existing.updated_at = datetime.now(timezone.utc)
-            #             if item.deadline_at and existing.deadline_at != item.deadline_at:
-            #                 existing.deadline_at = item.deadline_at
-            #             if item.deadline and existing.deadline != item.deadline:
-            #                 existing.deadline = item.deadline
+            #             if item_inner.deadline_at and existing.deadline_at != item_inner.deadline_at:
+            #                 existing.deadline_at = item_inner.deadline_at
+            #             if item_inner.deadline and existing.deadline != item_inner.deadline:
+            #                 existing.deadline = item_inner.deadline
             #             local_db.flush()
             #     local_db.commit()
-            #     return {"status": "skipped", "item": item, "opp_id": None}
+            #     return {"status": "skipped", "item": item_inner, "opp_id": None}
 
-            result, opp_id = _upsert_opportunity(local_db, source, item, scrape_page.id)
+            result, opp_id = _upsert_opportunity(local_db, source, item_inner, scrape_page.id)
+            if detail_error and opp_id:
+                try:
+                    existing = local_db.query(Opportunity).filter(Opportunity.id == opp_id).first()
+                    if existing:
+                        existing.processing_error = detail_error[:2000]
+                except Exception:
+                    pass
             local_db.commit()
-            return {"status": result, "item": item, "opp_id": opp_id}
+            return {"status": result, "item": item_inner, "opp_id": opp_id}
+
+        try:
+            item_timeout = float(getattr(settings, "item_processing_timeout_seconds", 240.0))
+            item_task = asyncio.create_task(_process_item_inner(item))
+            done, pending = await asyncio.wait([item_task], timeout=item_timeout)
+            if pending:
+                item_task.cancel()
+                error_msg = f"item_processing_timeout after {item_timeout:.0f}s"
+                logger.error(
+                    "Item processing timeout (title=%s url=%s): %s",
+                    item.title, item.url, error_msg,
+                )
+                if item.url:
+                    try:
+                        existing = local_db.query(Opportunity).filter(
+                            Opportunity.application_link == item.url
+                        ).first()
+                        if existing:
+                            existing.processing_error = error_msg[:2000]
+                            local_db.commit()
+                    except Exception:
+                        pass
+                return {"status": "error", "item": item, "opp_id": None}
+            return item_task.result()
         except Exception as e:
             error_msg = str(e)
             logger.error(f"Item processing failed ({item.title}): {error_msg}")
@@ -252,7 +327,7 @@ def _retire_stale_chunks(db: Session, source: Source) -> int:
     count = (
         db.query(ContentChunk)
         .filter(ContentChunk.source_id == source.id)
-        .delete(synchronize_session="fetch")
+        .delete(synchronize_session=False)
     )
     if count:
         db.flush()
@@ -442,7 +517,7 @@ def _link_detail_chunks(db: Session, scrape_page_id: UUID, opp_id: UUID) -> None
     """Link all chunks from a detail page to the opportunity."""
     db.query(ContentChunk).filter(
         ContentChunk.scrape_page_id == scrape_page_id
-    ).update({"opportunity_id": opp_id}, synchronize_session="fetch")
+    ).update({"opportunity_id": opp_id}, synchronize_session=False)
 
 
 def _expire_past_deadlines(db: Session) -> int:
