@@ -1,14 +1,20 @@
 import homepage from "./index.html";
 
+const port = Number(process.env.PORT) || 3000;
+const isDev = process.env.NODE_ENV !== "production";
+
 Bun.serve({
-  port: 3000,
+  port,
+  hostname: "0.0.0.0",
   routes: {
     "/*": homepage,
   },
-  development: {
-    hmr: true,
-    console: true,
-  },
+  development: isDev
+    ? {
+        hmr: true,
+        console: true,
+      }
+    : undefined,
 });
 
-console.log("SOIP frontend running on http://localhost:3000");
+console.log(`SOIP frontend running on port ${port}`);

@@ -25,6 +25,7 @@ class OpportunityOut(BaseModel):
     is_active: bool = True
     processing_error: str | None = None
     created_at: datetime | None = None
+    relevance_explanation: str | None = None
 
     model_config = {"from_attributes": True}
 
