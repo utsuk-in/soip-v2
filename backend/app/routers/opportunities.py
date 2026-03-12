@@ -17,8 +17,11 @@ from app.services.embedder import embed_query
 from app.services.relevance import rerank_for_user
 from app.services.reranker import rerank_with_cross_encoder
 from app.services.taxonomy import normalize_domains
-from app.services.retriever import ScoredOpportunity, hybrid_retrieve
-from app.services.query_parser import ParsedQuery
+from app.services.retriever import ScoredOpportunity, recommend_retrieve
+from app.services.relevance_explainer import (
+    ExplanationOpportunity,
+    generate_relevance_explanations,
+)
 from app.utils.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/opportunities", tags=["opportunities"])
@@ -162,10 +165,14 @@ async def recommended_opportunities(
             getattr(current_user, "id", None),
         )
         query_embedding = await embed_query(profile_text)
-        parsed = ParsedQuery(intent="explore", search_text=profile_text)
-        parsed.domains = domains
-        parsed.categories = [c.value for c in categories]
-        candidates = await hybrid_retrieve(db, parsed, query_embedding, limit=50)
+        # Direct opportunity vector search (single HNSW query) + FTS fusion
+        candidates = recommend_retrieve(
+            db, query_embedding,
+            search_text=profile_text,
+            categories=categories or None,
+            domains=domains or None,
+            limit=50,
+        )
         logger.info("Recommended: candidates_pre_rerank=%d", len(candidates))
         candidates = rerank_with_cross_encoder(profile_text, candidates)
         logger.info("Recommended: candidates_post_cross_encoder=%d", len(candidates))
@@ -217,7 +224,34 @@ async def recommended_opportunities(
 
     opps = db.query(Opportunity).filter(Opportunity.id.in_(top_ids)).all()
     id_order = {uid: i for i, uid in enumerate(top_ids)}
-    return sorted(opps, key=lambda o: id_order.get(o.id, 999))
+    sorted_opps = sorted(opps, key=lambda o: id_order.get(o.id, 999))
+
+    # Only generate explanations for the top results (not all 36) to stay within
+    # LLM token limits and reduce latency.
+    explanation_opps = sorted_opps[:15]
+    explanations = await generate_relevance_explanations(
+        user=current_user,
+        query_text=profile_text,
+        opportunities=[
+            ExplanationOpportunity(
+                id=str(o.id),
+                title=o.title,
+                category=o.category.value if hasattr(o.category, "value") else str(o.category),
+                domain_tags=o.domain_tags,
+                description=o.description,
+                deadline=o.deadline.isoformat() if o.deadline else None,
+                location=o.location,
+            )
+            for o in explanation_opps
+        ],
+    )
+    if explanations:
+        for opp in sorted_opps:
+            text = explanations.get(str(opp.id))
+            if text:
+                setattr(opp, "relevance_explanation", text)
+
+    return sorted_opps
 
 
 @router.get("/{opportunity_id}", response_model=OpportunityOut)
@@ -235,23 +269,23 @@ def get_opportunity(
 
 
 def _build_profile_query(user: User) -> str:
-    """Build a structured profile query for retrieval."""
+    """Build a natural-language profile query that embeds close to opportunity descriptions."""
+    aspirations = [s for s in (user.aspirations or []) if str(s).strip()]
     interests = [s for s in (user.interests or []) if str(s).strip()]
     skills = [s for s in (user.skills or []) if str(s).strip()]
-    aspirations = [s for s in (user.aspirations or []) if str(s).strip()]
     academic = user.academic_background.strip() if user.academic_background else ""
 
     parts: list[str] = []
-    if interests:
-        parts.append(f"Interests: {', '.join(interests)}")
-    if skills:
-        parts.append(f"Skills: {', '.join(skills)}")
     if aspirations:
-        parts.append(f"Aspirations: {', '.join(aspirations)}")
+        parts.append(f"{', '.join(aspirations)} opportunities")
+    if interests:
+        parts.append(f"in {', '.join(interests)}")
+    if skills:
+        parts.append(f"for someone skilled in {', '.join(skills)}")
     if academic:
-        parts.append(f"Academic background: {academic}")
+        parts.append(f"studying {academic}")
 
-    return " | ".join(parts).strip()
+    return " ".join(parts).strip()
 
 
 def _extract_profile_categories(user: User) -> list[OpportunityCategory]:

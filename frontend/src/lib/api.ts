@@ -134,6 +134,7 @@ export interface Opportunity {
   eligibility: string | null;
   benefits: string | null;
   deadline: string | null;
+  relevance_explanation?: string | null;
   url: string;
   application_url?: string;
   application_link?: string;

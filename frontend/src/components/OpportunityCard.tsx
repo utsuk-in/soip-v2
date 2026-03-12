@@ -51,6 +51,16 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
         <p className="text-sm text-stone-500 dark:text-stone-400 line-clamp-2 mb-3">{opp.description}</p>
       )}
 
+      {opp.relevance_explanation && (
+        <p
+          className={`text-xs italic text-brand-700/80 dark:text-brand-200/80 bg-brand-50/70 dark:bg-brand-900/30 px-2 py-1.5 rounded-lg ${
+            compact ? "mb-2" : "mb-3"
+          } line-clamp-3`}
+        >
+          {opp.relevance_explanation}
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-1.5 mb-2">
         {(opp.domain_tags || []).slice(0, 4).map((tag) => (
           <span key={tag} className="px-2 py-0.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 rounded-full text-[11px] font-medium">
