@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
 
 
 class Settings(BaseSettings):
@@ -23,9 +23,19 @@ class Settings(BaseSettings):
 
     jwt_secret: str = Field(default="change-me-in-production")
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60 * 24 * 7  # 1 week
+    jwt_expire_minutes: int = 60 * 24 * 1  # 1 day
 
-    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
+    allowed_origins: list[str] = Field(
+        default=["http://localhost:3000", "http://localhost:8000", "http://localhost:5173"]
+    )
+
+    @field_validator("allowed_origins", mode="before")
+    @classmethod
+    def _split_allowed_origins(cls, v):
+        if isinstance(v, str):
+            parts = [p.strip() for p in v.split(",")]
+            return [p for p in parts if p]
+        return v
 
     # Crawl depth:
     # - html paginated sources: max pages
@@ -48,8 +58,19 @@ class Settings(BaseSettings):
     detail_concurrency: int = Field(default=1, ge=1)
 
     # Timeouts (seconds)
+    crawl4ai_startup_timeout_seconds: float = Field(default=30.0, ge=1, description="Timeout for Crawl4AI browser startup.")
     crawl4ai_timeout_seconds: float = Field(default=60.0, ge=1)
+    scrape_timeout_seconds: float = Field(default=300.0, ge=1, description="Timeout for the full scrape_source call per source.")
     openai_timeout_seconds: float = Field(default=180.0, ge=1)
+    extraction_timeout_seconds: float = Field(
+        default=180.0, ge=1, description="Timeout for extraction step per source."
+    )
+    detail_timeout_seconds: float = Field(
+        default=120.0, ge=1, description="Timeout for per-item detail enrichment (fetch + extract)."
+    )
+    item_processing_timeout_seconds: float = Field(
+        default=240.0, ge=1, description="Timeout for per-item processing (detail + upsert)."
+    )
 
 
 settings = Settings()

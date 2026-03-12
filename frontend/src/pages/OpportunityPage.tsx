@@ -55,12 +55,12 @@ export default function OpportunityPage() {
     <div className="p-6 lg:p-10 max-w-4xl mx-auto animate-fade-in">
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-sm text-stone-400 hover:text-brand-600 mb-6 transition-colors"
+        className="flex items-center gap-1 text-sm text-stone-400 dark:text-stone-500 hover:text-brand-600 dark:hover:text-brand-300 mb-6 transition-colors"
       >
         <ArrowLeft size={16} /> back
       </button>
 
-      <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-white/30 shadow-xl overflow-hidden">
+      <div className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-xl rounded-3xl border border-white/30 dark:border-stone-800/60 shadow-xl overflow-hidden">
         {/* Category accent bar */}
         <div className={`h-1.5 bg-gradient-to-r ${gradientClass}`} />
 
@@ -76,8 +76,8 @@ export default function OpportunityPage() {
             )}
           </div>
 
-          <h1 className="text-4xl font-bold text-stone-900 mb-3 font-display">{opp.title}</h1>
-          <div className="text-stone-700 leading-relaxed mb-8 space-y-4">
+          <h1 className="text-4xl font-bold text-stone-900 dark:text-stone-100 mb-3 font-display">{opp.title}</h1>
+          <div className="text-stone-700 dark:text-stone-300 leading-relaxed mb-8 space-y-4">
             {renderDescription(opp.description)}
           </div>
 
@@ -92,13 +92,13 @@ export default function OpportunityPage() {
               <InfoBox icon={Award} label="Benefits" value={opp.benefits} />
             )}
             {opp.domain_tags.length > 0 && (
-              <div className="bg-white/60 backdrop-blur border border-stone-200/50 rounded-2xl p-4">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">
+              <div className="bg-white/60 dark:bg-stone-900/60 backdrop-blur border border-stone-200/50 dark:border-stone-800/60 rounded-2xl p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-500 mb-2">
                   <Tag size={14} /> Domains
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {opp.domain_tags.map((t) => (
-                    <span key={t} className="px-2.5 py-0.5 bg-brand-50 text-brand-700 rounded-full text-xs font-medium">{t}</span>
+                    <span key={t} className="px-2.5 py-0.5 bg-brand-50 dark:bg-stone-800 text-brand-700 dark:text-brand-200 rounded-full text-xs font-medium">{t}</span>
                   ))}
                 </div>
               </div>
@@ -116,7 +116,7 @@ export default function OpportunityPage() {
             </a>
             <button
               onClick={() => navigate(`/chat?q=Tell me about "${opp.title}"`)}
-              className="flex items-center gap-2 px-6 py-3 bg-white/60 backdrop-blur border border-stone-200 text-stone-700 rounded-xl font-semibold text-sm hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-all"
+              className="flex items-center gap-2 px-6 py-3 bg-white/60 dark:bg-stone-900/60 backdrop-blur border border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 rounded-xl font-semibold text-sm hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 dark:hover:bg-stone-800 dark:hover:text-stone-100 transition-all"
             >
               <MessageSquare size={14} /> Ask SOIP
             </button>
@@ -129,11 +129,11 @@ export default function OpportunityPage() {
 
 function InfoBox({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
-    <div className="bg-white/60 backdrop-blur border border-stone-200/50 rounded-2xl p-4">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-400 mb-1">
+    <div className="bg-white/60 dark:bg-stone-900/60 backdrop-blur border border-stone-200/50 dark:border-stone-800/60 rounded-2xl p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-500 mb-1">
         <Icon size={14} /> {label}
       </div>
-      <p className="text-sm text-stone-700">{value}</p>
+      <p className="text-sm text-stone-700 dark:text-stone-300">{value}</p>
     </div>
   );
 }
