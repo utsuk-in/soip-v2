@@ -253,6 +253,40 @@ export async function getChatSession(id: string): Promise<ChatSessionDetail> {
   return request(`/api/chat/sessions/${id}`);
 }
 
+// --- Feedback ---
+
+export type FeedbackValue = "thumbs_up" | "thumbs_down";
+export type FeedbackSource = "feed" | "chat";
+
+export interface FeedbackOut {
+  id: string;
+  opportunity_id: string;
+  value: string;
+  source: string;
+  created_at: string;
+}
+
+export async function submitFeedback(
+  opportunityId: string,
+  value: FeedbackValue,
+  source: FeedbackSource,
+): Promise<FeedbackOut> {
+  return request("/api/feedback", {
+    method: "POST",
+    body: JSON.stringify({ opportunity_id: opportunityId, value, source }),
+  });
+}
+
+export async function batchGetFeedback(
+  opportunityIds: string[],
+): Promise<Record<string, string>> {
+  if (!opportunityIds.length) return {};
+  const res = await request<{ feedbacks: Record<string, string> }>(
+    `/api/feedback/batch?opportunity_ids=${opportunityIds.join(",")}`,
+  );
+  return res.feedbacks;
+}
+
 // --- Alerts ---
 
 export interface Alert {

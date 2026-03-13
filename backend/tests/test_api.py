@@ -4,6 +4,7 @@ import pytest
 
 from app.models.alert import UserAlert
 from app.models.chat import ChatMessage, ChatSession
+from app.models.interaction_log import InteractionLog
 from app.models.opportunity import Opportunity
 from app.utils.enums import OpportunityCategory
 from app.models.university import University
@@ -64,6 +65,11 @@ def _cleanup(db, suffix: str) -> None:
     db.query(UserAlert).filter(UserAlert.reason.like(f"%{suffix}%")).delete()
     db.query(ChatMessage).filter(ChatMessage.content.like(f"%{suffix}%")).delete()
     db.query(ChatSession).filter(ChatSession.title.like(f"%{suffix}%")).delete()
+    # Clean up interaction logs for test users
+    test_users = db.query(User.id).filter(User.email.like(f"%{suffix}%")).all()
+    if test_users:
+        test_user_ids = [u[0] for u in test_users]
+        db.query(InteractionLog).filter(InteractionLog.user_id.in_(test_user_ids)).delete()
     db.query(Opportunity).filter(Opportunity.url.like(f"%{suffix}%")).delete()
     db.query(User).filter(User.email.like(f"%{suffix}%")).delete()
     db.query(University).filter(University.name.like(f"%{suffix}%")).delete()
@@ -281,3 +287,161 @@ def test_chat_basic_flow(client, db_session, unique_id, monkeypatch):
         assert any(s["title"] == f"test-soip-{suffix}-session" for s in sessions.json())
     finally:
         _cleanup(db_session, suffix)
+
+
+def test_feedback_submit_from_feed(client, db_session, unique_id):
+    suffix = unique_id
+    try:
+        user = _create_user(db_session, suffix)
+        opp = _create_opportunity(db_session, suffix)
+        token = create_access_token(user.id)
+
+        resp = client.post(
+            "/api/feedback",
+            headers=_auth_headers(token),
+            json={
+                "opportunity_id": str(opp.id),
+                "value": "thumbs_up",
+                "source": "feed",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["value"] == "thumbs_up"
+        assert data["source"] == "feed"
+        assert data["opportunity_id"] == str(opp.id)
+
+        # Verify DB row
+        row = (
+            db_session.query(InteractionLog)
+            .filter(
+                InteractionLog.user_id == user.id,
+                InteractionLog.opportunity_id == opp.id,
+                InteractionLog.action == "thumbs_up",
+            )
+            .first()
+        )
+        assert row is not None
+    finally:
+        _cleanup(db_session, suffix)
+
+
+def test_feedback_submit_from_chat(client, db_session, unique_id):
+    suffix = unique_id
+    try:
+        user = _create_user(db_session, suffix)
+        opp = _create_opportunity(db_session, suffix)
+        token = create_access_token(user.id)
+
+        resp = client.post(
+            "/api/feedback",
+            headers=_auth_headers(token),
+            json={
+                "opportunity_id": str(opp.id),
+                "value": "thumbs_down",
+                "source": "chat",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["value"] == "thumbs_down"
+        assert data["source"] == "chat"
+    finally:
+        _cleanup(db_session, suffix)
+
+
+def test_feedback_update_value(client, db_session, unique_id):
+    suffix = unique_id
+    try:
+        user = _create_user(db_session, suffix)
+        opp = _create_opportunity(db_session, suffix)
+        token = create_access_token(user.id)
+
+        # Submit thumbs_up first
+        client.post(
+            "/api/feedback",
+            headers=_auth_headers(token),
+            json={
+                "opportunity_id": str(opp.id),
+                "value": "thumbs_up",
+                "source": "feed",
+            },
+        )
+
+        # Update to thumbs_down
+        resp = client.post(
+            "/api/feedback",
+            headers=_auth_headers(token),
+            json={
+                "opportunity_id": str(opp.id),
+                "value": "thumbs_down",
+                "source": "feed",
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json()["value"] == "thumbs_down"
+
+        # Verify only one row exists (upsert, not duplicate)
+        count = (
+            db_session.query(InteractionLog)
+            .filter(
+                InteractionLog.user_id == user.id,
+                InteractionLog.opportunity_id == opp.id,
+                InteractionLog.action.in_(("thumbs_up", "thumbs_down")),
+            )
+            .count()
+        )
+        assert count == 1
+    finally:
+        _cleanup(db_session, suffix)
+
+
+def test_feedback_batch_get(client, db_session, unique_id):
+    suffix = unique_id
+    try:
+        user = _create_user(db_session, suffix)
+        opp1 = _create_opportunity(db_session, f"{suffix}-a")
+        opp2 = _create_opportunity(db_session, f"{suffix}-b")
+        opp3 = _create_opportunity(db_session, f"{suffix}-c")
+        token = create_access_token(user.id)
+
+        # Submit feedback for opp1 and opp2 only
+        client.post(
+            "/api/feedback",
+            headers=_auth_headers(token),
+            json={"opportunity_id": str(opp1.id), "value": "thumbs_up", "source": "feed"},
+        )
+        client.post(
+            "/api/feedback",
+            headers=_auth_headers(token),
+            json={"opportunity_id": str(opp2.id), "value": "thumbs_down", "source": "chat"},
+        )
+
+        # Batch fetch all three
+        ids = f"{opp1.id},{opp2.id},{opp3.id}"
+        resp = client.get(
+            f"/api/feedback/batch?opportunity_ids={ids}",
+            headers=_auth_headers(token),
+        )
+        assert resp.status_code == 200
+        feedbacks = resp.json()["feedbacks"]
+        assert feedbacks[str(opp1.id)] == "thumbs_up"
+        assert feedbacks[str(opp2.id)] == "thumbs_down"
+        assert str(opp3.id) not in feedbacks
+    finally:
+        _cleanup(db_session, f"{suffix}-a")
+        _cleanup(db_session, f"{suffix}-b")
+        _cleanup(db_session, f"{suffix}-c")
+        _cleanup(db_session, suffix)
+
+
+def test_feedback_requires_auth(client):
+    resp = client.post(
+        "/api/feedback",
+        json={
+            "opportunity_id": str(uuid.uuid4()),
+            "value": "thumbs_up",
+            "source": "feed",
+        },
+    )
+    assert resp.status_code in (401, 403)

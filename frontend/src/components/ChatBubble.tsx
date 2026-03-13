@@ -2,16 +2,20 @@ import React from "react";
 import Markdown from "react-markdown";
 import { Bot, User } from "lucide-react";
 import OpportunityCard from "./OpportunityCard";
-import type { Opportunity } from "../lib/api";
+import FeedbackButtons from "./FeedbackButtons";
+import type { Opportunity, FeedbackValue } from "../lib/api";
 
 interface Props {
   role: "user" | "assistant";
   content: string;
   citedOpportunities?: Opportunity[];
   onOpportunityClick?: (id: string) => void;
+  feedbackMap?: Record<string, FeedbackValue>;
+  feedbackDisabledIds?: Set<string>;
+  onFeedback?: (opportunityId: string, value: FeedbackValue) => void;
 }
 
-export default function ChatBubble({ role, content, citedOpportunities, onOpportunityClick }: Props) {
+export default function ChatBubble({ role, content, citedOpportunities, onOpportunityClick, feedbackMap, feedbackDisabledIds, onFeedback }: Props) {
   const isUser = role === "user";
 
   return (
@@ -58,12 +62,17 @@ export default function ChatBubble({ role, content, citedOpportunities, onOpport
         {!isUser && citedOpportunities && citedOpportunities.length > 0 && (
           <div className="mt-2 space-y-2">
             {citedOpportunities.slice(0, 3).map((opp) => (
-              <OpportunityCard
-                key={opp.id}
-                opportunity={opp}
-                compact
-                onClick={() => onOpportunityClick?.(opp.id)}
-              />
+              <div key={opp.id}>
+                <OpportunityCard
+                  opportunity={opp}
+                  compact
+                  onClick={() => onOpportunityClick?.(opp.id)}
+                  feedbackValue={feedbackMap?.[opp.id] ?? null}
+                  feedbackDisabled={feedbackDisabledIds?.has(opp.id)}
+                  feedbackSource="chat"
+                  onFeedback={onFeedback ? (value) => onFeedback(opp.id, value) : undefined}
+                />
+              </div>
             ))}
           </div>
         )}

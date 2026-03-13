@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Send, PanelLeftClose, PanelLeft, Plus, Sparkles } from "lucide-react";
 import { sendChatMessage, getChatSessions, getChatSession, type ChatMessage, type ChatSession, type Opportunity } from "../lib/api";
 import ChatBubble, { TypingIndicator } from "../components/ChatBubble";
+import { useFeedback } from "../hooks/useFeedback";
 
 const SUGGESTED_PROMPTS = [
   "what hackathons are coming up?",
@@ -29,6 +30,10 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { feedbackMap, loadFeedback, submit: submitFeedback, hasSubmitted } = useFeedback();
+  const feedbackDisabledIds = new Set(
+    Object.keys(feedbackMap).filter((id) => hasSubmitted(id)),
+  );
 
   useEffect(() => {
     getChatSessions().then(setSessions).catch(() => {});
@@ -87,6 +92,10 @@ export default function ChatPage() {
         citedOpportunities: res.cited_opportunities,
       };
       setMessages((prev) => [...prev, assistantMsg]);
+
+      if (res.cited_opportunities?.length) {
+        loadFeedback(res.cited_opportunities.map((o) => o.id));
+      }
 
       getChatSessions().then(setSessions).catch(() => {});
     } catch (err: any) {
@@ -189,6 +198,9 @@ export default function ChatPage() {
                   content={msg.content}
                   citedOpportunities={msg.citedOpportunities}
                   onOpportunityClick={(id) => navigate(`/browse/${id}`)}
+                  feedbackMap={feedbackMap}
+                  feedbackDisabledIds={feedbackDisabledIds}
+                  onFeedback={(oppId, value) => submitFeedback(oppId, value, "chat")}
                 />
               ))}
               {sending && <TypingIndicator />}
