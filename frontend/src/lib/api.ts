@@ -20,7 +20,7 @@ const API_BASE = normalizeBaseUrl(
 );
 
 function getToken(): string | null {
-  return localStorage.getItem("soip_token");
+  return sessionStorage.getItem("soip_admin_token") || localStorage.getItem("soip_token");
 }
 
 async function request<T>(
@@ -39,8 +39,10 @@ async function request<T>(
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
   if (res.status === 401) {
+    const wasAdmin = !!sessionStorage.getItem("soip_admin_token");
+    sessionStorage.removeItem("soip_admin_token");
     localStorage.removeItem("soip_token");
-    window.location.href = "/login";
+    window.location.href = wasAdmin ? "/admin/login" : "/login";
     throw new Error("Unauthorized");
   }
 
@@ -98,6 +100,9 @@ export interface User {
   aspirations: string[];
   university_id: string | null;
   is_onboarded: boolean;
+  role: string;
+  department: string | null;
+  roll_number: string | null;
 }
 
 export async function getMe(): Promise<User> {
@@ -114,6 +119,7 @@ export interface ProfileUpdate {
   skills?: string[];
   interests?: string[];
   aspirations?: string[];
+  password?: string;
 }
 
 export async function updateProfile(data: ProfileUpdate): Promise<User> {
@@ -263,4 +269,248 @@ export async function getAlerts(): Promise<Alert[]> {
 
 export async function markAlertRead(id: string): Promise<Alert> {
   return request(`/api/alerts/${id}/read`, { method: "PUT" });
+}
+
+// --- Universities ---
+
+export interface University {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+}
+
+export async function getUniversities(search?: string): Promise<University[]> {
+  const qs = search ? `?name=${encodeURIComponent(search)}` : "";
+  return request(`/api/users/universities${qs}`);
+}
+
+// --- Admin ---
+
+async function requestFormData<T>(path: string, formData: FormData): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem("soip_token");
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export interface AdminRegisterData {
+  email: string;
+  password: string;
+  first_name: string;
+  invite_code: string;
+  university_id: string;
+}
+
+export async function adminRegister(data: AdminRegisterData): Promise<TokenResponse> {
+  return request("/api/admin/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function redeemMagicLink(token: string): Promise<TokenResponse> {
+  return request(`/api/auth/magic-link?token=${encodeURIComponent(token)}`);
+}
+
+// --- Admin Student Upload ---
+
+export interface StudentRow {
+  row_number: number;
+  name: string;
+  email: string;
+  roll_number: string | null;
+  department: string | null;
+  year_of_study: string | null;
+}
+
+export interface RowError {
+  row_number: number;
+  field: string;
+  message: string;
+}
+
+export interface UploadValidationResponse {
+  valid_rows: StudentRow[];
+  errors: RowError[];
+  duplicates: string[];
+  total_rows: number;
+}
+
+export interface MagicLinkResult {
+  student_id: string;
+  email: string;
+  magic_token: string;
+  magic_link_url: string;
+}
+
+export interface UploadSummary {
+  total: number;
+  invited: number;
+  failed: number;
+  duplicate_skipped: number;
+  invited_students: MagicLinkResult[];
+}
+
+export async function validateStudentUpload(file: File): Promise<UploadValidationResponse> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return requestFormData("/api/admin/students/validate", fd);
+}
+
+export async function confirmStudentUpload(students: StudentRow[]): Promise<UploadSummary> {
+  return request("/api/admin/students/upload", {
+    method: "POST",
+    body: JSON.stringify({ students }),
+  });
+}
+
+export async function downloadTemplate(): Promise<void> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/admin/students/template`, { headers });
+  if (!res.ok) throw new Error("Failed to download template");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "student_upload_template.xlsx";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function resendInvite(studentId: string): Promise<MagicLinkResult> {
+  return request(`/api/admin/students/${studentId}/resend-invite`, { method: "POST" });
+}
+
+export interface BulkResendSummary {
+  results: MagicLinkResult[];
+  skipped_onboarded: number;
+  failed: number;
+}
+
+export interface BulkRemoveSummary {
+  removed: number;
+}
+
+export async function bulkResendInvite(studentIds: string[]): Promise<BulkResendSummary> {
+  return request("/api/admin/students/bulk-resend", {
+    method: "POST",
+    body: JSON.stringify({ student_ids: studentIds }),
+  });
+}
+
+export async function bulkRemoveStudents(studentIds: string[]): Promise<BulkRemoveSummary> {
+  return request("/api/admin/students/bulk", {
+    method: "DELETE",
+    body: JSON.stringify({ student_ids: studentIds }),
+  });
+}
+
+// --- Admin Dashboard ---
+
+export interface DashboardMetrics {
+  total_invited: number;
+  total_activated: number;
+  activation_rate: number;
+  total_views: number;
+  total_applications: number;
+}
+
+export interface StudentListItem {
+  id: string;
+  first_name: string | null;
+  email: string;
+  department: string | null;
+  year_of_study: string | null;
+  roll_number: string | null;
+  is_onboarded: boolean;
+  is_active: boolean;
+  last_login_at: string | null;
+  invited_at: string | null;
+  created_at: string | null;
+  /** "valid" | "expired" | "used" | null */
+  invite_token_status: string | null;
+}
+
+export interface StudentListResponse {
+  items: StudentListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface StudentActivityData {
+  total_views: number;
+  total_logins: number;
+  recent_activity: { action: string; created_at: string; opportunity_title?: string }[];
+}
+
+export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+  return request("/api/admin/dashboard/metrics");
+}
+
+export interface StudentListParams {
+  page?: number;
+  search?: string;
+  status?: string;
+  name?: string;
+  email?: string;
+  department?: string;
+  year_of_study?: string;
+}
+
+export async function getStudentList(params: StudentListParams = {}): Promise<StudentListResponse> {
+  const qs = new URLSearchParams();
+  if (params.page) qs.set("page", String(params.page));
+  if (params.search) qs.set("search", params.search);
+  if (params.status) qs.set("status_filter", params.status);
+  if (params.name) qs.set("name", params.name);
+  if (params.email) qs.set("email", params.email);
+  if (params.department) qs.set("department", params.department);
+  if (params.year_of_study) qs.set("year_of_study", params.year_of_study);
+  return request(`/api/admin/students?${qs}`);
+}
+
+export async function getFilterOptions(field: string): Promise<string[]> {
+  return request(`/api/admin/students/filter-options?field=${encodeURIComponent(field)}`);
+}
+
+export async function getStudentActivity(studentId: string): Promise<StudentActivityData> {
+  return request(`/api/admin/students/${studentId}/activity`);
+}
+
+export async function removeStudent(studentId: string): Promise<void> {
+  await request(`/api/admin/students/${studentId}`, { method: "DELETE" });
+}
+
+// --- Admin Engagement ---
+
+export interface EngagementReport {
+  top_opportunities: { opportunity_id: string; title: string; view_count: number }[];
+  category_breakdown: { category: string; count: number }[];
+  engagement_distribution: { bucket: string; count: number }[];
+  weekly_trends: { week: string; interactions: number }[];
+  magic_link_stats: { total_sent: number; total_used: number; open_rate: number };
+}
+
+export async function getEngagementReport(weeks = 8): Promise<EngagementReport> {
+  return request(`/api/admin/engagement?weeks=${weeks}`);
 }

@@ -87,6 +87,11 @@ def register_user(
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     """Verify credentials. Returns the User or None."""
     user = db.query(User).filter(User.email == email).first()
-    if not user or not verify_password(password, user.password_hash):
+    if not user:
+        return None
+    # Invited-only users have a sentinel hash — reject password login
+    if user.password_hash == "!disabled":
+        return None
+    if not verify_password(password, user.password_hash):
         return None
     return user

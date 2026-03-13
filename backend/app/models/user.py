@@ -24,8 +24,15 @@ class User(Base):
     interests = Column(JSON, default=list)
     aspirations = Column(JSON, default=list)
 
+    role = Column(String(20), nullable=False, server_default="student")
+    department = Column(String(200), nullable=True)
+    roll_number = Column(String(100), nullable=True)
+    invited_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    invited_at = Column(DateTime(timezone=True), nullable=True)
+
     is_onboarded = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

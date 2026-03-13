@@ -1,0 +1,24 @@
+# rough work
+.ruf/
+
+# claude
+.claude/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+backend/requirements.txt
+
+# virtual environment
+.venv/
+
+# node modules
+node_modules/
+
+# environment variables
+.env
+
+# visual studio code settings
+.vscode/

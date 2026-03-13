@@ -25,7 +25,7 @@ interface ProfileFormState {
   hasInterest: (interest: string) => boolean;
   toggleInterest: (interest: string) => void;
   toggleAspiration: (asp: string) => void;
-  submitProfile: () => Promise<void>;
+  submitProfile: (password?: string) => Promise<void>;
 }
 
 export default function useProfileForm(user: User | null, onSuccess?: () => void): ProfileFormState {
@@ -77,7 +77,7 @@ export default function useProfileForm(user: User | null, onSuccess?: () => void
     );
   };
 
-  const submitProfile = async () => {
+  const submitProfile = async (password?: string) => {
     setLoading(true);
     setError("");
     setSuccess("");
@@ -90,6 +90,7 @@ export default function useProfileForm(user: User | null, onSuccess?: () => void
         skills,
         interests,
         aspirations,
+        ...(password ? { password } : {}),
       });
       setSuccess("vibes updated");
       onSuccess?.();

@@ -6,6 +6,7 @@ from app.models.university import University
 from app.models.user import User
 from app.schemas.user import ProfileUpdate, UniversityOut, UserOut
 from app.utils.dependencies import get_current_user
+from app.services.auth import hash_password
 from app.services.taxonomy import merge_domains_with_raw
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -29,6 +30,11 @@ def update_profile(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No fields to update",
         )
+
+    # Handle password separately — hash it and store, don't setattr directly
+    new_password = update_data.pop("password", None)
+    if new_password:
+        current_user.password_hash = hash_password(new_password)
 
     for field, value in update_data.items():
         setattr(current_user, field, value)
