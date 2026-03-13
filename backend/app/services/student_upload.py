@@ -6,8 +6,9 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models.user import User
-from app.schemas.admin import StudentRow, UploadSummary
+from app.schemas.admin import MagicLinkResult, StudentRow, UploadSummary
 from app.services.magic_link import create_magic_link
+from app.config import settings
 
 DISABLED_PASSWORD_HASH = "!disabled"
 
@@ -36,6 +37,7 @@ def confirm_upload(
     invited = 0
     failed = 0
     duplicate_skipped = 0
+    invited_students: list[MagicLinkResult] = []
 
     for student in students:
         if student.email in existing_emails:
@@ -59,7 +61,13 @@ def confirm_upload(
                 )
                 db.add(user)
                 db.flush()  # get user.id
-                create_magic_link(db, user.id)
+                ml_token = create_magic_link(db, user.id)
+            invited_students.append(MagicLinkResult(
+                student_id=user.id,
+                email=student.email,
+                magic_token=ml_token.token,
+                magic_link_url=f"{settings.frontend_base_url}/magic-link?token={ml_token.token}",
+            ))
             invited += 1
         except Exception:
             failed += 1
@@ -71,4 +79,5 @@ def confirm_upload(
         invited=invited,
         failed=failed,
         duplicate_skipped=duplicate_skipped,
+        invited_students=invited_students,
     )

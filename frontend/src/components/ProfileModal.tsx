@@ -32,15 +32,15 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-stone-950/40 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-3xl bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 overflow-hidden animate-fade-in max-h-[90vh] flex flex-col">
-          <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
+        <div className="w-full max-w-3xl bg-white/90 dark:bg-stone-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 dark:border-stone-700/30 overflow-hidden animate-fade-in max-h-[90vh] flex flex-col">
+          <div className="px-6 py-4 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-stone-400 font-semibold">profile</p>
-              <h2 className="text-xl font-bold text-stone-800 font-display">Update Your Profile</h2>
+              <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100 font-display">Update Your Profile</h2>
             </div>
             <button
               onClick={onClose}
-              className="text-stone-400 hover:text-stone-600 px-2 py-1 transition-colors"
+              className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 px-2 py-1 transition-colors"
               aria-label="Close"
             >
               &times;
@@ -56,7 +56,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
                   required
                   value={form.firstName}
                   onChange={(e) => form.setFirstName(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
                   placeholder="What should we call you?"
                 />
               </div>
@@ -68,7 +68,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
                   required
                   value={form.academicBackground}
                   onChange={(e) => form.setAcademicBackground(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
                   placeholder="e.g., B.Tech Computer Science, MBA"
                 />
               </div>
@@ -79,7 +79,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
                   required
                   value={form.yearOfStudy}
                   onChange={(e) => form.setYearOfStudy(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
                 >
                   <option value="">Select year...</option>
                   {YEAR_OF_STUDY_OPTIONS.map((y) => (
@@ -94,7 +94,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
                   required
                   value={form.userState}
                   onChange={(e) => form.setUserState(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
                 >
                   <option value="">Select state...</option>
                   {INDIAN_STATES.map((s) => (
@@ -141,7 +141,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                         form.hasInterest(i)
                           ? "bg-brand-600 text-white shadow-sm"
-                          : "bg-stone-100 text-stone-500 hover:bg-brand-50 hover:text-brand-600"
+                          : "bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400"
                       }`}
                     >
                       {i}
@@ -154,7 +154,7 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">What are you looking for?</label>
                 <div className="grid grid-cols-2 gap-2">
                   {ASPIRATION_OPTIONS.map((a) => (
-                    <label key={a} className="flex items-center gap-2 text-sm cursor-pointer capitalize text-stone-600">
+                    <label key={a} className="flex items-center gap-2 text-sm cursor-pointer capitalize text-stone-600 dark:text-stone-300">
                       <input
                         type="checkbox"
                         checked={form.aspirations.includes(a)}
@@ -167,11 +167,11 @@ export default function ProfileModal({ open, onClose }: ProfileModalProps) {
                 </div>
               </div>
 
-              {form.error && <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{form.error}</p>}
-              {form.success && <p className="text-sm text-pop bg-emerald-50 rounded-xl px-3 py-2">{form.success}</p>}
+              {form.error && <p className="text-sm text-hot bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2">{form.error}</p>}
+              {form.success && <p className="text-sm text-pop bg-emerald-50 dark:bg-emerald-900/20 rounded-xl px-3 py-2">{form.success}</p>}
             </div>
 
-            <div className="lg:col-span-2 flex items-center justify-between border-t border-stone-100 pt-4">
+            <div className="lg:col-span-2 flex items-center justify-between border-t border-stone-100 dark:border-stone-800 pt-4">
               <p className="text-xs text-stone-400">Updates improve your recommendations instantly.</p>
               <button
                 type="submit"

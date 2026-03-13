@@ -32,11 +32,39 @@ class UploadConfirmRequest(BaseModel):
     students: list[StudentRow]
 
 
+class MagicLinkResult(BaseModel):
+    student_id: UUID
+    email: str
+    magic_token: str
+    magic_link_url: str
+
+
 class UploadSummary(BaseModel):
     total: int
     invited: int
     failed: int
     duplicate_skipped: int
+    invited_students: list[MagicLinkResult] = []
+
+
+# --- Bulk Actions ---
+
+class BulkResendRequest(BaseModel):
+    student_ids: list[UUID]
+
+
+class BulkResendSummary(BaseModel):
+    results: list[MagicLinkResult]
+    skipped_onboarded: int
+    failed: int
+
+
+class BulkRemoveRequest(BaseModel):
+    student_ids: list[UUID]
+
+
+class BulkRemoveSummary(BaseModel):
+    removed: int
 
 
 # --- Dashboard ---
@@ -61,6 +89,8 @@ class StudentListItem(BaseModel):
     last_login_at: datetime | None = None
     invited_at: datetime | None = None
     created_at: datetime | None = None
+    # "valid" | "expired" | "used" | None (None means onboarded or no token exists)
+    invite_token_status: str | None = None
 
     model_config = {"from_attributes": True}
 

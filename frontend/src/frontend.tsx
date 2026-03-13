@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { ThemeProvider } from "./lib/theme";
 
 import Layout from "./components/Layout";
 import AdminLayout from "./components/AdminLayout";
@@ -22,7 +23,7 @@ function AppRoutes() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-stone-50">
+      <div className="h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-4" />
           <p className="text-sm text-stone-400 font-medium">loading SOIP...</p>
@@ -85,11 +86,13 @@ function AppRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

@@ -12,13 +12,13 @@ function StepIndicator({ current }: { current: number }) {
       {STEPS.map((label, i) => (
         <React.Fragment key={label}>
           {i > 0 && (
-            <div className={`h-0.5 w-8 rounded-full transition-colors duration-300 ${i <= current ? "bg-brand-500" : "bg-stone-200"}`} />
+            <div className={`h-0.5 w-8 rounded-full transition-colors duration-300 ${i <= current ? "bg-brand-500" : "bg-stone-200 dark:bg-stone-700"}`} />
           )}
           <div className="flex items-center gap-1.5">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
               i < current ? "bg-brand-600 text-white" :
               i === current ? "bg-brand-600 text-white shadow-glow" :
-              "bg-stone-200 text-stone-400"
+              "bg-stone-200 dark:bg-stone-700 text-stone-400"
             }`}>
               {i < current ? "\u2713" : i + 1}
             </div>
@@ -152,7 +152,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 via-stone-50 to-accent-50 px-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 via-stone-50 to-accent-50 dark:from-stone-950 dark:via-stone-950 dark:to-stone-950 px-4 relative overflow-hidden">
       {/* Decorative blurs */}
       <div className="absolute top-20 -left-32 w-96 h-96 bg-brand-400 rounded-full opacity-20 blur-3xl" />
       <div className="absolute bottom-20 -right-32 w-96 h-96 bg-accent-400 rounded-full opacity-15 blur-3xl" />
@@ -165,15 +165,15 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-2xl shadow-brand-500/10 border border-white/30 p-8">
+        <div className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-xl rounded-3xl shadow-2xl shadow-brand-500/10 border border-white/30 dark:border-stone-700/30 p-8">
           {isRegister && <StepIndicator current={step} />}
 
-          <h2 className="text-xl font-bold text-stone-900 mb-1 font-display">
+          <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100 mb-1 font-display">
             {isRegister
               ? step === 0 ? "Create Your Account" : step === 1 ? "Tell Us About You" : "Your Interests"
               : "Welcome Back"}
           </h2>
-          <p className="text-stone-400 text-sm mb-6">
+          <p className="text-stone-400 dark:text-stone-500 text-sm mb-6">
             {isRegister
               ? step === 0 ? "Create your account to get started." : step === 1 ? "This helps us personalize opportunities for you." : "Almost there—choose what interests you most."
               : "Sign in to your account."}
@@ -193,18 +193,18 @@ export default function LoginPage() {
           {!isRegister && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Email</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1">Email</label>
                 <input name="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 bg-white/50"
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
                   placeholder="you@university.edu" />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Password</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1">Password</label>
                 <input name="password" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 bg-white/50"
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
                   placeholder="min 8 characters" />
               </div>
-              {error && <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{error}</p>}
+              {error && <p className="text-sm text-hot bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2">{error}</p>}
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50">
                 {loading ? "Please wait..." : "Sign In"}
@@ -216,18 +216,18 @@ export default function LoginPage() {
           {isRegister && step === 0 && (
             <form onSubmit={handleRegisterStep} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Email</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1">Email</label>
                 <input name="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 bg-white/50"
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
                   placeholder="you@university.edu" />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Password</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1">Password</label>
                 <input name="password" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 bg-white/50"
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
                   placeholder="min 8 characters" />
               </div>
-              {error && <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{error}</p>}
+              {error && <p className="text-sm text-hot bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2">{error}</p>}
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50">
                 {loading ? "Creating account..." : "Next"}
@@ -239,36 +239,36 @@ export default function LoginPage() {
           {isRegister && step === 1 && (
             <form onSubmit={handleRegisterStep} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">First Name</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1">First Name</label>
                 <input type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
                   placeholder="What should we call you?" />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Academic Background</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1">Academic Background</label>
                 <select required value={academicBackground} onChange={(e) => setAcademicBackground(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50">
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500">
                   <option value="">Select degree...</option>
                   {DEGREE_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Year of Study</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1">Year of Study</label>
                 <select required value={yearOfStudy} onChange={(e) => setYearOfStudy(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50">
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500">
                   <option value="">Select year...</option>
                   {YEAR_OF_STUDY_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">State / Location</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1">State / Location</label>
                 <select required value={userState} onChange={(e) => setUserState(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50">
+                  className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500">
                   <option value="">Select state...</option>
                   {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              {error && <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{error}</p>}
+              {error && <p className="text-sm text-hot bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2">{error}</p>}
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50">
                 Next
@@ -281,7 +281,7 @@ export default function LoginPage() {
             <form onSubmit={handleRegisterStep} className="space-y-5">
               {/* Skills */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">Skills</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400 mb-1">Skills</label>
                 <div className="flex gap-2 mb-2">
                   <input type="text" value={skillInput} onChange={(e) => setSkillInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }}
@@ -311,7 +311,7 @@ export default function LoginPage() {
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                         hasInterest(i)
                           ? "bg-brand-600 text-white shadow-sm"
-                          : "bg-stone-100 text-stone-600 hover:bg-brand-50 hover:text-brand-600"
+                          : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400"
                       }`}>
                       {i}
                     </button>
@@ -333,7 +333,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {error && <p className="text-sm text-hot bg-red-50 rounded-xl px-3 py-2">{error}</p>}
+              {error && <p className="text-sm text-hot bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2">{error}</p>}
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-brand-500/25 transition-all disabled:opacity-50">
                 {loading ? "Setting up..." : "Finish Registration"}
@@ -342,7 +342,7 @@ export default function LoginPage() {
           )}
 
           {/* Toggle login/register */}
-          <p className="mt-6 text-center text-sm text-stone-400">
+          <p className="mt-6 text-center text-sm text-stone-400 dark:text-stone-500">
             {isRegister ? "Already have an account?" : "New here?"}{" "}
             <button onClick={switchMode} className="text-brand-600 font-semibold hover:text-brand-700 transition-colors">
               {isRegister ? "Sign In" : "Create an Account"}

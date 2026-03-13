@@ -37,13 +37,13 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
       {open && <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-30 lg:hidden" onClick={onClose} />}
 
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-40 w-72 bg-white/80 backdrop-blur-xl border-r border-stone-200/60 p-5 overflow-y-auto transform transition-transform lg:translate-x-0 ${
+        className={`fixed lg:static inset-y-0 left-0 z-40 w-72 bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl border-r border-stone-200/60 dark:border-stone-700/60 p-5 overflow-y-auto transform transition-transform lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-stone-800 font-display">Filters</h2>
-          <button className="lg:hidden text-stone-400 hover:text-stone-600" onClick={onClose}><X size={20} /></button>
+          <h2 className="text-lg font-bold text-stone-800 dark:text-stone-100 font-display">Filters</h2>
+          <button type="button" title="Close filters" className="lg:hidden text-stone-400 hover:text-stone-600 dark:hover:text-stone-300" onClick={onClose}><X size={20} /></button>
         </div>
 
         {/* Search */}
@@ -54,7 +54,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
             value={filters.search}
             onChange={(e) => set("search", e.target.value)}
             placeholder="Keyword..."
-            className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+            className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50 dark:bg-stone-800 dark:text-stone-100 dark:placeholder-stone-500"
           />
         </div>
 
@@ -67,7 +67,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                 filters.category === ""
                   ? "bg-brand-600 text-white shadow-sm"
-                  : "bg-stone-100 text-stone-500 hover:bg-stone-200"
+                  : "bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
               }`}
             >
               All
@@ -81,7 +81,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
                   className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition-all ${
                     filters.category === cat
                       ? colorClass
-                      : "bg-stone-100 text-stone-500 hover:bg-stone-200"
+                      : "bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
                   }`}
                 >
                   {cat}
@@ -102,7 +102,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
                 className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
                   filters.domain === d
                     ? "bg-brand-600 text-white shadow-sm"
-                    : "bg-stone-100 text-stone-500 hover:bg-brand-50 hover:text-brand-600"
+                    : "bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400"
                 }`}
               >
                 {d}
@@ -117,7 +117,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
           <select
             value={filters.sort}
             onChange={(e) => set("sort", e.target.value)}
-            className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50"
+            className="w-full px-4 py-2.5 border border-stone-200 dark:border-stone-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 bg-white/50 dark:bg-stone-800 dark:text-stone-100"
           >
             <option value="newest">Newest First</option>
             <option value="deadline">Deadline (Soonest)</option>
@@ -127,7 +127,7 @@ export default function FilterSidebar({ filters, onChange, open, onClose }: Prop
         {/* Reset */}
         <button
           onClick={() => onChange({ category: "", domain: "", search: "", sort: "newest" })}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium text-stone-500 hover:text-brand-600 hover:bg-brand-50 transition-all"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium text-stone-500 dark:text-stone-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-all"
         >
           <RotateCcw size={14} /> Reset All
         </button>

@@ -327,11 +327,19 @@ export interface UploadValidationResponse {
   total_rows: number;
 }
 
+export interface MagicLinkResult {
+  student_id: string;
+  email: string;
+  magic_token: string;
+  magic_link_url: string;
+}
+
 export interface UploadSummary {
   total: number;
   invited: number;
   failed: number;
   duplicate_skipped: number;
+  invited_students: MagicLinkResult[];
 }
 
 export async function validateStudentUpload(file: File): Promise<UploadValidationResponse> {
@@ -362,8 +370,32 @@ export async function downloadTemplate(): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-export async function resendInvite(studentId: string): Promise<void> {
-  await request(`/api/admin/students/${studentId}/resend-invite`, { method: "POST" });
+export async function resendInvite(studentId: string): Promise<MagicLinkResult> {
+  return request(`/api/admin/students/${studentId}/resend-invite`, { method: "POST" });
+}
+
+export interface BulkResendSummary {
+  results: MagicLinkResult[];
+  skipped_onboarded: number;
+  failed: number;
+}
+
+export interface BulkRemoveSummary {
+  removed: number;
+}
+
+export async function bulkResendInvite(studentIds: string[]): Promise<BulkResendSummary> {
+  return request("/api/admin/students/bulk-resend", {
+    method: "POST",
+    body: JSON.stringify({ student_ids: studentIds }),
+  });
+}
+
+export async function bulkRemoveStudents(studentIds: string[]): Promise<BulkRemoveSummary> {
+  return request("/api/admin/students/bulk", {
+    method: "DELETE",
+    body: JSON.stringify({ student_ids: studentIds }),
+  });
 }
 
 // --- Admin Dashboard ---
@@ -388,6 +420,8 @@ export interface StudentListItem {
   last_login_at: string | null;
   invited_at: string | null;
   created_at: string | null;
+  /** "valid" | "expired" | "used" | null */
+  invite_token_status: string | null;
 }
 
 export interface StudentListResponse {
@@ -407,12 +441,30 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   return request("/api/admin/dashboard/metrics");
 }
 
-export async function getStudentList(params: { page?: number; search?: string; status?: string } = {}): Promise<StudentListResponse> {
+export interface StudentListParams {
+  page?: number;
+  search?: string;
+  status?: string;
+  name?: string;
+  email?: string;
+  department?: string;
+  year_of_study?: string;
+}
+
+export async function getStudentList(params: StudentListParams = {}): Promise<StudentListResponse> {
   const qs = new URLSearchParams();
   if (params.page) qs.set("page", String(params.page));
   if (params.search) qs.set("search", params.search);
   if (params.status) qs.set("status_filter", params.status);
+  if (params.name) qs.set("name", params.name);
+  if (params.email) qs.set("email", params.email);
+  if (params.department) qs.set("department", params.department);
+  if (params.year_of_study) qs.set("year_of_study", params.year_of_study);
   return request(`/api/admin/students?${qs}`);
+}
+
+export async function getFilterOptions(field: string): Promise<string[]> {
+  return request(`/api/admin/students/filter-options?field=${encodeURIComponent(field)}`);
 }
 
 export async function getStudentActivity(studentId: string): Promise<StudentActivityData> {
