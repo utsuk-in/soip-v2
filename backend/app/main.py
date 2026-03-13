@@ -7,6 +7,7 @@ from app.routers.users import router as users_router
 from app.routers.chat import router as chat_router
 from app.routers.opportunities import router as opportunities_router
 from app.routers.alerts import router as alerts_router
+from app.routers.admin import router as admin_router
 from app.services.scheduler import scheduler_lifespan
 
 app = FastAPI(
@@ -29,6 +30,7 @@ app.include_router(users_router)
 app.include_router(chat_router)
 app.include_router(opportunities_router)
 app.include_router(alerts_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")

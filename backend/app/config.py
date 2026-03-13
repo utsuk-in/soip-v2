@@ -37,6 +37,10 @@ class Settings(BaseSettings):
             return [p for p in parts if p]
         return v
 
+    admin_invite_code: str = Field(default="soip-admin-2026")
+
+    frontend_base_url: str = Field(default="http://localhost:3000")
+
     # Crawl depth:
     # - html paginated sources: max pages
     # - crawl4ai full_page (infinite scroll): max scroll steps

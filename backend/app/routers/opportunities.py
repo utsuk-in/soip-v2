@@ -4,6 +4,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import or_, func, select
@@ -26,6 +27,30 @@ from app.utils.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/opportunities", tags=["opportunities"])
 logger = logging.getLogger(__name__)
+
+_optional_bearer = HTTPBearer(auto_error=False)
+
+
+def _optional_current_user(
+    credentials=Depends(_optional_bearer),
+    db: Session = Depends(get_db),
+):
+    """Extract current user from token if present, otherwise return None."""
+    if credentials is None:
+        return None
+    from jose import JWTError, jwt as jose_jwt
+    from app.config import settings as _settings
+    try:
+        payload = jose_jwt.decode(
+            credentials.credentials, _settings.jwt_secret, algorithms=[_settings.jwt_algorithm]
+        )
+        user_id_raw = payload.get("sub")
+        if not user_id_raw:
+            return None
+        user = db.query(User).filter(User.id == UUID(user_id_raw)).first()
+        return user if user and user.is_active else None
+    except (JWTError, ValueError):
+        return None
 
 
 @router.get("", response_model=OpportunityListResponse)
@@ -258,6 +283,7 @@ async def recommended_opportunities(
 def get_opportunity(
     opportunity_id: UUID,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(_optional_current_user),
 ):
     opp = db.query(Opportunity).filter(Opportunity.id == opportunity_id).first()
     if not opp:
@@ -265,6 +291,16 @@ def get_opportunity(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Opportunity not found",
         )
+    if current_user:
+        from app.models.interaction_log import InteractionLog
+        log = InteractionLog(
+            user_id=current_user.id,
+            opportunity_id=opp.id,
+            action="view",
+            category=opp.category.value if opp.category else None,
+        )
+        db.add(log)
+        db.commit()
     return opp
 
 

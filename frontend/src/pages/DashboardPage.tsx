@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { MessageSquare, Search, Sparkles, Clock, AlertTriangle } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { MessageSquare, Search, Sparkles, Clock, AlertTriangle, PartyPopper } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { browseOpportunities, getRecommended, type Opportunity } from "../lib/api";
 import OpportunityCard from "../components/OpportunityCard";
@@ -8,6 +8,8 @@ import OpportunityCard from "../components/OpportunityCard";
 export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [showWelcome, setShowWelcome] = useState(() => !!(location.state as any)?.welcome);
 
   const [recommended, setRecommended] = useState<Opportunity[]>([]);
   const [recent, setRecent] = useState<Opportunity[]>([]);
@@ -86,6 +88,33 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8 bg-white/60 dark:bg-stone-900/40 rounded-3xl border border-white/60 dark:border-stone-800/60">
+      {/* Welcome modal — shown only on first login after onboarding */}
+      {showWelcome && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-sm bg-white dark:bg-stone-900 rounded-3xl shadow-2xl border border-white/30 dark:border-stone-800/60 overflow-hidden">
+            <div className="h-1.5 bg-gradient-to-r from-brand-600 to-brand-400" />
+            <div className="p-8 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center mx-auto mb-4">
+                <PartyPopper size={28} className="text-brand-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-stone-900 dark:text-stone-100 font-display mb-2">
+                Welcome, {user?.first_name || "there"}!
+              </h2>
+              <p className="text-sm text-stone-500 dark:text-stone-400 leading-relaxed mb-6">
+                Your account is all set. SOIP will now surface the best opportunities tailored to your profile — explore, discover, and start applying.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowWelcome(false)}
+                className="w-full py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-brand-500/25 hover:-translate-y-0.5 transition-all"
+              >
+                Let's go
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Greeting */}
       <div>
         <h1 className="text-3xl font-bold text-stone-900 dark:text-stone-100 font-display">

@@ -26,6 +26,7 @@ dependencies = [
     "crawl4ai>=0.4.0",
     "markdownify>=0.14.0",
     "sentence-transformers>=3.0.0",
+    "openpyxl>=3.1.0",
 ]
 
 [dependency-groups]

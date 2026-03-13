@@ -1,70 +1,87 @@
-.PHONY: db db-setup db-shell install install-frontend migrate migration seed scrape backend frontend dev clean
+.PHONY: db db-setup db-shell install install-frontend migrate migration seed scrape backend frontend dev clean build up down
 
-# ── Database (local Postgres with pgvector) ──
+ifneq (,$(wildcard .env))
+    include .env
+    export $(shell sed 's/=.*//' .env)
+endif
 
-db:
-	brew services start postgresql@17 2>/dev/null || pg_ctl -D $(shell brew --prefix)/var/postgresql@17 start
-	@echo "Postgres running"
+# ── Docker ──
+
+build:
+	docker-compose build
+
+up:
+	docker-compose up -d
+
+down:
+	docker-compose down
+
+# ── Database (Docker Postgres with pgvector) ──
+
+db: up
+	@echo "Postgres running in Docker"
 
 db-setup:
-	@echo "Creating database and user..."
-	-psql -U postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='soip_admin'" | grep -q 1 || \
-		psql -U postgres -c "CREATE USER soip_admin WITH PASSWORD 'soip_secure_password';"
-	-psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='soip_db'" | grep -q 1 || \
-		psql -U postgres -c "CREATE DATABASE soip_db OWNER soip_admin;"
-	psql -U soip_admin -d soip_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
-	psql -U soip_admin -d soip_db -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
-	psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE soip_db TO soip_admin;"
-	@echo "Database ready: soip_db on localhost:5432"
+	@echo "Setting up database (via init.sql on container startup)..."
+	docker-compose exec postgres pg_isready -U postgres
 
 db-shell:
-	psql -U soip_admin -d soip_db
+	docker-compose exec postgres psql -U soip_admin -d soip_db
+
+db-sync-render:
+	@echo "Syncing database from source to Docker container..."
+	pg_dump $$RENDER_DATABASE_URL | docker-compose exec -T postgres psql -U soip_admin -d soip_db
 
 # ── Backend ──
 
-install:
-	cd backend && python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+install: up
+	docker-compose exec backend pip install -r requirements.txt
 
-migrate:
-	cd backend && . .venv/bin/activate && alembic upgrade head
+migrate: up
+	docker-compose exec backend alembic upgrade head
 
-migration:
-	cd backend && . .venv/bin/activate && alembic revision --autogenerate -m "$(msg)"
+migration: up
+	docker-compose exec backend alembic revision --autogenerate -m "$(msg)"
 
-seed:
-	cd backend && . .venv/bin/activate && python -m app.services.scraper --seed-only
+seed: up
+	docker-compose exec backend python -m app.services.scraper --seed-only
 
-scrape:
-	cd backend && . .venv/bin/activate && python -m app.services.scraper
+seed-universities: up
+	docker cp backend/scripts/seed_universities.py soip-backend:/app/seed_universities.py
+	docker-compose exec backend python seed_universities.py
 
-embed:
-	cd backend && . .venv/bin/activate && python -m app.scripts.embed_pending
+scrape: up
+	docker-compose exec backend python -m app.services.scraper
 
+embed: up
+	docker-compose exec backend python -m app.scripts.embed_pending
 
-backend:
-	cd backend && . .venv/bin/activate && uvicorn app.main:app --reload --port 8000
+backend: up
+	@echo "Backend running on http://localhost:8000"
+	docker-compose logs -f backend
 
 # ── Frontend ──
 
-install-frontend:
-	cd frontend && bun install
+install-frontend: up
+	docker-compose exec frontend bun install
 
-frontend:
-	cd frontend && bun run dev
+frontend: up
+	@echo "Frontend running on http://localhost:3000"
+	docker-compose logs -f frontend
 
 # ── Convenience ──
 
-dev:
-	@echo "Run these in separate terminals:"
-	@echo "  make backend   # start FastAPI on :8000"
-	@echo "  make frontend  # start React on :3000"
+dev: up
+	@echo "Services running:"
+	@echo "  Backend:   http://localhost:8000"
+	@echo "  Frontend:  http://localhost:3000"
+	@echo "  Database:  localhost:5433 (or $$POSTGRES_PORT)"
 	@echo ""
-	@echo "First-time setup:"
-	@echo "  make db-setup  # create database + extensions"
-	@echo "  make install   # Python venv + deps"
+	@echo "Common commands:"
 	@echo "  make migrate   # run migrations"
 	@echo "  make seed      # load sources"
+	@echo "  make db-shell  # connect to database"
 
 clean:
-	cd backend && rm -rf .venv
-	cd frontend && rm -rf node_modules
+	docker-compose down -v
+	docker system prune -f
