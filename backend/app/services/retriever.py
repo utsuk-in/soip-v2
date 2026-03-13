@@ -51,6 +51,126 @@ class ScoredOpportunity:
     relevance_score: float = 0.0
 
 
+def recommend_retrieve(
+    db: Session,
+    query_embedding: list[float],
+    search_text: str | None = None,
+    categories: list[OpportunityCategory] | None = None,
+    domains: list[str] | None = None,
+    limit: int = 50,
+) -> list[ScoredOpportunity]:
+    """Direct vector search on opportunities.embedding for /recommended.
+
+    Single HNSW query on the opportunities table — no chunk indirection.
+    Optionally supplements with FTS for keyword coverage on opps with
+    missing/poor embeddings. Fuses both channels with RRF.
+    """
+    vector_results = _opportunity_vector_search(db, query_embedding, categories, domains, limit)
+
+    fts_results: list[ScoredOpportunity] = []
+    if search_text and search_text.strip():
+        parsed = ParsedQuery(
+            search_text=search_text,
+            categories=[c.value for c in categories] if categories else None,
+            domains=normalize_domains(domains) if domains else None,
+        )
+        fts_results = _fts_search(db, parsed)
+
+    if not fts_results:
+        return vector_results[:limit]
+
+    # Simple RRF merge of vector + FTS channels
+    merged: dict[UUID, ScoredOpportunity] = {}
+    for opp in vector_results:
+        merged[opp.id] = opp
+    for opp in fts_results:
+        if opp.id in merged:
+            merged[opp.id].fts_rank = opp.fts_rank
+        else:
+            merged[opp.id] = opp
+
+    for opp in merged.values():
+        score = 0.0
+        if opp.vector_rank is not None:
+            score += 1.0 / (_RRF_K + opp.vector_rank)
+        if opp.fts_rank is not None:
+            score += 1.0 / (_RRF_K + opp.fts_rank)
+        score += _freshness_boost(opp.deadline)
+        opp.hybrid_score = score
+
+    top = sorted(merged.values(), key=lambda o: o.hybrid_score, reverse=True)
+    return top[:limit]
+
+
+def _opportunity_vector_search(
+    db: Session,
+    query_embedding: list[float],
+    categories: list[OpportunityCategory] | None = None,
+    domains: list[str] | None = None,
+    limit: int = 50,
+) -> list[ScoredOpportunity]:
+    """Direct pgvector HNSW search on opportunities.embedding."""
+    where_clauses = [
+        "embedding IS NOT NULL",
+        "is_active = true",
+        "(deadline IS NULL OR deadline >= CURRENT_DATE)",
+    ]
+    params: dict = {"qe": str(query_embedding), "lim": limit}
+
+    if categories:
+        placeholders = ", ".join(f":cat_{i}" for i in range(len(categories)))
+        where_clauses.append(f"category IN ({placeholders})")
+        for i, cat in enumerate(categories):
+            params[f"cat_{i}"] = cat.value if hasattr(cat, "value") else cat
+
+    if domains:
+        normed = normalize_domains(domains)
+        if normed:
+            domain_clauses = []
+            for i, dom in enumerate(normed):
+                params[f"dom_{i}"] = dom
+                domain_clauses.append(
+                    f"EXISTS (SELECT 1 FROM jsonb_array_elements_text(domain_tags::jsonb) AS tag(value) "
+                    f"WHERE lower(tag.value) = :dom_{i})"
+                )
+            where_clauses.append("(" + " OR ".join(domain_clauses) + ")")
+
+    where = " AND ".join(where_clauses)
+
+    sql = sa_text(f"""
+        SELECT id, title, description, category, domain_tags,
+               eligibility, benefits, deadline, application_link,
+               source_url, confidence
+        FROM opportunities
+        WHERE {where}
+        ORDER BY embedding <=> :qe
+        LIMIT :lim
+    """)
+
+    rows = db.execute(sql, params).fetchall()
+
+    results: list[ScoredOpportunity] = []
+    for rank, row in enumerate(rows, start=1):
+        results.append(ScoredOpportunity(
+            id=row.id,
+            title=row.title,
+            description=row.description,
+            category=row.category or "other",
+            domain_tags=row.domain_tags or [],
+            eligibility=row.eligibility,
+            benefits=row.benefits,
+            deadline=row.deadline,
+            application_link=row.application_link or "",
+            source_url=row.source_url or "",
+            confidence=row.confidence,
+            vector_rank=rank,
+            hybrid_score=1.0 / (_RRF_K + rank),
+        ))
+
+    logger.debug(f"Opportunity vector search: {len(results)} results")
+    return results
+
+
 async def hybrid_retrieve(
     db: Session,
     query: ParsedQuery,

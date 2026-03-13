@@ -6,13 +6,15 @@ import OpportunityCard from "../components/OpportunityCard";
 import FilterSidebar from "../components/FilterSidebar";
 
 interface Filters {
-  category: string;
-  domain: string;
+  category: string[];
+  domain: string[];
+  location: string;
+  mode: string;
   search: string;
   sort: string;
 }
 
-const INITIAL_FILTERS: Filters = { category: "", domain: "", search: "", sort: "newest" };
+const INITIAL_FILTERS: Filters = { category: [], domain: [], location: "", mode: "", search: "", sort: "newest" };
 
 export default function BrowsePage() {
   const navigate = useNavigate();
@@ -27,8 +29,10 @@ export default function BrowsePage() {
     setLoading(true);
     try {
       const data = await browseOpportunities({
-        category: filters.category || undefined,
-        domain: filters.domain || undefined,
+        category: filters.category.length ? filters.category : undefined,
+        domain: filters.domain.length ? filters.domain : undefined,
+        location: filters.location || undefined,
+        mode: filters.mode || undefined,
         search: filters.search || undefined,
         sort: filters.sort,
         page,
@@ -71,7 +75,7 @@ export default function BrowsePage() {
           </div>
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden flex items-center gap-2 px-4 py-2.5 bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-stone-200 dark:border-stone-700 rounded-xl text-sm font-medium text-stone-600 dark:text-stone-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-all"
+            className="lg:hidden flex items-center gap-2 px-4 py-2.5 bg-white/70 dark:bg-brand-500/15 backdrop-blur border border-stone-200 dark:border-brand-400/40 rounded-xl text-sm font-medium text-stone-600 dark:text-brand-200 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/25 transition-all"
           >
             <Filter size={16} /> Filters
           </button>
@@ -108,14 +112,14 @@ export default function BrowsePage() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
-                  className="px-5 py-2.5 bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-stone-200 dark:border-stone-700 rounded-xl text-sm font-medium text-stone-700 dark:text-stone-300 disabled:opacity-40 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-all"
+                  className="px-5 py-2.5 bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-stone-200 dark:border-stone-800 rounded-xl text-sm font-medium disabled:opacity-40 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-stone-800 dark:hover:text-stone-100 transition-all"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setPage((p) => p + 1)}
                   disabled={meta ? !meta.has_next : opportunities.length < 20}
-                  className="px-5 py-2.5 bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-stone-200 dark:border-stone-700 rounded-xl text-sm font-medium text-stone-700 dark:text-stone-300 disabled:opacity-40 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 transition-all"
+                  className="px-5 py-2.5 bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-stone-200 dark:border-stone-800 rounded-xl text-sm font-medium disabled:opacity-40 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-stone-800 dark:hover:text-stone-100 transition-all"
                 >
                   Next
                 </button>

@@ -1,5 +1,23 @@
-const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:8000";
+declare global {
+  interface Window {
+    __SOIP_CONFIG__?: {
+      API_BASE?: string;
+    };
+  }
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, "");
+}
+
+const runtimeApiBase =
+  typeof window !== "undefined" ? window.__SOIP_CONFIG__?.API_BASE : undefined;
+
+const API_BASE = normalizeBaseUrl(
+  runtimeApiBase ||
+    (import.meta as any).env?.VITE_API_BASE ||
+    "http://localhost:8000"
+);
 
 function getToken(): string | null {
   return sessionStorage.getItem("soip_admin_token") || localStorage.getItem("soip_token");
@@ -122,6 +140,7 @@ export interface Opportunity {
   eligibility: string | null;
   benefits: string | null;
   deadline: string | null;
+  relevance_explanation?: string | null;
   url: string;
   application_url?: string;
   application_link?: string;
@@ -132,8 +151,10 @@ export interface Opportunity {
 }
 
 export interface BrowseParams {
-  category?: string;
-  domain?: string;
+  category?: string | string[];
+  domain?: string | string[];
+  location?: string | string[];
+  mode?: string;
   search?: string;
   deadline_before?: string;
   deadline_after?: string;
@@ -166,7 +187,12 @@ function normalizeOpportunity(raw: any): Opportunity {
 export async function browseOpportunities(params: BrowseParams = {}): Promise<OpportunityListResponse> {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null && v !== "") qs.set(k, String(v));
+    if (v === undefined || v === null || v === "") continue;
+    if (Array.isArray(v)) {
+      if (v.length > 0) qs.set(k, v.join(","));
+      continue;
+    }
+    qs.set(k, String(v));
   }
   const res = await request<OpportunityListResponse>(`/api/opportunities?${qs}`);
   return { ...res, items: res.items.map(normalizeOpportunity) };

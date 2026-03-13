@@ -17,6 +17,10 @@ from app.services.query_parser import understand_query
 from app.services.relevance import rerank_for_user
 from app.services.retriever import ScoredOpportunity, hybrid_retrieve
 from app.services.reranker import rerank_with_cross_encoder
+from app.services.relevance_explainer import (
+    ExplanationOpportunity,
+    generate_relevance_explanations,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +81,28 @@ async def handle_chat_message(
         if top
         else []
     )
+
+    explanations = await generate_relevance_explanations(
+        user=user,
+        query_text=message,
+        opportunities=[
+            ExplanationOpportunity(
+                id=str(o.id),
+                title=o.title,
+                category=o.category.value if hasattr(o.category, "value") else str(o.category),
+                domain_tags=o.domain_tags,
+                description=o.description,
+                deadline=o.deadline.isoformat() if o.deadline else None,
+                location=None,
+            )
+            for o in top
+        ],
+    )
+    if explanations:
+        for opp in cited_opps:
+            text = explanations.get(str(opp.id))
+            if text:
+                setattr(opp, "relevance_explanation", text)
 
     # 10. Save assistant message
     assistant_msg = ChatMessage(

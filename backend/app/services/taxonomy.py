@@ -84,6 +84,28 @@ DOMAIN_SYNONYMS = {
     "hardware": "hardware",
     "iot": "iot",
     "internet of things": "iot",
+    # Common skill -> domain mappings
+    "python": "data",
+    "sql": "data",
+    "statistics": "data",
+    "data analysis": "data",
+    "data analytics": "data",
+    "javascript": "web",
+    "typescript": "web",
+    "react": "web",
+    "node": "web",
+    "node.js": "web",
+    "full stack": "web",
+    "android development": "mobile",
+    "ios development": "mobile",
+    "app development": "mobile",
+    "ui/ux": "design",
+    "user experience": "design",
+    "user interface": "design",
+    "product design": "design",
+    "computer vision": "ai",
+    "nlp": "ai",
+    "natural language processing": "ai",
     "online": "online",
     "offline": "offline",
     "general": "general",
@@ -114,3 +136,31 @@ def normalize_domains(values: Iterable[str] | None) -> list[str]:
             seen.add(canonical)
             out.append(canonical)
     return out
+
+
+def merge_domains_with_raw(values: Iterable[str] | None) -> list[str]:
+    """Return a merged list preserving raw inputs plus canonical domains."""
+    if not values:
+        return []
+    raw_clean = []
+    for raw in values:
+        if raw is None:
+            continue
+        val = str(raw).strip()
+        if val:
+            raw_clean.append(val)
+
+    normalized = normalize_domains(raw_clean)
+    merged: list[str] = []
+    seen: set[str] = set()
+    for val in raw_clean:
+        key = val.lower()
+        if key not in seen:
+            seen.add(key)
+            merged.append(val)
+    for val in normalized:
+        key = val.lower()
+        if key not in seen:
+            seen.add(key)
+            merged.append(val)
+    return merged

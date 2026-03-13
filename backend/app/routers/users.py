@@ -7,7 +7,7 @@ from app.models.user import User
 from app.schemas.user import ProfileUpdate, UniversityOut, UserOut
 from app.utils.dependencies import get_current_user
 from app.services.auth import hash_password
-from app.services.taxonomy import normalize_domains
+from app.services.taxonomy import merge_domains_with_raw
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -41,9 +41,9 @@ def update_profile(
 
     # Normalize skills + interests for consistent matching
     if current_user.skills is not None:
-        current_user.skills = normalize_domains(current_user.skills) or current_user.skills
+        current_user.skills = merge_domains_with_raw(current_user.skills) or current_user.skills
     if current_user.interests is not None:
-        current_user.interests = normalize_domains(current_user.interests) or current_user.interests
+        current_user.interests = merge_domains_with_raw(current_user.interests) or current_user.interests
 
     has_profile_fields = all([
         current_user.first_name,

@@ -136,31 +136,38 @@ async def _extract_segment(
     seg_label = f"segment {seg_num}/{total_segs}"
 
     try:
-        try:
-            response = await asyncio.wait_for(
-                _client.chat.completions.create(
-                    model=settings.openai_model,
-                    response_format={"type": "json_object"},
-                    messages=[
-                        {"role": "system", "content": _SYSTEM_PROMPT},
-                        {
-                            "role": "user",
-                            "content": (
-                                f"Source URL: {source_url}\n"
-                                f"Today's date: {date.today().isoformat()}\n"
-                                f"Segment: {seg_label}\n\n"
-                                f"Content:\n{content}"
-                            ),
-                        },
-                    ],
-                    temperature=0.0,
-                    max_tokens=_MAX_OUTPUT_TOKENS,
-                ),
-                timeout=float(getattr(settings, "openai_timeout_seconds", 60.0)),
+        # Use create_task + asyncio.wait instead of wait_for: on Python <3.12,
+        # wait_for awaits the cancelled coroutine after timeout, which hangs when
+        # httpx is blocked on a CLOSE_WAIT socket that never responds to CancelledError.
+        openai_timeout = float(getattr(settings, "openai_timeout_seconds", 60.0))
+        openai_task = asyncio.create_task(
+            _client.chat.completions.create(
+                model=settings.openai_model,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Source URL: {source_url}\n"
+                            f"Today's date: {date.today().isoformat()}\n"
+                            f"Segment: {seg_label}\n\n"
+                            f"Content:\n{content}"
+                        ),
+                    },
+                ],
+                temperature=0.0,
+                max_tokens=_MAX_OUTPUT_TOKENS,
             )
-        except asyncio.TimeoutError:
+        )
+        done, pending = await asyncio.wait([openai_task], timeout=openai_timeout)
+        if pending:
+            openai_task.cancel()  # fire-and-forget — never await on Python 3.11
             logger.error(f"OpenAI extraction timeout for {source_url} ({seg_label})")
             return []
+        if openai_task.exception():
+            raise openai_task.exception()
+        response = openai_task.result()
 
         raw = response.choices[0].message.content
         finish_reason = response.choices[0].finish_reason

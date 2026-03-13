@@ -19,23 +19,11 @@ export default function DashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [rec, all] = await Promise.all([
-          getRecommended(6).catch(() => []),
-          browseOpportunities({ sort: "newest", page_size: 50 }).catch(() => ({
-            items: [],
-            total: 0,
-            page: 1,
-            page_size: 50,
-            total_pages: 1,
-            has_next: false,
-            has_prev: false,
-          })),
-        ]);
-        setRecommended(rec);
-        const allItems = all.items || [];
-        setRecent(allItems.slice(0, 6));
+        const rec = await getRecommended(20).catch(() => []);
+        const recommendedTop = rec.slice(0, 6);
+        setRecommended(recommendedTop);
 
-        const soon = allItems
+        const soon = rec
           .filter((o) => o.deadline)
           .filter((o) => {
             const days = Math.ceil((new Date(o.deadline!).getTime() - Date.now()) / 86400000);
@@ -43,13 +31,52 @@ export default function DashboardPage() {
           })
           .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
           .slice(0, 4);
+
+        const recent = [...rec]
+          .filter((o) => o.created_at)
+          .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
+          .slice(0, 6);
+
+        // If recommended pool is sparse, fill with personalized matches from browse.
+        if (soon.length < 4 || recent.length < 6) {
+          const all = await browseOpportunities({ sort: "newest", page_size: 60 }).catch(() => ({
+            items: [],
+            total: 0,
+            page: 1,
+            page_size: 60,
+            total_pages: 1,
+            has_next: false,
+            has_prev: false,
+          }));
+          const pool = (all.items || []).filter((o) => isRelevantForUser(user, o));
+          if (soon.length < 4) {
+            const fillSoon = pool
+              .filter((o) => o.deadline)
+              .filter((o) => {
+                const days = Math.ceil((new Date(o.deadline!).getTime() - Date.now()) / 86400000);
+                return days >= 0 && days <= 7;
+              })
+              .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
+              .slice(0, 4 - soon.length);
+            soon.push(...fillSoon);
+          }
+          if (recent.length < 6) {
+            const fillRecent = pool
+              .filter((o) => o.created_at)
+              .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
+              .slice(0, 6 - recent.length);
+            recent.push(...fillRecent);
+          }
+        }
+
         setExpiring(soon);
+        setRecent(recent);
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, []);
+  }, [user]);
 
   if (loading) {
     return (
@@ -60,11 +87,11 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8 bg-white/60 dark:bg-stone-900/40 rounded-3xl border border-white/60 dark:border-stone-800/60">
       {/* Welcome modal — shown only on first login after onboarding */}
       {showWelcome && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-sm bg-white dark:bg-stone-900 rounded-3xl shadow-2xl border border-white/30 dark:border-stone-700/30 overflow-hidden">
+          <div className="relative w-full max-w-sm bg-white dark:bg-stone-900 rounded-3xl shadow-2xl border border-white/30 dark:border-stone-800/60 overflow-hidden">
             <div className="h-1.5 bg-gradient-to-r from-brand-600 to-brand-400" />
             <div className="p-8 text-center">
               <div className="w-14 h-14 rounded-2xl bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center mx-auto mb-4">
@@ -110,7 +137,7 @@ export default function DashboardPage() {
         </button>
         <button
           onClick={() => navigate("/browse")}
-          className="flex items-center gap-4 bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-white/30 dark:border-stone-700/30 text-stone-900 dark:text-stone-100 p-5 rounded-2xl hover:shadow-lg hover:shadow-brand-500/10 hover:-translate-y-0.5 transition-all text-left"
+          className="flex items-center gap-4 bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-white/30 dark:border-stone-800/60 text-stone-900 dark:text-stone-100 p-5 rounded-2xl hover:shadow-lg hover:shadow-brand-500/10 hover:-translate-y-0.5 transition-all text-left"
         >
           <Search size={24} className="text-brand-600" />
           <div>
@@ -126,10 +153,8 @@ export default function DashboardPage() {
           icon={Sparkles}
           title="Recommended for You"
           color="text-brand-600"
-          surface="bg-brand-100/70 border-brand-200/80"
-          art={`url("data:image/svg+xml;utf8,${encodeURIComponent(
-            "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='140' viewBox='0 0 240 140'><g fill='none' stroke='%2306b6d4' stroke-width='1.2' opacity='0.22'><path d='M10 32c32-18 72-18 104 0s72 18 104 0'/><circle cx='186' cy='30' r='6'/><circle cx='40' cy='98' r='5'/></g></svg>"
-          )}"), radial-gradient(120% 140% at 0% 0%, rgba(6,182,212,0.18) 0%, rgba(255,255,255,0) 55%), radial-gradient(120% 140% at 100% 0%, rgba(34,197,94,0.12) 0%, rgba(255,255,255,0) 60%)`}
+          surface="bg-transparent border-stone-200/60 dark:bg-brand-500/10 dark:border-brand-400/30"
+          headerAccent="dark:bg-brand-500/20 dark:text-brand-200"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {recommended.map((opp, i) => (
@@ -147,10 +172,8 @@ export default function DashboardPage() {
           icon={AlertTriangle}
           title="Closing Soon"
           color="text-hot"
-          surface="bg-accent-100/70 border-accent-200/80"
-          art={`url("data:image/svg+xml;utf8,${encodeURIComponent(
-            "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='140' viewBox='0 0 240 140'><g fill='none' stroke='%23f43f5e' stroke-width='1.2' opacity='0.22'><path d='M20 110l40-60 40 60 40-60 40 60'/><circle cx='30' cy='26' r='5'/><circle cx='210' cy='112' r='6'/></g></svg>"
-          )}"), radial-gradient(140% 120% at 0% 0%, rgba(244,63,94,0.22) 0%, rgba(255,255,255,0) 55%), radial-gradient(140% 120% at 100% 100%, rgba(245,158,11,0.14) 0%, rgba(255,255,255,0) 60%)`}
+          surface="bg-transparent border-stone-200/60 dark:bg-accent-500/10 dark:border-accent-400/30"
+          headerAccent="dark:bg-accent-500/20 dark:text-accent-200"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {expiring.map((opp, i) => (
@@ -168,10 +191,8 @@ export default function DashboardPage() {
           icon={Clock}
           title="New Opportunities"
           color="text-pop"
-          surface="bg-brand-50/80 border-brand-200/70"
-          art={`url("data:image/svg+xml;utf8,${encodeURIComponent(
-            "<svg xmlns='http://www.w3.org/2000/svg' width='240' height='140' viewBox='0 0 240 140'><g fill='none' stroke='%2322c55e' stroke-width='1.2' opacity='0.22'><path d='M14 24h70m-60 22h90m-80 22h120'/><circle cx='200' cy='26' r='6'/><circle cx='160' cy='92' r='5'/></g></svg>"
-          )}"), radial-gradient(120% 120% at 0% 100%, rgba(6,182,212,0.16) 0%, rgba(255,255,255,0) 55%), radial-gradient(140% 120% at 100% 0%, rgba(34,197,94,0.14) 0%, rgba(255,255,255,0) 60%)`}
+          surface="bg-transparent border-stone-200/60 dark:bg-emerald-500/10 dark:border-emerald-400/30"
+          headerAccent="dark:bg-emerald-500/20 dark:text-emerald-200"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {recent.map((opp, i) => (
@@ -186,19 +207,47 @@ export default function DashboardPage() {
   );
 }
 
-function Section({ icon: Icon, title, color, surface, art, children }: {
-  icon: React.ElementType; title: string; color: string; surface: string; art: string; children: React.ReactNode;
+function Section({ icon: Icon, title, color, surface, headerAccent, children }: {
+  icon: React.ElementType; title: string; color: string; surface: string; headerAccent?: string; children: React.ReactNode;
 }) {
   return (
-    <section
-      className={`rounded-2xl border ${surface} p-4 sm:p-5`}
-      style={{ backgroundImage: art }}
-    >
-      <h2 className="flex items-center gap-2 text-lg font-bold text-stone-800 dark:text-stone-100 mb-4 font-display">
+    <section className={`rounded-2xl border ${surface} p-4 sm:p-5`}>
+      <h2 className={`inline-flex items-center gap-2 text-lg font-bold text-stone-800 dark:text-stone-100 mb-4 font-display px-3 py-1.5 rounded-full ${headerAccent || ""}`}>
         <Icon size={20} className={color} />
         {title}
       </h2>
       {children}
     </section>
   );
+}
+
+function isRelevantForUser(user: { interests?: string[]; skills?: string[]; aspirations?: string[] } | null, opp: Opportunity) {
+  if (!user) return true;
+  const userDomains = new Set(
+    [...(user.interests || []), ...(user.skills || [])].map((d) => d.toLowerCase())
+  );
+  const userCategories = new Set(
+    (user.aspirations || []).map((a) => normalizeCategory(a))
+  );
+
+  const oppDomains = new Set((opp.domain_tags || []).map((d) => d.toLowerCase()));
+  const hasDomainMatch = [...userDomains].some((d) => oppDomains.has(d));
+
+  const oppCategory = (opp.category || "").toLowerCase();
+  const hasCategoryMatch = userCategories.has(oppCategory);
+
+  return hasDomainMatch || hasCategoryMatch;
+}
+
+function normalizeCategory(value: string) {
+  const v = (value || "").toLowerCase().trim();
+  const map: Record<string, string> = {
+    hackathons: "hackathon",
+    internships: "internship",
+    grants: "grant",
+    fellowships: "fellowship",
+    competitions: "competition",
+    scholarships: "scholarship",
+  };
+  return map[v] || v;
 }
