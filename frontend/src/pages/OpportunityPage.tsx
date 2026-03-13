@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Calendar, ExternalLink, Tag, Award, Users, MessageSquare } from "lucide-react";
 import { getOpportunity, type Opportunity } from "../lib/api";
 import { CATEGORY_COLORS } from "../lib/constants";
+import FeedbackButtons from "../components/FeedbackButtons";
+import { useFeedback } from "../hooks/useFeedback";
 
 const CATEGORY_GRADIENTS: Record<string, string> = {
   hackathon: "from-violet-500 to-violet-400",
@@ -21,15 +23,19 @@ export default function OpportunityPage() {
   const [opp, setOpp] = useState<Opportunity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { feedbackMap, loadFeedback, submit: submitFeedback, hasSubmitted } = useFeedback();
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
     getOpportunity(id)
-      .then(setOpp)
+      .then((data) => {
+        setOpp(data);
+        loadFeedback([data.id]);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, loadFeedback]);
 
   if (loading) {
     return (
@@ -105,7 +111,7 @@ export default function OpportunityPage() {
             )}
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <a
               href={opp.url}
               target="_blank"
@@ -120,6 +126,16 @@ export default function OpportunityPage() {
             >
               <MessageSquare size={14} /> Ask SOIP
             </button>
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-white/60 dark:bg-stone-900/60 backdrop-blur border border-stone-200 dark:border-stone-800 rounded-xl">
+              <span className="text-xs font-medium text-stone-400 dark:text-stone-500">Relevant?</span>
+              <FeedbackButtons
+                opportunityId={opp.id}
+                source="feed"
+                currentValue={feedbackMap[opp.id] ?? null}
+                disabled={hasSubmitted(opp.id)}
+                onFeedback={(value) => submitFeedback(opp.id, value, "feed")}
+              />
+            </div>
           </div>
         </div>
       </div>

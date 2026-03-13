@@ -4,6 +4,7 @@ import { Filter } from "lucide-react";
 import { browseOpportunities, type Opportunity, type OpportunityListResponse } from "../lib/api";
 import OpportunityCard from "../components/OpportunityCard";
 import FilterSidebar from "../components/FilterSidebar";
+import { useFeedback } from "../hooks/useFeedback";
 
 interface Filters {
   category: string[];
@@ -24,6 +25,7 @@ export default function BrowsePage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { feedbackMap, loadFeedback, submit: submitFeedback, hasSubmitted } = useFeedback();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -40,13 +42,14 @@ export default function BrowsePage() {
       });
       setOpportunities(data.items || []);
       setMeta(data);
+      loadFeedback((data.items || []).map((o) => o.id));
     } catch {
       setOpportunities([]);
       setMeta(null);
     } finally {
       setLoading(false);
     }
-  }, [filters, page]);
+  }, [filters, page, loadFeedback]);
 
   useEffect(() => {
     load();
@@ -98,6 +101,10 @@ export default function BrowsePage() {
                   <OpportunityCard
                     opportunity={opp}
                     onClick={() => navigate(`/browse/${opp.id}`)}
+                    feedbackValue={feedbackMap[opp.id] ?? null}
+                    feedbackDisabled={hasSubmitted(opp.id)}
+                    feedbackSource="feed"
+                    onFeedback={(value) => submitFeedback(opp.id, value, "feed")}
                   />
                 </div>
               ))}

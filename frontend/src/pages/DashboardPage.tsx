@@ -4,6 +4,7 @@ import { MessageSquare, Search, Sparkles, Clock, AlertTriangle, PartyPopper } fr
 import { useAuth } from "../lib/auth";
 import { browseOpportunities, getRecommended, type Opportunity } from "../lib/api";
 import OpportunityCard from "../components/OpportunityCard";
+import { useFeedback } from "../hooks/useFeedback";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -15,6 +16,7 @@ export default function DashboardPage() {
   const [recent, setRecent] = useState<Opportunity[]>([]);
   const [expiring, setExpiring] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
+  const { feedbackMap, loadFeedback, submit: submitFeedback, hasSubmitted } = useFeedback();
 
   useEffect(() => {
     async function load() {
@@ -71,6 +73,10 @@ export default function DashboardPage() {
 
         setExpiring(soon);
         setRecent(recent);
+
+        // Load feedback state for all visible opportunities
+        const allIds = [...new Set([...recommendedTop, ...soon, ...recent].map((o) => o.id))];
+        loadFeedback(allIds);
       } finally {
         setLoading(false);
       }
@@ -159,7 +165,14 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {recommended.map((opp, i) => (
               <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
-                <OpportunityCard opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+                <OpportunityCard
+                  opportunity={opp}
+                  onClick={() => navigate(`/browse/${opp.id}`)}
+                  feedbackValue={feedbackMap[opp.id] ?? null}
+                  feedbackDisabled={hasSubmitted(opp.id)}
+                  feedbackSource="feed"
+                  onFeedback={(value) => submitFeedback(opp.id, value, "feed")}
+                />
               </div>
             ))}
           </div>
@@ -178,7 +191,14 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {expiring.map((opp, i) => (
               <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
-                <OpportunityCard opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+                <OpportunityCard
+                  opportunity={opp}
+                  onClick={() => navigate(`/browse/${opp.id}`)}
+                  feedbackValue={feedbackMap[opp.id] ?? null}
+                  feedbackDisabled={hasSubmitted(opp.id)}
+                  feedbackSource="feed"
+                  onFeedback={(value) => submitFeedback(opp.id, value, "feed")}
+                />
               </div>
             ))}
           </div>
@@ -197,7 +217,14 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {recent.map((opp, i) => (
               <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
-                <OpportunityCard opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
+                <OpportunityCard
+                  opportunity={opp}
+                  onClick={() => navigate(`/browse/${opp.id}`)}
+                  feedbackValue={feedbackMap[opp.id] ?? null}
+                  feedbackDisabled={hasSubmitted(opp.id)}
+                  feedbackSource="feed"
+                  onFeedback={(value) => submitFeedback(opp.id, value, "feed")}
+                />
               </div>
             ))}
           </div>

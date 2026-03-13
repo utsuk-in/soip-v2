@@ -1,7 +1,8 @@
 import React from "react";
 import { Calendar, ExternalLink } from "lucide-react";
-import type { Opportunity } from "../lib/api";
+import type { Opportunity, FeedbackValue } from "../lib/api";
 import { CATEGORY_COLORS } from "../lib/constants";
+import FeedbackButtons from "./FeedbackButtons";
 
 function deadlineLabel(deadline: string | null): { text: string; urgent: boolean } | null {
   if (!deadline) return null;
@@ -18,9 +19,21 @@ interface Props {
   opportunity: Opportunity;
   onClick?: () => void;
   compact?: boolean;
+  feedbackValue?: FeedbackValue | null;
+  feedbackDisabled?: boolean;
+  feedbackSource?: "feed" | "chat";
+  onFeedback?: (value: FeedbackValue) => void;
 }
 
-export default function OpportunityCard({ opportunity: opp, onClick, compact }: Props) {
+export default function OpportunityCard({
+  opportunity: opp,
+  onClick,
+  compact,
+  feedbackValue,
+  feedbackDisabled,
+  feedbackSource = "feed",
+  onFeedback,
+}: Props) {
   const dl = deadlineLabel(opp.deadline);
   const colorClass = CATEGORY_COLORS[opp.category] || CATEGORY_COLORS.other;
 
@@ -69,17 +82,29 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
         ))}
       </div>
 
-      {!compact && (
-        <a
-          href={opp.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 font-semibold"
-        >
-          View application <ExternalLink size={11} />
-        </a>
-      )}
+      <div className="flex items-center justify-between">
+        {!compact && (
+          <a
+            href={opp.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 font-semibold"
+          >
+            View application <ExternalLink size={11} />
+          </a>
+        )}
+        {onFeedback && (
+          <FeedbackButtons
+            opportunityId={opp.id}
+            source={feedbackSource}
+            currentValue={feedbackValue ?? null}
+            disabled={!!feedbackDisabled}
+            onFeedback={onFeedback}
+            compact={compact}
+          />
+        )}
+      </div>
     </div>
   );
 }
