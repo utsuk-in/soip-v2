@@ -9,7 +9,7 @@ from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 from app.schemas.user import UserOut
 from app.services.auth import authenticate_user, create_access_token, register_user
 from app.utils.dependencies import get_current_user
-from app.services.taxonomy import normalize_domains
+from app.services.taxonomy import merge_domains_with_raw
 from app.models.user import User
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -26,8 +26,8 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
             academic_background=body.academic_background,
             year_of_study=body.year_of_study,
             state=body.state,
-            skills=normalize_domains(body.skills) or body.skills,
-            interests=normalize_domains(body.interests) or body.interests,
+            skills=merge_domains_with_raw(body.skills) or body.skills,
+            interests=merge_domains_with_raw(body.interests) or body.interests,
             aspirations=body.aspirations,
             university_id=body.university_id,
         )

@@ -113,15 +113,15 @@ export default function ChatPage() {
     <div className="flex h-full">
       {/* Session sidebar */}
       {sidebarOpen && (
-        <aside className="w-64 bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl border-r border-stone-200/60 dark:border-stone-700/60 flex flex-col flex-shrink-0">
+        <aside className="w-64 bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl border-r border-stone-200/60 dark:border-stone-800/60 flex flex-col flex-shrink-0">
           <div className="p-3 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between">
             <button
               onClick={startNew}
               className="flex items-center gap-2 px-3 py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-brand-500/25 transition-all flex-1"
             >
-              <Plus size={16} /> new chat
+              <Plus size={16} /> New chat
             </button>
-            <button onClick={() => setSidebarOpen(false)} className="ml-2 p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 transition-colors">
+            <button onClick={() => setSidebarOpen(false)} className="ml-2 p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition-colors">
               <PanelLeftClose size={18} />
             </button>
           </div>
@@ -132,11 +132,11 @@ export default function ChatPage() {
                 onClick={() => loadSession(s.id)}
                 className={`w-full text-left px-3 py-2.5 rounded-xl text-sm truncate transition-all ${
                   s.id === activeSessionId
-                    ? "bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 font-medium border-l-2 border-brand-500"
-                    : "text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200"
+                    ? "bg-brand-50 text-brand-700 font-medium border-l-2 border-brand-500 dark:bg-stone-800/60 dark:text-brand-200"
+                    : "text-stone-500 hover:bg-stone-100 hover:text-stone-700 dark:text-stone-400 dark:hover:bg-stone-800/60 dark:hover:text-stone-100"
                 }`}
               >
-                {s.title || "untitled"}
+                {s.title || "Untitled"}
               </button>
             ))}
             {sessions.length === 0 && (
@@ -151,7 +151,7 @@ export default function ChatPage() {
         {!sidebarOpen && (
           <button
             onClick={() => setSidebarOpen(true)}
-            className="absolute left-0 top-1/2 z-10 p-1.5 bg-white/80 dark:bg-stone-900/80 backdrop-blur border border-stone-200 dark:border-stone-700 rounded-r-xl text-stone-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+            className="absolute left-0 top-1/2 z-10 p-1.5 bg-white/80 dark:bg-stone-900/80 backdrop-blur border border-stone-200 dark:border-stone-800 rounded-r-xl text-stone-400 dark:text-stone-500 hover:text-brand-600 dark:hover:text-brand-200 transition-colors"
           >
             <PanelLeft size={16} />
           </button>
@@ -173,7 +173,7 @@ export default function ChatPage() {
                   <button
                     key={prompt}
                     onClick={() => handleSend(prompt)}
-                    className="px-4 py-3 bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-stone-200 dark:border-stone-700 rounded-2xl text-sm text-stone-600 dark:text-stone-300 hover:border-brand-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-700 dark:hover:text-brand-400 hover:-translate-y-0.5 hover:shadow-md transition-all text-left"
+                    className="px-4 py-3 bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-stone-200 dark:border-stone-800 rounded-2xl text-sm text-stone-600 dark:text-stone-300 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-stone-800 dark:hover:text-stone-100 hover:-translate-y-0.5 hover:shadow-md transition-all text-left"
                   >
                     {prompt}
                   </button>
@@ -198,7 +198,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input */}
-        <div className="border-t border-stone-200/60 dark:border-stone-700/60 bg-white/70 dark:bg-stone-900/70 backdrop-blur-xl p-4">
+        <div className="border-t border-stone-200/60 dark:border-stone-800/60 bg-white/70 dark:bg-stone-900/70 backdrop-blur-xl p-4">
           <form
             onSubmit={(e) => { e.preventDefault(); handleSend(); }}
             className="flex gap-3 max-w-3xl mx-auto"
@@ -209,7 +209,7 @@ export default function ChatPage() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="What are you looking for?"
               disabled={sending}
-              className="flex-1 px-5 py-3 bg-stone-100 dark:bg-stone-800 border-0 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 dark:text-stone-100 dark:placeholder-stone-500 disabled:opacity-50"
+              className="flex-1 px-5 py-3 bg-stone-100 dark:bg-stone-800 border-0 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:opacity-50 dark:text-stone-100"
             />
             <button
               type="submit"

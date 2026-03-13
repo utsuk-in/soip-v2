@@ -27,7 +27,7 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
   return (
     <div
       onClick={onClick}
-      className={`bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-white/30 dark:border-stone-700/30 rounded-2xl hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-500/10 transition-all ${
+      className={`bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-white/30 dark:border-stone-800/60 rounded-2xl hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-500/10 transition-all ${
         onClick ? "cursor-pointer" : ""
       } ${compact ? "p-3" : "p-5"} animate-fade-in`}
     >
@@ -36,7 +36,7 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
           {opp.category}
         </span>
         {dl && (
-          <span className={`flex items-center gap-1 text-xs font-medium ${dl.urgent ? "text-hot bg-hot/10 px-2 py-0.5 rounded-full" : "text-stone-500 dark:text-stone-400"}`}>
+          <span className={`flex items-center gap-1 text-xs font-medium ${dl.urgent ? "text-hot bg-hot/10 px-2 py-0.5 rounded-full" : "text-stone-500"}`}>
             <Calendar size={12} />
             {dl.text}
           </span>
@@ -49,6 +49,16 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
 
       {!compact && (
         <p className="text-sm text-stone-500 dark:text-stone-400 line-clamp-2 mb-3">{opp.description}</p>
+      )}
+
+      {opp.relevance_explanation && (
+        <p
+          className={`text-xs italic text-brand-700/80 dark:text-brand-200/80 bg-brand-50/70 dark:bg-brand-900/30 px-2 py-1.5 rounded-lg ${
+            compact ? "mb-2" : "mb-3"
+          } line-clamp-3`}
+        >
+          {opp.relevance_explanation}
+        </p>
       )}
 
       <div className="flex flex-wrap gap-1.5 mb-2">
@@ -65,7 +75,7 @@ export default function OpportunityCard({ opportunity: opp, onClick, compact }: 
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-semibold"
+          className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 font-semibold"
         >
           View application <ExternalLink size={11} />
         </a>
