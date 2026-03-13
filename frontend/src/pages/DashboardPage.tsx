@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { MessageSquare, Search, Sparkles, Clock, AlertTriangle } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { MessageSquare, Search, Sparkles, Clock, AlertTriangle, PartyPopper } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { browseOpportunities, getRecommended, type Opportunity } from "../lib/api";
 import OpportunityCard from "../components/OpportunityCard";
@@ -8,6 +8,8 @@ import OpportunityCard from "../components/OpportunityCard";
 export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [showWelcome, setShowWelcome] = useState(() => !!(location.state as any)?.welcome);
 
   const [recommended, setRecommended] = useState<Opportunity[]>([]);
   const [recent, setRecent] = useState<Opportunity[]>([]);
@@ -59,12 +61,39 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+      {/* Welcome modal — shown only on first login after onboarding */}
+      {showWelcome && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-sm bg-white dark:bg-stone-900 rounded-3xl shadow-2xl border border-white/30 dark:border-stone-700/30 overflow-hidden">
+            <div className="h-1.5 bg-gradient-to-r from-brand-600 to-brand-400" />
+            <div className="p-8 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-brand-50 dark:bg-brand-900/30 flex items-center justify-center mx-auto mb-4">
+                <PartyPopper size={28} className="text-brand-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-stone-900 dark:text-stone-100 font-display mb-2">
+                Welcome, {user?.first_name || "there"}!
+              </h2>
+              <p className="text-sm text-stone-500 dark:text-stone-400 leading-relaxed mb-6">
+                Your account is all set. SOIP will now surface the best opportunities tailored to your profile — explore, discover, and start applying.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowWelcome(false)}
+                className="w-full py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-brand-500/25 hover:-translate-y-0.5 transition-all"
+              >
+                Let's go
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Greeting */}
       <div>
-        <h1 className="text-3xl font-bold text-stone-900 font-display">
+        <h1 className="text-3xl font-bold text-stone-900 dark:text-stone-100 font-display">
           Hello <span className="gradient-text">{user?.first_name || "there"}</span>, what would you like to do?
         </h1>
-        <p className="text-stone-400 mt-1">Here are your top opportunities right now.</p>
+        <p className="text-stone-400 dark:text-stone-500 mt-1">Here are your top opportunities right now.</p>
       </div>
 
       {/* Quick Actions */}
@@ -81,12 +110,12 @@ export default function DashboardPage() {
         </button>
         <button
           onClick={() => navigate("/browse")}
-          className="flex items-center gap-4 bg-white/70 backdrop-blur border border-white/30 text-stone-900 p-5 rounded-2xl hover:shadow-lg hover:shadow-brand-500/10 hover:-translate-y-0.5 transition-all text-left"
+          className="flex items-center gap-4 bg-white/70 dark:bg-stone-900/70 backdrop-blur border border-white/30 dark:border-stone-700/30 text-stone-900 dark:text-stone-100 p-5 rounded-2xl hover:shadow-lg hover:shadow-brand-500/10 hover:-translate-y-0.5 transition-all text-left"
         >
           <Search size={24} className="text-brand-600" />
           <div>
             <p className="font-bold">Explore Opportunities</p>
-            <p className="text-sm text-stone-400">Filter by category, domain, or deadline.</p>
+            <p className="text-sm text-stone-400 dark:text-stone-500">Filter by category, domain, or deadline.</p>
           </div>
         </button>
       </div>
@@ -165,7 +194,7 @@ function Section({ icon: Icon, title, color, surface, art, children }: {
       className={`rounded-2xl border ${surface} p-4 sm:p-5`}
       style={{ backgroundImage: art }}
     >
-      <h2 className="flex items-center gap-2 text-lg font-bold text-stone-800 mb-4 font-display">
+      <h2 className="flex items-center gap-2 text-lg font-bold text-stone-800 dark:text-stone-100 mb-4 font-display">
         <Icon size={20} className={color} />
         {title}
       </h2>

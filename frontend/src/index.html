@@ -10,6 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
@@ -72,7 +73,7 @@
       }
     </style>
   </head>
-  <body class="bg-stone-50 text-stone-900 antialiased bg-noise">
+  <body class="bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 antialiased bg-noise">
     <div id="root"></div>
     <script type="module" src="./frontend.tsx"></script>
   </body>

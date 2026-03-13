@@ -10,11 +10,11 @@ from sqlalchemy.orm import Session
 from app.models.magic_link import MagicLinkToken
 from app.models.user import User
 from app.services.auth import create_access_token
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 MAGIC_LINK_EXPIRY_HOURS = 72
-FRONTEND_BASE_URL = "http://localhost:3000"
 
 
 def create_magic_link(db: Session, user_id: UUID) -> MagicLinkToken:
@@ -30,7 +30,7 @@ def create_magic_link(db: Session, user_id: UUID) -> MagicLinkToken:
     db.add(token)
     db.flush()
 
-    url = f"{FRONTEND_BASE_URL}/magic-link?token={token_str}"
+    url = f"{settings.frontend_base_url}/magic-link?token={token_str}"
     logger.info("Magic link for user %s: %s", user_id, url)
     print(f"[MAGIC LINK] {url}")
 

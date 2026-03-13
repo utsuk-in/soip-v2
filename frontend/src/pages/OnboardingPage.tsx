@@ -13,7 +13,7 @@ export default function OnboardingPage() {
 
   const form = useProfileForm(user, async () => {
     await refreshUser();
-    navigate("/dashboard");
+    navigate("/dashboard", { state: { welcome: true } });
   });
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -9,8 +9,13 @@ from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.schemas.admin import (
+    BulkRemoveRequest,
+    BulkRemoveSummary,
+    BulkResendRequest,
+    BulkResendSummary,
     DashboardMetrics,
     EngagementReport,
+    MagicLinkResult,
     StudentActivity,
     StudentListResponse,
     UploadConfirmRequest,
@@ -122,7 +127,63 @@ def download_template():
     )
 
 
-@router.post("/students/{student_id}/resend-invite")
+@router.post("/students/bulk-resend", response_model=BulkResendSummary)
+def bulk_resend_invite(
+    body: BulkResendRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Generate new magic links for a batch of non-onboarded students."""
+    students = db.query(User).filter(
+        User.id.in_(body.student_ids),
+        User.university_id == admin.university_id,
+        User.role == "student",
+    ).all()
+
+    results = []
+    skipped_onboarded = 0
+    failed = 0
+
+    for student in students:
+        if student.is_onboarded:
+            skipped_onboarded += 1
+            continue
+        try:
+            ml_token = create_magic_link(db, student.id)
+            results.append(MagicLinkResult(
+                student_id=student.id,
+                email=student.email,
+                magic_token=ml_token.token,
+                magic_link_url=f"{settings.frontend_base_url}/magic-link?token={ml_token.token}",
+            ))
+        except Exception:
+            failed += 1
+
+    db.commit()
+    return BulkResendSummary(results=results, skipped_onboarded=skipped_onboarded, failed=failed)
+
+
+@router.delete("/students/bulk", response_model=BulkRemoveSummary)
+def bulk_remove_students(
+    body: BulkRemoveRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Soft-deactivate a batch of students."""
+    removed = (
+        db.query(User)
+        .filter(
+            User.id.in_(body.student_ids),
+            User.university_id == admin.university_id,
+            User.role == "student",
+        )
+        .update({"is_active": False}, synchronize_session=False)
+    )
+    db.commit()
+    return BulkRemoveSummary(removed=removed)
+
+
+@router.post("/students/{student_id}/resend-invite", response_model=MagicLinkResult)
 def resend_invite(
     student_id: UUID,
     db: Session = Depends(get_db),
@@ -139,9 +200,14 @@ def resend_invite(
     if student.is_onboarded:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Student already activated")
 
-    create_magic_link(db, student.id)
+    ml_token = create_magic_link(db, student.id)
     db.commit()
-    return {"status": "ok", "message": f"Magic link resent to {student.email}"}
+    return MagicLinkResult(
+        student_id=student.id,
+        email=student.email,
+        magic_token=ml_token.token,
+        magic_link_url=f"{settings.frontend_base_url}/magic-link?token={ml_token.token}",
+    )
 
 
 # --- Dashboard (SOIP-581) ---
@@ -155,17 +221,54 @@ def dashboard_metrics(
     return get_dashboard_metrics(db, admin.university_id)
 
 
+@router.get("/students/filter-options")
+def student_filter_options(
+    field: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Return distinct non-null values for a filterable column."""
+    ALLOWED = {
+        "department": User.department,
+        "year_of_study": User.year_of_study,
+    }
+    if field not in ALLOWED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid field. Allowed: {', '.join(ALLOWED)}",
+        )
+    col = ALLOWED[field]
+    rows = (
+        db.query(col)
+        .filter(
+            User.university_id == admin.university_id,
+            User.role == "student",
+            col.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+    return sorted([r[0] for r in rows if r[0]])
+
+
 @router.get("/students", response_model=StudentListResponse)
 def list_students(
     page: int = 1,
     page_size: int = 20,
     search: str | None = None,
     status_filter: str | None = None,
+    name: str | None = None,
+    email: str | None = None,
+    department: str | None = None,
+    year_of_study: str | None = None,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
     from app.services.admin_dashboard import get_student_list
-    return get_student_list(db, admin.university_id, page, page_size, search, status_filter)
+    return get_student_list(
+        db, admin.university_id, page, page_size, search, status_filter,
+        name=name, email=email, department=department, year_of_study=year_of_study,
+    )
 
 
 @router.get("/students/{student_id}/activity", response_model=StudentActivity)
