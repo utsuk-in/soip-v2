@@ -35,9 +35,9 @@ For each opportunity, extract:
 - description: The complete opportunity description as written on the page. Do not summarize or truncate. Preserve key details and sections in plain text. (required)
 - category: One of: hackathon, grant, fellowship, internship, competition, \
 scholarship, program, other (required)
-- domain_tags: List of relevant domains, Add domain tags relevant to the title and description. some examples like but not limited to ["AI", "climate", "fintech", \
-"healthcare", "web3", "robotics", "education", "social-impact", "general", \
-"online", "offline"] — include "online" or "offline" if the opportunity format is stated (required, at least 1)
+- domain_tags: List of relevant domains. Add domain tags relevant to the title and description. some examples like but not limited to ["AI", "climate", "fintech", \
+"healthcare", "web3", "robotics", "education", "social-impact", "general"] \
+Do NOT include "online" or "offline" in domain_tags — use the mode field instead. (required, at least 1)
 - eligibility: Who can apply — degree level, year, nationality, age, etc. (if mentioned)
 - benefits: What winners/participants get — prize money, stipend, mentorship, \
 certificate, perks, cash prizes, etc. (if mentioned under rewards and prizes or similar)
@@ -47,6 +47,11 @@ Use the current year when only day/month are given. If unclear or relative ("tom
 - is_active: true if open, false if closed/ended (if explicitly stated)
 - deadline_at: Full deadline timestamp with timezone (ISO 8601) if explicitly shown (e.g., 2026-02-26T12:26:00+05:30)
 - location: Where the opportunity takes place — city/state/country (e.g., "Bengaluru, India", "India", "USA") or "online" for virtual/remote events. Use "online" if no physical venue is mentioned. (required)
+- mode: One of "online", "offline", "hybrid". "online" if virtual/remote with no physical venue. "offline" if at a physical location. "hybrid" if both options available. (required, default "online")
+- state: Indian state name where the opportunity takes place. Use official state names like "Karnataka", "Maharashtra", "Delhi", "Tamil Nadu". null for online-only or international opportunities. (if mentioned)
+- start_date: When the opportunity/event begins (not the registration deadline) in YYYY-MM-DD format. (if mentioned)
+- fee_type: "free" if no registration/participation fee, "paid" if there is a fee. (if determinable)
+- organizer: The organization, company, university, or body hosting/organizing the opportunity. (if mentioned)
 - confidence: Your confidence in the extraction accuracy from 0.0 to 1.0
 
 Rules:
@@ -93,6 +98,11 @@ class ExtractedOpportunity:
     deadline_at: Optional[datetime] = None
     url: Optional[str] = None
     location: str = "online"
+    mode: str = "online"
+    state: Optional[str] = None
+    start_date: Optional[date] = None
+    fee_type: Optional[str] = None
+    organizer: Optional[str] = None
     confidence: float = 0.5
     is_active: bool = True
     detail_scrape_page_id: Optional[UUID] = None
@@ -351,6 +361,23 @@ def _parse_single(item: dict) -> Optional[ExtractedOpportunity]:
     raw_location = (item.get("location") or "").strip()
     location = raw_location if raw_location else "online"
 
+    raw_mode = (item.get("mode") or "").strip().lower()
+    mode = raw_mode if raw_mode in ("online", "offline", "hybrid") else "online"
+
+    raw_state = (item.get("state") or "").strip() or None
+
+    start_date_val = None
+    if item.get("start_date"):
+        try:
+            start_date_val = datetime.strptime(item["start_date"], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            pass
+
+    raw_fee = (item.get("fee_type") or "").strip().lower()
+    fee_type = raw_fee if raw_fee in ("free", "paid") else None
+
+    organizer = (item.get("organizer") or "").strip() or None
+
     return ExtractedOpportunity(
         title=title,
         description=description,
@@ -363,6 +390,11 @@ def _parse_single(item: dict) -> Optional[ExtractedOpportunity]:
         deadline_at=deadline_at,
         url=item.get("url"),
         location=location,
+        mode=mode,
+        state=raw_state,
+        start_date=start_date_val,
+        fee_type=fee_type,
+        organizer=organizer,
         confidence=min(1.0, max(0.0, float(item.get("confidence", 0.5)))),
         is_active=is_active,
     )

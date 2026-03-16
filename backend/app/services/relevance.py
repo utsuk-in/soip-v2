@@ -10,9 +10,10 @@ from app.services.retriever import ScoredOpportunity
 from app.utils.enums import OpportunityCategory
 
 # Weights for the final relevance score
-W_HYBRID = 0.4
-W_TAG_OVERLAP = 0.35
-W_CATEGORY = 0.2
+W_HYBRID = 0.35
+W_TAG_OVERLAP = 0.30
+W_CATEGORY = 0.20
+W_STATE = 0.10
 W_URGENCY = 0.05
 
 _URGENCY_WINDOW_DAYS = 14
@@ -28,6 +29,7 @@ def rerank_for_user(
 
     user_tags = set(_lower_list(user.interests) + _lower_list(user.skills))
     user_categories = _extract_user_categories(user)
+    user_state = (user.state or "").strip().lower()
 
     for opp in candidates:
         opp_tags = set(t.lower() for t in (opp.domain_tags or []))
@@ -40,14 +42,31 @@ def rerank_for_user(
 
         urgency = _deadline_urgency(opp.deadline)
 
+        state_score = _state_proximity(user_state, opp)
+
         opp.relevance_score = (
             W_HYBRID * opp.hybrid_score
             + W_TAG_OVERLAP * tag_score
             + W_CATEGORY * category_match
+            + W_STATE * state_score
             + W_URGENCY * urgency
         )
 
     return sorted(candidates, key=lambda o: o.relevance_score, reverse=True)
+
+
+def _state_proximity(user_state: str, opp: ScoredOpportunity) -> float:
+    """0.0 → 1.0 state proximity; 1.0 = same state, 0.3 = online (no state), 0.0 = different state."""
+    if not user_state:
+        return 0.0
+    opp_state = getattr(opp, "state", None)
+    opp_state = (opp_state or "").strip().lower()
+    if opp_state and opp_state == user_state:
+        return 1.0
+    if not opp_state:
+        # Online opportunities — don't penalize for being location-free
+        return 0.3
+    return 0.0
 
 
 def _deadline_urgency(deadline: date | None) -> float:

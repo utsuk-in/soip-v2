@@ -142,6 +142,12 @@ export interface Opportunity {
   confidence: number | null;
   is_active: boolean;
   created_at: string | null;
+  location?: string;
+  mode?: string;
+  state?: string | null;
+  start_date?: string | null;
+  fee_type?: string | null;
+  organizer?: string | null;
 }
 
 export interface BrowseParams {
@@ -149,10 +155,12 @@ export interface BrowseParams {
   domain?: string | string[];
   location?: string | string[];
   mode?: string;
+  state?: string;
   search?: string;
   deadline_before?: string;
   deadline_after?: string;
   sort?: string;
+  active_only?: boolean;
   page?: number;
   page_size?: number;
 }
@@ -200,6 +208,10 @@ export async function getOpportunity(id: string): Promise<Opportunity> {
 export async function getRecommended(limit = 10): Promise<Opportunity[]> {
   const res = await request<Opportunity[]>(`/api/opportunities/recommended?limit=${limit}`);
   return res.map(normalizeOpportunity);
+}
+
+export async function getOpportunityStats(): Promise<Record<string, number>> {
+  return request("/api/opportunities/stats");
 }
 
 // --- Chat ---

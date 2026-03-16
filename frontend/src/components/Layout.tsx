@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Search, MessageSquare, Bell, Menu, X, Sparkles, Moon, Sun } from "lucide-react";
+import { LayoutDashboard, Map, Search, MessageSquare, Bell, Menu, X, Sparkles, Moon, Sun } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { getAlerts, type Alert } from "../lib/api";
 import ProfileModal from "./ProfileModal";
 
 const NAV_ITEMS = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/hackmap", icon: Map, label: "HackMap" },
   { to: "/browse", icon: Search, label: "Browse" },
   { to: "/chat", icon: MessageSquare, label: "Chat" },
 ];

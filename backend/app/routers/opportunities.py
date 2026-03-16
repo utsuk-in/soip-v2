@@ -10,7 +10,7 @@ from sqlalchemy import or_, func, select
 
 from app.database import get_db
 from app.models.opportunity import Opportunity
-from app.utils.enums import OpportunityCategory
+from app.utils.enums import OpportunityCategory, OpportunityMode
 from app.models.user import User
 from app.schemas.opportunity import OpportunityBrief, OpportunityOut, OpportunityListResponse
 from app.services.embedder import embed_query
@@ -34,6 +34,7 @@ def browse_opportunities(
     domain: str | None = None,
     location: str | None = None,
     mode: str | None = None,
+    state: str | None = None,
     search: str | None = None,
     deadline_before: date | None = None,
     deadline_after: date | None = None,
@@ -83,27 +84,20 @@ def browse_opportunities(
 
     if mode:
         modes = _split_list_param(mode)
-        if modes:
-            mode_conditions = []
-            for m in modes:
-                m = m.strip().lower()
-                if not m:
-                    continue
-                tag = func.jsonb_array_elements_text(
-                    Opportunity.domain_tags.cast(JSONB)
-                ).table_valued("value").alias("tag")
-                mode_conditions.append(
-                    select(1)
-                    .select_from(tag)
-                    .where(func.lower(tag.c.value) == m)
-                    .exists()
-                )
-                mode_conditions.append(func.lower(Opportunity.location).ilike(f"%{m}%"))
-                if m == "online":
-                    mode_conditions.append(func.lower(Opportunity.location).ilike("%virtual%"))
-                    mode_conditions.append(func.lower(Opportunity.location).ilike("%remote%"))
-            if mode_conditions:
-                query = query.filter(or_(*mode_conditions))
+        valid_modes = []
+        for m in modes:
+            m = m.strip().lower()
+            try:
+                valid_modes.append(OpportunityMode(m))
+            except ValueError:
+                continue
+        if valid_modes:
+            query = query.filter(Opportunity.mode.in_(valid_modes))
+
+    if state:
+        states = _split_list_param(state)
+        if states:
+            query = query.filter(Opportunity.state.in_(states))
 
     if deadline_before:
         query = query.filter(
@@ -252,6 +246,23 @@ async def recommended_opportunities(
                 setattr(opp, "relevance_explanation", text)
 
     return sorted_opps
+
+
+@router.get("/stats")
+def opportunity_stats(
+    db: Session = Depends(get_db),
+):
+    """Return count of active opportunities per category."""
+    rows = (
+        db.query(Opportunity.category, func.count(Opportunity.id))
+        .filter(Opportunity.is_active.is_(True))
+        .group_by(Opportunity.category)
+        .all()
+    )
+    return {
+        row[0].value if hasattr(row[0], "value") else str(row[0]): row[1]
+        for row in rows
+    }
 
 
 @router.get("/{opportunity_id}", response_model=OpportunityOut)

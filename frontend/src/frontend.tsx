@@ -10,6 +10,7 @@ import DashboardPage from "./pages/DashboardPage";
 import BrowsePage from "./pages/BrowsePage";
 import OpportunityPage from "./pages/OpportunityPage";
 import ChatPage from "./pages/ChatPage";
+import HackMapPage from "./pages/HackMapPage";
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -47,6 +48,7 @@ function AppRoutes() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/hackmap" element={<HackMapPage />} />
         <Route path="/browse" element={<BrowsePage />} />
         <Route path="/browse/:id" element={<OpportunityPage />} />
         <Route path="/chat" element={<ChatPage />} />

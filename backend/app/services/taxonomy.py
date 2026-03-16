@@ -26,8 +26,6 @@ CANONICAL_DOMAINS = {
     "hardware",
     "iot",
     "general",
-    "online",
-    "offline",
 }
 
 # Map synonyms/variants -> canonical domain
@@ -106,8 +104,6 @@ DOMAIN_SYNONYMS = {
     "computer vision": "ai",
     "nlp": "ai",
     "natural language processing": "ai",
-    "online": "online",
-    "offline": "offline",
     "general": "general",
 }
 

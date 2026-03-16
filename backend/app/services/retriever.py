@@ -42,6 +42,7 @@ class ScoredOpportunity:
     application_link: str = ""
     source_url: str = ""
     confidence: Optional[float] = None
+    state: Optional[str] = None
     chunk_context: Optional[str] = None
 
     vector_rank: Optional[int] = None
@@ -140,7 +141,7 @@ def _opportunity_vector_search(
     sql = sa_text(f"""
         SELECT id, title, description, category, domain_tags,
                eligibility, benefits, deadline, application_link,
-               source_url, confidence
+               source_url, confidence, state
         FROM opportunities
         WHERE {where}
         ORDER BY embedding <=> :qe
@@ -163,6 +164,7 @@ def _opportunity_vector_search(
             application_link=row.application_link or "",
             source_url=row.source_url or "",
             confidence=row.confidence,
+            state=row.state,
             vector_rank=rank,
             hybrid_score=1.0 / (_RRF_K + rank),
         ))
@@ -241,7 +243,7 @@ def _chunk_vector_search(
                c.opportunity_id,
                o.id AS opp_id, o.title, o.description, o.category, o.domain_tags,
                o.eligibility, o.benefits, o.deadline, o.application_link, o.source_url,
-               o.confidence,
+               o.confidence, o.state,
                s.name AS source_name,
                s.base_url AS s_base_url,
                c.embedding <=> :qe AS distance
@@ -283,6 +285,7 @@ def _chunk_vector_search(
                 application_link=row.application_link or "",
                 source_url=row.source_url or row.s_base_url or "",
                 confidence=row.confidence,
+                state=row.state,
                 chunk_context=row.chunk_content,
                 vector_rank=rank,
             ))
@@ -342,7 +345,7 @@ def _fts_search(
 
     sql = sa_text(f"""
         SELECT id, title, description, category, domain_tags,
-               eligibility, benefits, deadline, application_link, source_url, confidence,
+               eligibility, benefits, deadline, application_link, source_url, confidence, state,
                ts_rank(
                    to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '')),
                    plainto_tsquery('english', :q)
@@ -369,6 +372,7 @@ def _fts_search(
             application_link=row.application_link,
             source_url=row.source_url,
             confidence=row.confidence,
+            state=row.state,
             fts_rank=rank,
         ))
 
@@ -406,7 +410,7 @@ def _chunk_fts_search(
                c.opportunity_id,
                o.id AS opp_id, o.title, o.description, o.category, o.domain_tags,
                o.eligibility, o.benefits, o.deadline, o.application_link, o.source_url,
-               o.confidence,
+               o.confidence, o.state,
                s.base_url AS s_base_url,
                ts_rank(to_tsvector('english', c.content), plainto_tsquery('english', :q)) AS rank
         FROM content_chunks c
@@ -445,6 +449,7 @@ def _chunk_fts_search(
                 application_link=row.application_link or "",
                 source_url=row.source_url or row.s_base_url or "",
                 confidence=row.confidence,
+                state=row.state,
                 chunk_context=row.chunk_content,
                 chunk_fts_rank=rank_num,
             ))

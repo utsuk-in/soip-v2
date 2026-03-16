@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import SessionLocal
 from app.models.opportunity import Opportunity
-from app.utils.enums import OpportunityCategory, OpportunityStatus
+from app.utils.enums import OpportunityCategory, OpportunityMode, OpportunityStatus, FeeType
 from app.models.scrape import ContentChunk, ScrapePage
 from app.models.source import Source
 from app.services.chunker import Chunk, chunk_markdown, content_hash
@@ -421,6 +421,11 @@ def _upsert_opportunity(
         deadline_at=item.deadline_at,
         application_link=opp_url,
         location=item.location or "online",
+        mode=_coerce_mode(item.mode),
+        state=item.state,
+        start_date=item.start_date,
+        fee_type=_coerce_fee_type(item.fee_type),
+        organizer=item.organizer,
         source_id=source.id,
         source_url=source.base_url,
         scrape_page_id=scrape_page_id,
@@ -485,6 +490,23 @@ def _apply_changes(
         changed = True
     if item.location and existing.location != item.location:
         existing.location = item.location
+        changed = True
+    new_mode = _coerce_mode(item.mode)
+    if new_mode and existing.mode != new_mode:
+        existing.mode = new_mode
+        changed = True
+    if item.state and existing.state != item.state:
+        existing.state = item.state
+        changed = True
+    if item.start_date and existing.start_date != item.start_date:
+        existing.start_date = item.start_date
+        changed = True
+    new_fee = _coerce_fee_type(item.fee_type)
+    if new_fee and existing.fee_type != new_fee:
+        existing.fee_type = new_fee
+        changed = True
+    if item.organizer and existing.organizer != item.organizer:
+        existing.organizer = item.organizer
         changed = True
     if scrape_page_id and existing.scrape_page_id != scrape_page_id:
         existing.scrape_page_id = scrape_page_id
@@ -844,3 +866,25 @@ def _coerce_category(raw: str | None) -> OpportunityCategory:
         return OpportunityCategory(normalized)
     except ValueError:
         return OpportunityCategory.OTHER
+
+
+def _coerce_mode(raw: str | None) -> OpportunityMode:
+    """Coerce mode string into enum."""
+    if not raw:
+        return OpportunityMode.ONLINE
+    normalized = str(raw).strip().lower()
+    try:
+        return OpportunityMode(normalized)
+    except ValueError:
+        return OpportunityMode.ONLINE
+
+
+def _coerce_fee_type(raw: str | None) -> FeeType | None:
+    """Coerce fee_type string into enum, returning None if unknown."""
+    if not raw:
+        return None
+    normalized = str(raw).strip().lower()
+    try:
+        return FeeType(normalized)
+    except ValueError:
+        return None
