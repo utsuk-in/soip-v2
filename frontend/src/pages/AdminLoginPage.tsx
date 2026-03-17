@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold font-display gradient-text">SOIP Admin</h1>
+          <h1 className="text-3xl font-bold font-display gradient-text">Steppd Admin</h1>
           <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">University administration panel</p>
         </div>
 

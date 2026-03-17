@@ -160,8 +160,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10 animate-fade-in">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold font-display gradient-text mb-1">SOIP</h1>
-          <p className="text-stone-400 dark:text-stone-500 text-sm font-medium">Opportunity Radar</p>
+          <h1 className="text-4xl font-bold font-display gradient-text mb-1">Steppd</h1>
+          <p className="text-stone-400 dark:text-stone-500 text-sm font-medium">Explore, Grow, Launch</p>
         </div>
 
         {/* Card */}
@@ -341,12 +341,20 @@ export default function LoginPage() {
             </form>
           )}
 
-          {/* Toggle login/register */}
+          {/* Forgot password / back to sign-in */}
           <p className="mt-6 text-center text-sm text-stone-400 dark:text-stone-500">
-            {isRegister ? "Already have an account?" : "New here?"}{" "}
-            <button onClick={switchMode} className="text-brand-600 dark:text-brand-300 font-semibold hover:text-brand-700 dark:hover:text-brand-200 transition-colors">
-              {isRegister ? "Sign In" : "Create an Account"}
-            </button>
+            {isRegister ? (
+              <>
+                Already have an account?{" "}
+                <button onClick={switchMode} className="text-brand-600 dark:text-brand-300 font-semibold hover:text-brand-700 dark:hover:text-brand-200 transition-colors">
+                  Sign In
+                </button>
+              </>
+            ) : (
+              <span className="text-stone-400 dark:text-stone-500 cursor-default">
+                Forgot Password?
+              </span>
+            )}
           </p>
         </div>
       </div>

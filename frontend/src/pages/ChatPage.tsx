@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Send, PanelLeftClose, PanelLeft, Plus, Sparkles } from "lucide-react";
 import { sendChatMessage, getChatSessions, getChatSession, type ChatMessage, type ChatSession, type Opportunity } from "../lib/api";
@@ -6,8 +6,8 @@ import ChatBubble, { TypingIndicator } from "../components/ChatBubble";
 
 const SUGGESTED_PROMPTS = [
   "what hackathons are coming up?",
-  "show me AI internships",
-  "fellowships for engineering students",
+  "Show me hackathons happening online",
+  "Tell me about the grants matching my skills",
   "what should I explore based on my skills?",
 ];
 
@@ -20,10 +20,12 @@ interface DisplayMessage {
 
 export default function ChatPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | undefined>();
+  const [activeSessionId, setActiveSessionId] = useState<string | undefined>(
+    () => searchParams.get("session") || undefined
+  );
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -34,20 +36,38 @@ export default function ChatPage() {
     getChatSessions().then(setSessions).catch(() => {});
   }, []);
 
+  // Restore session from URL param on mount / back-navigation
   useEffect(() => {
+    const sessionFromUrl = searchParams.get("session");
     const q = searchParams.get("q");
+
     if (q) {
       setInput(q);
       setActiveSessionId(undefined);
       setMessages([]);
+      return;
+    }
+
+    if (sessionFromUrl && sessionFromUrl !== activeSessionId) {
+      loadSession(sessionFromUrl);
     }
   }, [searchParams]);
+
+  // Keep URL in sync with active session
+  useEffect(() => {
+    const currentParam = searchParams.get("session");
+    if (activeSessionId && currentParam !== activeSessionId) {
+      setSearchParams({ session: activeSessionId }, { replace: true });
+    } else if (!activeSessionId && currentParam) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [activeSessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sending]);
 
-  const loadSession = async (id: string) => {
+  const loadSession = useCallback(async (id: string) => {
     setActiveSessionId(id);
     try {
       const detail = await getChatSession(id);
@@ -61,7 +81,7 @@ export default function ChatPage() {
     } catch {
       setMessages([]);
     }
-  };
+  }, []);
 
   const handleSend = async (text?: string) => {
     const message = text || input.trim();
@@ -80,10 +100,28 @@ export default function ChatPage() {
       const res = await sendChatMessage(message, activeSessionId);
       setActiveSessionId(res.session_id);
 
+      let processedContent = res.message.content;
+      // Fix links: strip any domain prefix the LLM may have added to /browse/ paths
+      processedContent = processedContent.replace(
+        /https?:\/\/[^/\s)]+\/browse\//g,
+        "/browse/"
+      );
+      // Replace any remaining external application URLs with internal /browse/{id}
+      if (res.cited_opportunities?.length) {
+        for (const opp of res.cited_opportunities) {
+          const browsePath = `/browse/${opp.id}`;
+          for (const url of [opp.application_link, opp.application_url, opp.url].filter(Boolean)) {
+            if (url && processedContent.includes(url)) {
+              processedContent = processedContent.split(url).join(browsePath);
+            }
+          }
+        }
+      }
+
       const assistantMsg: DisplayMessage = {
         id: res.message.id,
         role: "assistant",
-        content: res.message.content,
+        content: processedContent,
         citedOpportunities: res.cited_opportunities,
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -105,6 +143,7 @@ export default function ChatPage() {
     setActiveSessionId(undefined);
     setMessages([]);
     setInput("");
+    setSearchParams({}, { replace: true });
   };
 
   const isEmpty = messages.length === 0 && !sending;
@@ -164,7 +203,7 @@ export default function ChatPage() {
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 text-white flex items-center justify-center mb-4 shadow-glow">
                 <Sparkles size={28} />
               </div>
-              <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100 mb-1 font-display">Ask SOIP Anything</h2>
+              <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100 mb-1 font-display">Ask Steppd Anything</h2>
               <p className="text-stone-400 dark:text-stone-500 mb-8 max-w-md text-sm">
                 Get personalized opportunity recommendations, powered by AI.
               </p>
@@ -189,6 +228,7 @@ export default function ChatPage() {
                   content={msg.content}
                   citedOpportunities={msg.citedOpportunities}
                   onOpportunityClick={(id) => navigate(`/browse/${id}`)}
+                  onNavigate={(path) => navigate(path)}
                 />
               ))}
               {sending && <TypingIndicator />}

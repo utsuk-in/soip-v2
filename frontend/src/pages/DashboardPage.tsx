@@ -1,9 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MessageSquare, Search, Sparkles, Clock, AlertTriangle, PartyPopper } from "lucide-react";
+import { MessageSquare, Search, Sparkles, Clock, AlertTriangle, PartyPopper, Code2, Briefcase, Banknote, GraduationCap, Trophy, BookOpen, Layers } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { browseOpportunities, getRecommended, type Opportunity } from "../lib/api";
+import { browseOpportunities, getRecommended, getOpportunityStats, type Opportunity } from "../lib/api";
+import { getCached, setCache } from "../lib/cache";
+import { CATEGORY_TILES } from "../lib/constants";
 import OpportunityCard from "../components/OpportunityCard";
+import BrandLogo from "../components/BrandLogo";
+
+const ICON_MAP: Record<string, React.ElementType> = {
+  Code2, Briefcase, Banknote, GraduationCap, Trophy, BookOpen, Layers,
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -11,17 +18,36 @@ export default function DashboardPage() {
   const location = useLocation();
   const [showWelcome, setShowWelcome] = useState(() => !!(location.state as any)?.welcome);
 
-  const [recommended, setRecommended] = useState<Opportunity[]>([]);
-  const [recent, setRecent] = useState<Opportunity[]>([]);
-  const [expiring, setExpiring] = useState<Opportunity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const CACHE_TTL = 5 * 60 * 1000;
+
+  const [stats, setStats] = useState<Record<string, number>>(() => getCached<Record<string, number>>("dash:stats") || {});
+  const [recommended, setRecommended] = useState<Opportunity[]>(() => getCached<Opportunity[]>("dash:recommended") || []);
+  const [recent, setRecent] = useState<Opportunity[]>(() => getCached<Opportunity[]>("dash:recent") || []);
+  const [expiring, setExpiring] = useState<Opportunity[]>(() => getCached<Opportunity[]>("dash:expiring") || []);
+  const [loading, setLoading] = useState(() => {
+    return !getCached<Opportunity[]>("dash:recommended", CACHE_TTL);
+  });
 
   useEffect(() => {
+    const cached = getCached<{ recommended: Opportunity[]; recent: Opportunity[]; expiring: Opportunity[] }>("dash:all", CACHE_TTL);
+    if (cached) {
+      setRecommended(cached.recommended);
+      setRecent(cached.recent);
+      setExpiring(cached.expiring);
+      setLoading(false);
+      return;
+    }
+
+    if (!getCached<Record<string, number>>("dash:stats", CACHE_TTL)) {
+      getOpportunityStats()
+        .then((s) => { setStats(s); setCache("dash:stats", s); })
+        .catch(() => {});
+    }
+
     async function load() {
       try {
         const rec = await getRecommended(20).catch(() => []);
         const recommendedTop = rec.slice(0, 6);
-        setRecommended(recommendedTop);
 
         const soon = rec
           .filter((o) => o.deadline)
@@ -32,13 +58,12 @@ export default function DashboardPage() {
           .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
           .slice(0, 4);
 
-        const recent = [...rec]
+        const recentItems = [...rec]
           .filter((o) => o.created_at)
           .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
           .slice(0, 6);
 
-        // If recommended pool is sparse, fill with personalized matches from browse.
-        if (soon.length < 4 || recent.length < 6) {
+        if (soon.length < 4 || recentItems.length < 6) {
           const all = await browseOpportunities({ sort: "newest", page_size: 60 }).catch(() => ({
             items: [],
             total: 0,
@@ -60,17 +85,20 @@ export default function DashboardPage() {
               .slice(0, 4 - soon.length);
             soon.push(...fillSoon);
           }
-          if (recent.length < 6) {
+          if (recentItems.length < 6) {
             const fillRecent = pool
               .filter((o) => o.created_at)
               .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
-              .slice(0, 6 - recent.length);
-            recent.push(...fillRecent);
+              .slice(0, 6 - recentItems.length);
+            recentItems.push(...fillRecent);
           }
         }
 
+        setRecommended(recommendedTop);
         setExpiring(soon);
-        setRecent(recent);
+        setRecent(recentItems);
+
+        setCache("dash:all", { recommended: recommendedTop, recent: recentItems, expiring: soon });
       } finally {
         setLoading(false);
       }
@@ -101,7 +129,7 @@ export default function DashboardPage() {
                 Welcome, {user?.first_name || "there"}!
               </h2>
               <p className="text-sm text-stone-500 dark:text-stone-400 leading-relaxed mb-6">
-                Your account is all set. SOIP will now surface the best opportunities tailored to your profile — explore, discover, and start applying.
+                Your account is all set. Steppd will now surface the best opportunities tailored to your profile — explore, discover, and start applying.
               </p>
               <button
                 type="button"
@@ -117,11 +145,33 @@ export default function DashboardPage() {
 
       {/* Greeting */}
       <div>
-        <h1 className="text-3xl font-bold text-stone-900 dark:text-stone-100 font-display">
-          Hello <span className="gradient-text">{user?.first_name || "there"}</span>, what would you like to do?
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-800 dark:text-stone-100">
+          Hello <span className="gradient-text font-bold">{user?.first_name || "there"}</span>, what would you like to do?
         </h1>
-        <p className="text-stone-400 dark:text-stone-500 mt-1">Here are your top opportunities right now.</p>
+        <p className="text-stone-400 dark:text-stone-500 mt-1.5 text-sm sm:text-base">Here are your top opportunities right now.</p>
       </div>
+
+      {/* Category tiles */}
+      {Object.keys(stats).length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+          {CATEGORY_TILES.filter((t) => (stats[t.key] || 0) > 0).map((tile, i) => {
+            const Icon = ICON_MAP[tile.icon];
+            const count = stats[tile.key] || 0;
+            return (
+              <button
+                key={tile.key}
+                onClick={() => navigate(`/browse?category=${tile.key}`)}
+                className={`${tile.bg} ${tile.border} border rounded-2xl p-4 text-left hover:-translate-y-0.5 hover:shadow-md transition-all animate-slide-up`}
+                style={{ animationDelay: `${i * 50}ms` }}
+              >
+                {Icon && <Icon size={20} className={`${tile.text} mb-2`} />}
+                <p className={`text-2xl font-bold ${tile.text}`}>{count}</p>
+                <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mt-0.5">{tile.label}</p>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -131,7 +181,7 @@ export default function DashboardPage() {
         >
           <MessageSquare size={24} />
           <div>
-            <p className="font-bold">Ask SOIP Anything</p>
+            <p className="font-bold">Ask Steppd Anything</p>
             <p className="text-sm text-brand-100">Get personalized recommendations, powered by AI.</p>
           </div>
         </button>

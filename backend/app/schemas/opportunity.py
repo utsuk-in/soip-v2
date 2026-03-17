@@ -17,6 +17,11 @@ class OpportunityOut(BaseModel):
     deadline_at: datetime | None = None
     application_link: str
     location: str = ""
+    mode: str = "online"
+    state: str | None = None
+    start_date: date | None = None
+    fee_type: str | None = None
+    organizer: str | None = None
     source_url: str
     scrape_page_id: UUID | None = None
     content_chunk_id: UUID | None = None
@@ -39,6 +44,11 @@ class OpportunityBrief(BaseModel):
     deadline: date | None = None
     application_link: str
     location: str = ""
+    mode: str = "online"
+    state: str | None = None
+    start_date: date | None = None
+    fee_type: str | None = None
+    organizer: str | None = None
     status: str = "open"
     is_active: bool = True
 

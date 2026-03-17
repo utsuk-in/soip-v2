@@ -17,4 +17,4 @@ Bun.serve({
     : undefined,
 });
 
-console.log(`SOIP frontend running on port ${port}`);
+console.log(`Steppd frontend running on port ${port}`);

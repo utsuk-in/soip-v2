@@ -24,7 +24,7 @@ from app.schemas.admin import (
 )
 from app.schemas.auth import TokenResponse
 from app.services.auth import create_access_token, hash_password
-from app.services.excel_parser import generate_template_xlsx, parse_csv, parse_xlsx
+from app.services.excel_parser import generate_template_xlsx, generate_template_csv, parse_csv, parse_xlsx
 from app.services.magic_link import create_magic_link
 from app.services.student_upload import confirm_upload, find_duplicate_emails
 from app.utils.dependencies import get_current_admin
@@ -117,8 +117,15 @@ def register_students(
 
 
 @router.get("/students/template")
-def download_template():
-    """Download a blank .xlsx template for student uploads."""
+def download_template(format: str = "xlsx"):
+    """Download a sample template with 10 example rows. Supports xlsx and csv."""
+    if format == "csv":
+        content = generate_template_csv()
+        return Response(
+            content=content,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=student_upload_template.csv"},
+        )
     content = generate_template_xlsx()
     return Response(
         content=content,
