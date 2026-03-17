@@ -197,23 +197,33 @@ def _build_system_prompt(user: User, retrieved: list[ScoredOpportunity]) -> str:
     for i, opp in enumerate(retrieved, 1):
         deadline_str = opp.deadline.isoformat() if opp.deadline else "No deadline"
         context = opp.chunk_context[:300] if opp.chunk_context else opp.description[:200]
+        eligibility_str = opp.eligibility[:150] if opp.eligibility else "Not specified"
+        benefits_str = opp.benefits[:150] if opp.benefits else "Not specified"
         opp_lines.append(
-            f"{i}. [{opp.title}]({opp.application_link})\n"
+            f"{i}. [{opp.title}](/browse/{opp.id})\n"
             f"   Category: {opp.category} | Deadline: {deadline_str}\n"
+            f"   Eligibility: {eligibility_str}\n"
+            f"   Benefits: {benefits_str}\n"
             f"   Context: {context}"
         )
     opp_section = "\n".join(opp_lines) if opp_lines else "No matching opportunities found."
 
     return (
-        "You are SOIP, an AI assistant that helps students discover opportunities "
+        "You are Steppd, an AI assistant that helps students discover opportunities "
         "(hackathons, grants, fellowships, internships, competitions, scholarships, programs).\n\n"
         "Language: Always respond in English, regardless of the language the user writes in.\n\n"
         f"{profile_section}\n\n"
         f"Retrieved opportunities (ranked by relevance):\n{opp_section}\n\n"
         "Rules:\n"
-        "- Cite opportunities by [title](url) markdown format\n"
-        "- Explain WHY each is relevant to this student's profile\n"
+        "- Cite opportunities that are relevant to the user's query. Use logical reasoning about eligibility: "
+        "e.g. if a user asks for 'engineering students' and an opportunity is open to 'undergraduate students', "
+        "that opportunity IS applicable because engineering students are undergraduates. Similarly, 'all students' "
+        "includes every discipline. Always apply this inclusive logic.\n"
+        "- If a retrieved opportunity has NO connection at all to the user's query topic, skip it.\n"
+        "- Cite opportunities using [title](/browse/ID) markdown format — use the EXACT link provided above for each opportunity\n"
+        "- Explain WHY each cited opportunity is relevant, including eligibility reasoning\n"
         "- Mention deadlines prominently\n"
-        "- If no good matches, suggest broadening criteria or trying different keywords\n"
+        "- If none of the retrieved opportunities are relevant even with inclusive eligibility reasoning, "
+        "say so and suggest different keywords\n"
         "- Be concise, friendly, and actionable"
     )

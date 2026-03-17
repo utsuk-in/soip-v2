@@ -14,6 +14,7 @@ import DashboardPage from "./pages/DashboardPage";
 import BrowsePage from "./pages/BrowsePage";
 import OpportunityPage from "./pages/OpportunityPage";
 import ChatPage from "./pages/ChatPage";
+import HackMapPage from "./pages/HackMapPage";
 import UploadStudentsPage from "./pages/admin/UploadStudentsPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminEngagementPage from "./pages/admin/AdminEngagementPage";
@@ -26,7 +27,7 @@ function AppRoutes() {
       <div className="h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm text-stone-400 font-medium">loading SOIP...</p>
+          <p className="text-sm text-stone-400 font-medium">loading Steppd...</p>
         </div>
       </div>
     );
@@ -68,6 +69,7 @@ function AppRoutes() {
         <>
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/hackmap" element={<HackMapPage />} />
             <Route path="/browse" element={<BrowsePage />} />
             <Route path="/browse/:id" element={<OpportunityPage />} />
             <Route path="/chat" element={<ChatPage />} />

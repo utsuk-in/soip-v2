@@ -199,9 +199,9 @@ export default function UploadStudentsPage() {
     }
   };
 
-  const handleDownloadTemplate = async () => {
+  const handleDownloadTemplate = async (format: "xlsx" | "csv") => {
     try {
-      await downloadTemplate();
+      await downloadTemplate(format);
     } catch (err: any) {
       setError(err.message);
     }
@@ -230,14 +230,22 @@ export default function UploadStudentsPage() {
         <div className="flex-1 border-t border-stone-200 dark:border-stone-700" />
       </div>
 
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-end gap-2 mb-4">
         <button
           type="button"
-          onClick={handleDownloadTemplate}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-600 border border-brand-200 rounded-xl hover:bg-brand-50 transition-colors"
+          onClick={() => handleDownloadTemplate("xlsx")}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-600 border border-brand-200 dark:border-brand-800 rounded-xl hover:bg-brand-50 dark:hover:bg-brand-950/30 transition-colors"
         >
           <Download size={16} />
-          Template
+          Template (.xlsx)
+        </button>
+        <button
+          type="button"
+          onClick={() => handleDownloadTemplate("csv")}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 rounded-xl hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
+        >
+          <Download size={16} />
+          Template (.csv)
         </button>
       </div>
 

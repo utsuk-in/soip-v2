@@ -1,6 +1,8 @@
 from datetime import date
+import asyncio
 import math
 import logging
+import time
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -11,7 +13,7 @@ from sqlalchemy import or_, func, select
 
 from app.database import get_db
 from app.models.opportunity import Opportunity
-from app.utils.enums import OpportunityCategory
+from app.utils.enums import OpportunityCategory, OpportunityMode
 from app.models.user import User
 from app.schemas.opportunity import OpportunityBrief, OpportunityOut, OpportunityListResponse
 from app.services.embedder import embed_query
@@ -27,6 +29,15 @@ from app.utils.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/opportunities", tags=["opportunities"])
 logger = logging.getLogger(__name__)
+
+# Per-user response cache: {user_id: (timestamp, limit, response_list)}
+_recommended_cache: dict[UUID, tuple[float, int, list]] = {}
+_RECOMMENDED_TTL = 300  # 5 minutes
+
+
+def invalidate_recommended_cache(user_id: UUID) -> None:
+    """Clear the recommended-opportunities cache for a specific user."""
+    _recommended_cache.pop(user_id, None)
 
 _optional_bearer = HTTPBearer(auto_error=False)
 
@@ -59,6 +70,7 @@ def browse_opportunities(
     domain: str | None = None,
     location: str | None = None,
     mode: str | None = None,
+    state: str | None = None,
     search: str | None = None,
     deadline_before: date | None = None,
     deadline_after: date | None = None,
@@ -72,6 +84,9 @@ def browse_opportunities(
 
     if active_only:
         query = query.filter(Opportunity.is_active.is_(True))
+        query = query.filter(
+            (Opportunity.deadline.is_(None)) | (Opportunity.deadline >= date.today())
+        )
 
     if category:
         normalized = _normalize_categories(_split_list_param(category))
@@ -108,27 +123,20 @@ def browse_opportunities(
 
     if mode:
         modes = _split_list_param(mode)
-        if modes:
-            mode_conditions = []
-            for m in modes:
-                m = m.strip().lower()
-                if not m:
-                    continue
-                tag = func.jsonb_array_elements_text(
-                    Opportunity.domain_tags.cast(JSONB)
-                ).table_valued("value").alias("tag")
-                mode_conditions.append(
-                    select(1)
-                    .select_from(tag)
-                    .where(func.lower(tag.c.value) == m)
-                    .exists()
-                )
-                mode_conditions.append(func.lower(Opportunity.location).ilike(f"%{m}%"))
-                if m == "online":
-                    mode_conditions.append(func.lower(Opportunity.location).ilike("%virtual%"))
-                    mode_conditions.append(func.lower(Opportunity.location).ilike("%remote%"))
-            if mode_conditions:
-                query = query.filter(or_(*mode_conditions))
+        valid_modes = []
+        for m in modes:
+            m = m.strip().lower()
+            try:
+                valid_modes.append(OpportunityMode(m))
+            except ValueError:
+                continue
+        if valid_modes:
+            query = query.filter(Opportunity.mode.in_(valid_modes))
+
+    if state:
+        states = _split_list_param(state)
+        if states:
+            query = query.filter(Opportunity.state.in_(states))
 
     if deadline_before:
         query = query.filter(
@@ -176,40 +184,52 @@ async def recommended_opportunities(
     db: Session = Depends(get_db),
 ):
     """Personalized top-N based on user profile + relevance scoring."""
+    t0 = time.monotonic()
+
+    # Check per-user response cache
+    cached = _recommended_cache.get(current_user.id)
+    if cached and (time.monotonic() - cached[0]) < _RECOMMENDED_TTL and cached[1] >= limit:
+        logger.info("Recommended: cache hit for user %s (%.0fms)", current_user.id, (time.monotonic() - t0) * 1000)
+        return cached[2][:limit]
+
     profile_text = _build_profile_query(current_user)
     domains = normalize_domains((current_user.interests or []) + (current_user.skills or []))
     categories = _extract_profile_categories(current_user)
 
     candidates: list[ScoredOpportunity] = []
     if profile_text:
-        logger.info(
-            "Recommended: profile_query=%s domains=%s categories=%s user_id=%s",
-            profile_text,
-            domains,
-            [c.value for c in categories],
-            getattr(current_user, "id", None),
-        )
+        logger.info("Recommended: user=%s profile_query=%s", current_user.id, profile_text[:80])
+
+        # Embedding (cached internally by embedder)
         query_embedding = await embed_query(profile_text)
-        # Direct opportunity vector search (single HNSW query) + FTS fusion
-        candidates = recommend_retrieve(
-            db, query_embedding,
-            search_text=profile_text,
-            categories=categories or None,
-            domains=domains or None,
-            limit=50,
+        t_embed = time.monotonic()
+        logger.info("Recommended: embed done (%.0fms)", (t_embed - t0) * 1000)
+
+        # Vector + FTS retrieval (sync DB — run in threadpool to unblock event loop)
+        candidates = await asyncio.to_thread(
+            lambda: recommend_retrieve(
+                db, query_embedding,
+                search_text=profile_text,
+                categories=categories or None,
+                domains=domains or None,
+                limit=50,
+            )
         )
-        logger.info("Recommended: candidates_pre_rerank=%d", len(candidates))
-        candidates = rerank_with_cross_encoder(profile_text, candidates)
-        logger.info("Recommended: candidates_post_cross_encoder=%d", len(candidates))
+        t_retrieve = time.monotonic()
+        logger.info("Recommended: retrieve done (%d candidates, %.0fms)", len(candidates), (t_retrieve - t_embed) * 1000)
+
+        # Cross-encoder rerank (sync CPU — run in threadpool)
+        candidates = await asyncio.to_thread(rerank_with_cross_encoder, profile_text, candidates)
+        t_rerank = time.monotonic()
+        logger.info("Recommended: cross-encoder done (%.0fms)", (t_rerank - t_retrieve) * 1000)
+
+        # Profile rerank (instant, in-memory)
         candidates = rerank_for_user(current_user, candidates)
-        logger.info("Recommended: candidates_post_profile_rerank=%d", len(candidates))
 
     top_ids = [o.id for o in candidates if o.application_link][:limit]
     existing_ids = set(top_ids)
 
-    # Fallback: if retrieval is sparse, fill from direct filtered query.
     if len(top_ids) < limit and (domains or categories):
-        logger.info("Recommended: Fallback to direct db filter")
         fallback_query = db.query(Opportunity).filter(Opportunity.is_active.is_(True))
         if categories:
             fallback_query = fallback_query.filter(Opportunity.category.in_(categories))
@@ -247,36 +267,110 @@ async def recommended_opportunities(
             .all()
         )
 
-    opps = db.query(Opportunity).filter(Opportunity.id.in_(top_ids)).all()
+    # Build explanation input from candidates (already have all data — no DB dependency)
+    explanation_candidates = [c for c in candidates if c.id in existing_ids][:limit]
+    explanation_input = [
+        ExplanationOpportunity(
+            id=str(o.id),
+            title=o.title,
+            category=o.category if isinstance(o.category, str) else str(o.category),
+            domain_tags=o.domain_tags,
+            description=o.description,
+            deadline=o.deadline.isoformat() if o.deadline else None,
+            location=None,
+        )
+        for o in explanation_candidates
+    ]
+
+    # Run DB load and explanation generation in parallel
+    t_parallel = time.monotonic()
+
+    async def _load_opps():
+        return await asyncio.to_thread(
+            lambda: db.query(Opportunity).filter(Opportunity.id.in_(top_ids)).all()
+        )
+
+    opps_task = asyncio.create_task(_load_opps())
+    explanations_task = asyncio.create_task(
+        generate_relevance_explanations(
+            user=current_user,
+            query_text=profile_text,
+            opportunities=explanation_input,
+        )
+    )
+
+    opps, explanations = await asyncio.gather(opps_task, explanations_task)
+    t_parallel_done = time.monotonic()
+    logger.info("Recommended: parallel load+explain done (%.0fms)", (t_parallel_done - t_parallel) * 1000)
+
     id_order = {uid: i for i, uid in enumerate(top_ids)}
     sorted_opps = sorted(opps, key=lambda o: id_order.get(o.id, 999))
 
-    # Only generate explanations for the top results (not all 36) to stay within
-    # LLM token limits and reduce latency.
-    explanation_opps = sorted_opps[:15]
-    explanations = await generate_relevance_explanations(
-        user=current_user,
-        query_text=profile_text,
-        opportunities=[
-            ExplanationOpportunity(
-                id=str(o.id),
-                title=o.title,
-                category=o.category.value if hasattr(o.category, "value") else str(o.category),
-                domain_tags=o.domain_tags,
-                description=o.description,
-                deadline=o.deadline.isoformat() if o.deadline else None,
-                location=o.location,
-            )
-            for o in explanation_opps
-        ],
-    )
     if explanations:
         for opp in sorted_opps:
             text = explanations.get(str(opp.id))
             if text:
                 setattr(opp, "relevance_explanation", text)
 
+    # Cache the response
+    _recommended_cache[current_user.id] = (time.monotonic(), limit, sorted_opps)
+    logger.info("Recommended: total %.0fms, returned %d opps", (time.monotonic() - t0) * 1000, len(sorted_opps))
+
     return sorted_opps
+
+
+@router.get("/stats")
+def opportunity_stats(
+    db: Session = Depends(get_db),
+):
+    """Return count of active opportunities per category."""
+    rows = (
+        db.query(Opportunity.category, func.count(Opportunity.id))
+        .filter(Opportunity.is_active.is_(True))
+        .group_by(Opportunity.category)
+        .all()
+    )
+    return {
+        row[0].value if hasattr(row[0], "value") else str(row[0]): row[1]
+        for row in rows
+    }
+
+
+@router.get("/search", response_model=list[OpportunityBrief])
+def search_opportunities(
+    q: str = Query(..., min_length=1, description="Search query string"),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """Direct keyword search across opportunity fields using ILIKE for partial matching."""
+    from sqlalchemy import String, cast as sa_cast
+
+    words = [w.strip() for w in q.split() if len(w.strip()) >= 2]
+    if not words:
+        return []
+
+    query = db.query(Opportunity).filter(
+        Opportunity.is_active.is_(True),
+        (Opportunity.deadline.is_(None)) | (Opportunity.deadline >= date.today()),
+    )
+
+    word_conditions = []
+    for word in words:
+        pattern = f"%{word}%"
+        word_conditions.append(
+            or_(
+                Opportunity.title.ilike(pattern),
+                Opportunity.description.ilike(pattern),
+                Opportunity.eligibility.ilike(pattern),
+                Opportunity.benefits.ilike(pattern),
+                sa_cast(Opportunity.domain_tags, String).ilike(pattern),
+                Opportunity.organizer.ilike(pattern),
+            )
+        )
+    query = query.filter(or_(*word_conditions))
+
+    results = query.order_by(Opportunity.created_at.desc()).limit(limit).all()
+    return results
 
 
 @router.get("/{opportunity_id}", response_model=OpportunityOut)

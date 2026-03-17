@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Upload, BarChart3, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import ThemeToggle from "./ThemeToggle";
+import BrandLogo from "./BrandLogo";
 
 const NAV_ITEMS = [
   { to: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -31,11 +32,8 @@ export default function AdminLayout() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="h-16 flex items-center px-5 border-b border-stone-100 dark:border-stone-800">
-          <div>
-            <h1 className="text-xl font-bold font-display gradient-text leading-tight">SOIP</h1>
-            <p className="text-[10px] font-medium text-stone-400 tracking-widest uppercase">Admin Panel</p>
-          </div>
+        <div className="h-20 flex items-center px-5 border-b border-stone-100 dark:border-stone-800">
+          <BrandLogo className="h-14 w-auto" showTagline />
           <button type="button" title="Close menu" className="ml-auto lg:hidden text-stone-400 hover:text-stone-600 dark:hover:text-stone-300" onClick={() => setSidebarOpen(false)}>
             <X size={20} />
           </button>

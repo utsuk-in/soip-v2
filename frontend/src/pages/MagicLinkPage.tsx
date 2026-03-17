@@ -1,31 +1,46 @@
-import React, { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { useSearchParams, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { redeemMagicLink } from "../lib/api";
+
+const attemptedTokens = new Set<string>();
 
 export default function MagicLinkPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [error, setError] = useState("");
+  const [redeemed, setRedeemed] = useState(false);
+  const attemptedRef = useRef(false);
 
   useEffect(() => {
+    if (attemptedRef.current) return;
+    attemptedRef.current = true;
+
     const token = searchParams.get("token");
     if (!token) {
       setError("No token provided");
       return;
     }
+    if (attemptedTokens.has(token)) return;
+    attemptedTokens.add(token);
 
     redeemMagicLink(token)
       .then(async (res) => {
         localStorage.setItem("soip_token", res.access_token);
         await refreshUser();
-        navigate("/onboarding", { replace: true });
+        setRedeemed(true);
       })
       .catch((err) => {
+        attemptedTokens.delete(token);
         setError(err.message || "Invalid or expired magic link");
       });
-  }, [searchParams, navigate, refreshUser]);
+  }, [searchParams, refreshUser]);
+
+  if (redeemed && user) {
+    const dest = user.is_onboarded ? "/dashboard" : "/onboarding";
+    return <Navigate to={dest} replace />;
+  }
 
   if (error) {
     return (

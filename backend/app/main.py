@@ -1,3 +1,5 @@
+import threading
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,11 +13,17 @@ from app.routers.admin import router as admin_router
 from app.services.scheduler import scheduler_lifespan
 
 app = FastAPI(
-    title="SOIP API",
+    title="Steppd API",
     description="Student Opportunity Intelligence Platform — RAG-powered opportunity discovery",
     version="0.1.0",
     lifespan=scheduler_lifespan,
 )
+
+# Pre-warm heavy models in a background thread so startup isn't blocked
+threading.Thread(
+    target=lambda: __import__("app.services.reranker", fromlist=["warmup"]).warmup(),
+    daemon=True,
+).start()
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,4 +48,4 @@ def health_check():
 
 @app.get("/")
 def root():
-    return {"message": "SOIP API", "version": "0.1.0", "docs": "/docs"}
+    return {"message": "Steppd API", "version": "0.1.0", "docs": "/docs"}
