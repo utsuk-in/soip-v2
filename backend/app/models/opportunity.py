@@ -15,12 +15,13 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID, ENUM
+from sqlalchemy.orm import deferred
 from pgvector.sqlalchemy import Vector
 
 from app.models.base import Base
-from app.utils.enums import OpportunityCategory, OpportunityStatus
+from app.utils.enums import OpportunityCategory, OpportunityStatus, OpportunityMode, FeeType
 
-__all__ = ["Opportunity", "OpportunityCategory", "OpportunityStatus"]
+__all__ = ["Opportunity", "OpportunityCategory", "OpportunityStatus", "OpportunityMode", "FeeType"]
 
 
 class Opportunity(Base):
@@ -46,6 +47,28 @@ class Opportunity(Base):
     deadline_at = Column(DateTime(timezone=True), nullable=True)
     application_link = Column(String(1000), unique=True, nullable=False)
     location = Column(String(500), nullable=False, server_default="")
+    mode = Column(
+        ENUM(
+            OpportunityMode,
+            name="opportunitymode",
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=False,
+        server_default="online",
+    )
+    state = Column(String(100), nullable=True)
+    start_date = Column(Date, nullable=True)
+    fee_type = Column(
+        ENUM(
+            FeeType,
+            name="feetype",
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=True,
+    )
+    organizer = Column(String(300), nullable=True)
     source_id = Column(
         UUID(as_uuid=True), ForeignKey("sources.id"), nullable=True
     )
@@ -75,13 +98,16 @@ class Opportunity(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    embedding = Column(Vector(1536), nullable=True)
+    embedding = deferred(Column(Vector(1536), nullable=True))
 
     __table_args__ = (
         Index("ix_opportunities_category", "category"),
         Index("ix_opportunities_deadline", "deadline"),
         Index("ix_opportunities_is_active", "is_active"),
         Index("ix_opportunities_status", "status"),
+        Index("ix_opportunities_mode", "mode"),
+        Index("ix_opportunities_state", "state"),
+        Index("ix_opportunities_start_date", "start_date"),
         Index(
             "ix_opportunities_embedding_hnsw",
             "embedding",

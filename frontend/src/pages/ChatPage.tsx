@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Send, PanelLeftClose, PanelLeft, Plus, Sparkles } from "lucide-react";
 import { sendChatMessage, getChatSessions, getChatSession, batchGetSatisfaction, type ChatMessage, type ChatSession, type Opportunity } from "../lib/api";
@@ -6,10 +6,14 @@ import ChatBubble, { TypingIndicator } from "../components/ChatBubble";
 import SatisfactionPrompt from "../components/SatisfactionPrompt";
 import { useFeedback } from "../hooks/useFeedback";
 
+function stripMarkdownLinks(text: string): string {
+  return text.replace(/\[([^\]]*)\]\([^)]+\)/g, "$1");
+}
+
 const SUGGESTED_PROMPTS = [
   "what hackathons are coming up?",
-  "show me AI internships",
-  "fellowships for engineering students",
+  "Show me hackathons happening online",
+  "Tell me about the grants matching my skills",
   "what should I explore based on my skills?",
 ];
 
@@ -22,14 +26,17 @@ interface DisplayMessage {
 
 export default function ChatPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | undefined>();
+  const [activeSessionId, setActiveSessionId] = useState<string | undefined>(
+    () => searchParams.get("session") || undefined
+  );
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [pendingOppId, setPendingOppId] = useState<string | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [satisfactionMap, setSatisfactionMap] = useState<Record<string, "yes" | "no">>({});
   const { feedbackMap, loadFeedback, submit: submitFeedback, hasSubmitted } = useFeedback();
@@ -41,20 +48,40 @@ export default function ChatPage() {
     getChatSessions().then(setSessions).catch(() => {});
   }, []);
 
+  // Restore session from URL param on mount / back-navigation
   useEffect(() => {
+    const sessionFromUrl = searchParams.get("session");
     const q = searchParams.get("q");
+    const oppId = searchParams.get("opp_id") || undefined;
+
     if (q) {
       setInput(q);
+      setPendingOppId(oppId);
       setActiveSessionId(undefined);
       setMessages([]);
+      return;
+    }
+
+    if (sessionFromUrl && sessionFromUrl !== activeSessionId) {
+      loadSession(sessionFromUrl);
     }
   }, [searchParams]);
+
+  // Keep URL in sync with active session
+  useEffect(() => {
+    const currentParam = searchParams.get("session");
+    if (activeSessionId && currentParam !== activeSessionId) {
+      setSearchParams({ session: activeSessionId }, { replace: true });
+    } else if (!activeSessionId && currentParam) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [activeSessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sending]);
 
-  const loadSession = async (id: string) => {
+  const loadSession = useCallback(async (id: string) => {
     setActiveSessionId(id);
     try {
       const detail = await getChatSession(id);
@@ -62,7 +89,8 @@ export default function ChatPage() {
         detail.messages.map((m) => ({
           id: m.id,
           role: m.role as "user" | "assistant",
-          content: m.content,
+          content: stripMarkdownLinks(m.content),
+          citedOpportunities: m.cited_opportunities,
         }))
       );
       const assistantIds = detail.messages
@@ -75,12 +103,15 @@ export default function ChatPage() {
     } catch {
       setMessages([]);
     }
-  };
+  }, []);
 
   const handleSend = async (text?: string) => {
     const message = text || input.trim();
     if (!message || sending) return;
     setInput("");
+
+    const oppId = pendingOppId;
+    setPendingOppId(undefined);
 
     const userMsg: DisplayMessage = {
       id: `temp-${Date.now()}`,
@@ -91,13 +122,15 @@ export default function ChatPage() {
     setSending(true);
 
     try {
-      const res = await sendChatMessage(message, activeSessionId);
+      const res = await sendChatMessage(message, activeSessionId, oppId);
       setActiveSessionId(res.session_id);
+
+      const processedContent = stripMarkdownLinks(res.message.content);
 
       const assistantMsg: DisplayMessage = {
         id: res.message.id,
         role: "assistant",
-        content: res.message.content,
+        content: processedContent,
         citedOpportunities: res.cited_opportunities,
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -123,6 +156,7 @@ export default function ChatPage() {
     setActiveSessionId(undefined);
     setMessages([]);
     setInput("");
+    setSearchParams({}, { replace: true });
   };
 
   const isEmpty = messages.length === 0 && !sending;
@@ -182,7 +216,7 @@ export default function ChatPage() {
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 text-white flex items-center justify-center mb-4 shadow-glow">
                 <Sparkles size={28} />
               </div>
-              <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100 mb-1 font-display">Ask SOIP Anything</h2>
+              <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100 mb-1 font-display">Ask Steppd Anything</h2>
               <p className="text-stone-400 dark:text-stone-500 mb-8 max-w-md text-sm">
                 Get personalized opportunity recommendations, powered by AI.
               </p>

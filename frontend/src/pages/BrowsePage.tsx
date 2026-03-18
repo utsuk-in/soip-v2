@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Filter } from "lucide-react";
 import { browseOpportunities, type Opportunity, type OpportunityListResponse } from "../lib/api";
 import OpportunityCard from "../components/OpportunityCard";
@@ -17,9 +17,18 @@ interface Filters {
 
 const INITIAL_FILTERS: Filters = { category: [], domain: [], location: "", mode: "", search: "", sort: "newest" };
 
+function filtersFromParams(params: URLSearchParams): Filters {
+  const category = params.get("category");
+  return {
+    ...INITIAL_FILTERS,
+    category: category ? category.split(",").filter(Boolean) : [],
+  };
+}
+
 export default function BrowsePage() {
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState<Filters>(() => filtersFromParams(searchParams));
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [meta, setMeta] = useState<OpportunityListResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +48,7 @@ export default function BrowsePage() {
         search: filters.search || undefined,
         active_only: !showExpired,
         sort: filters.sort,
+        active_only: true,
         page,
         page_size: 20,
       });

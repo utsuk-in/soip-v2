@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Search, MessageSquare, Bell, Menu, X, Sparkles, Moon, Sun } from "lucide-react";
+import { LayoutDashboard, Map, Search, MessageSquare, Bell, Menu, X, Sparkles, Moon, Sun } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { getAlerts, type Alert } from "../lib/api";
 import ProfileModal from "./ProfileModal";
+import BrandLogo from "./BrandLogo";
 
 const NAV_ITEMS = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/hackmap", icon: Map, label: "HackMap" },
   { to: "/browse", icon: Search, label: "Browse" },
   { to: "/chat", icon: MessageSquare, label: "Chat" },
 ];
@@ -71,11 +73,8 @@ export default function Layout() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="h-16 flex items-center px-5 border-b border-stone-100 dark:border-stone-800">
-          <div>
-            <h1 className="text-xl font-bold font-display gradient-text leading-tight">SOIP</h1>
-            <p className="text-[10px] font-medium text-stone-400 dark:text-stone-500 tracking-widest uppercase">Opportunity Radar</p>
-          </div>
+        <div className="h-20 flex items-center px-5 border-b border-stone-100 dark:border-stone-800">
+          <BrandLogo className="h-14 w-auto" showTagline />
           <button className="ml-auto lg:hidden text-stone-400 hover:text-stone-600 dark:hover:text-stone-200" onClick={() => setSidebarOpen(false)}>
             <X size={20} />
           </button>
@@ -121,7 +120,7 @@ export default function Layout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-16 bg-white/70 dark:bg-stone-900/70 backdrop-blur-xl border-b border-stone-200/60 dark:border-stone-800/60 flex items-center px-4 lg:px-6 gap-4">
+        <header className="h-16 relative z-30 bg-white/70 dark:bg-stone-900/70 backdrop-blur-xl border-b border-stone-200/60 dark:border-stone-800/60 flex items-center px-4 lg:px-6 gap-4">
           <button className="lg:hidden text-stone-500 dark:text-stone-300" onClick={() => setSidebarOpen(true)}>
             <Menu size={20} />
           </button>
@@ -163,7 +162,7 @@ export default function Layout() {
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white/90 dark:bg-stone-900/90 backdrop-blur-xl border border-stone-200 dark:border-stone-800 rounded-2xl shadow-xl overflow-hidden animate-fade-in">
+              <div className="absolute right-0 mt-2 w-56 z-50 bg-white/90 dark:bg-stone-900/90 backdrop-blur-xl border border-stone-200 dark:border-stone-800 rounded-2xl shadow-xl overflow-hidden animate-fade-in">
                 <div className="px-4 py-3 border-b border-stone-100 dark:border-stone-800">
                   <p className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">{user?.email}</p>
                   <p className="text-xs text-stone-400 dark:text-stone-500 truncate">{user?.academic_background || "Complete your profile"}</p>

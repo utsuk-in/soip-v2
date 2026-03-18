@@ -51,7 +51,7 @@ def _create_opportunity(db, suffix: str) -> Opportunity:
         eligibility="Students",
         benefits="Experience",
         deadline=None,
-        url=f"https://example.com/opps/{suffix}",
+        application_link=f"https://example.com/opps/{suffix}",
         source_url="https://example.com/source",
         is_active=True,
     )
@@ -62,15 +62,20 @@ def _create_opportunity(db, suffix: str) -> Opportunity:
 
 
 def _cleanup(db, suffix: str) -> None:
+    # Collect test user IDs first for FK-safe deletion
+    test_users = db.query(User.id).filter(User.email.like(f"%{suffix}%")).all()
+    test_user_ids = [u[0] for u in test_users] if test_users else []
+
     db.query(UserAlert).filter(UserAlert.reason.like(f"%{suffix}%")).delete()
     db.query(ChatMessage).filter(ChatMessage.content.like(f"%{suffix}%")).delete()
-    db.query(ChatSession).filter(ChatSession.title.like(f"%{suffix}%")).delete()
-    # Clean up interaction logs for test users
-    test_users = db.query(User.id).filter(User.email.like(f"%{suffix}%")).all()
-    if test_users:
-        test_user_ids = [u[0] for u in test_users]
+    # Delete sessions by user_id (title may not contain the suffix)
+    if test_user_ids:
+        db.query(ChatMessage).filter(ChatMessage.session_id.in_(
+            db.query(ChatSession.id).filter(ChatSession.user_id.in_(test_user_ids))
+        )).delete(synchronize_session=False)
+        db.query(ChatSession).filter(ChatSession.user_id.in_(test_user_ids)).delete()
         db.query(InteractionLog).filter(InteractionLog.user_id.in_(test_user_ids)).delete()
-    db.query(Opportunity).filter(Opportunity.url.like(f"%{suffix}%")).delete()
+    db.query(Opportunity).filter(Opportunity.application_link.like(f"%{suffix}%")).delete()
     db.query(User).filter(User.email.like(f"%{suffix}%")).delete()
     db.query(University).filter(University.name.like(f"%{suffix}%")).delete()
     db.commit()
@@ -91,6 +96,13 @@ def test_auth_register_login_me(client, db_session, unique_id):
             json={
                 "email": f"test-soip-{suffix}@example.com",
                 "password": "Password123!",
+                "first_name": "Test",
+                "academic_background": "Computer Science",
+                "year_of_study": "3rd Year",
+                "state": "Maharashtra",
+                "skills": ["Python"],
+                "interests": ["AI"],
+                "aspirations": ["Software Engineer"],
                 "university_id": str(uni.id),
             },
         )
@@ -163,7 +175,7 @@ def test_opportunities_browse_recommended_get(client, db_session, unique_id):
             params={"category": "hackathon", "domain": "AI"},
         )
         assert browse.status_code == 200
-        assert any(o["id"] == str(opp.id) for o in browse.json())
+        assert any(o["id"] == str(opp.id) for o in browse.json()["items"])
 
         recommended = client.get(
             "/api/opportunities/recommended",
@@ -179,7 +191,8 @@ def test_opportunities_browse_recommended_get(client, db_session, unique_id):
         _cleanup(db_session, suffix)
 
 
-def test_recommended_includes_relevance_explanation(client, db_session, unique_id, monkeypatch):
+def test_explanations_endpoint(client, db_session, unique_id, monkeypatch):
+    """Test the /explanations endpoint generates relevance explanations."""
     suffix = unique_id
 
     async def _fake_generate_relevance_explanations(user, query_text, opportunities):
@@ -187,7 +200,7 @@ def test_recommended_includes_relevance_explanation(client, db_session, unique_i
         if not ids:
             return {}
         return {
-            ids[0]: "Because your profile mentions AI, this fits your interests. It also aligns with your hackathon goals."
+            ids[0]: "Because your profile mentions AI, this fits your interests."
         }
 
     monkeypatch.setattr(
@@ -205,15 +218,15 @@ def test_recommended_includes_relevance_explanation(client, db_session, unique_i
         opp = _create_opportunity(db_session, suffix)
         token = create_access_token(user.id)
 
-        recommended = client.get(
-            "/api/opportunities/recommended",
+        resp = client.get(
+            "/api/opportunities/explanations",
+            params={"opportunity_ids": str(opp.id)},
             headers=_auth_headers(token),
         )
-        assert recommended.status_code == 200
-        data = recommended.json()
-        match = next((o for o in data if o["id"] == str(opp.id)), None)
-        assert match is not None
-        assert match["relevance_explanation"] is not None
+        assert resp.status_code == 200
+        data = resp.json()
+        assert str(opp.id) in data["explanations"]
+        assert len(data["explanations"][str(opp.id)]) > 0
     finally:
         _cleanup(db_session, suffix)
 
@@ -248,7 +261,7 @@ def test_alerts_list_mark_read(client, db_session, unique_id):
 def test_chat_basic_flow(client, db_session, unique_id, monkeypatch):
     suffix = unique_id
 
-    async def _fake_handle_chat_message(db, user, message, session_id=None):
+    async def _fake_handle_chat_message(db, user, message, session_id=None, opportunity_id=None):
         session = ChatSession(user_id=user.id, title=f"test-soip-{suffix}-session")
         db.add(session)
         db.commit()
@@ -267,7 +280,7 @@ def test_chat_basic_flow(client, db_session, unique_id, monkeypatch):
         return assistant_msg, [], session.id
 
     monkeypatch.setattr(
-        "app.services.chat.handle_chat_message", _fake_handle_chat_message
+        "app.routers.chat.handle_chat_message", _fake_handle_chat_message
     )
 
     try:

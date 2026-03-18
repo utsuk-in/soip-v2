@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Calendar, ExternalLink, Tag, Award, Users, MessageSquare } from "lucide-react";
+import { ArrowLeft, Calendar, ExternalLink, Tag, Award, Users, MessageSquare, MapPin, Globe, Building2, IndianRupee, Clock } from "lucide-react";
 import { getOpportunity, type Opportunity } from "../lib/api";
 import { CATEGORY_COLORS } from "../lib/constants";
 import FeedbackButtons from "../components/FeedbackButtons";
@@ -15,6 +15,12 @@ const CATEGORY_GRADIENTS: Record<string, string> = {
   scholarship: "from-teal-500 to-teal-400",
   program: "from-indigo-500 to-indigo-400",
   other: "from-stone-400 to-stone-300",
+};
+
+const MODE_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
+  online: { label: "Online", icon: Globe },
+  offline: { label: "Offline", icon: MapPin },
+  hybrid: { label: "Hybrid", icon: Globe },
 };
 
 export default function OpportunityPage() {
@@ -56,14 +62,25 @@ export default function OpportunityPage() {
 
   const colorClass = CATEGORY_COLORS[opp.category] || CATEGORY_COLORS.other;
   const gradientClass = CATEGORY_GRADIENTS[opp.category] || CATEGORY_GRADIENTS.other;
+  const modeInfo = opp.mode ? MODE_LABELS[opp.mode] : null;
+  const locationText = [opp.location, opp.state].filter(Boolean).join(", ") || null;
+  const deadlineFormatted = opp.deadline
+    ? new Date(opp.deadline).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })
+    : null;
+  const startDateFormatted = opp.start_date
+    ? new Date(opp.start_date).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })
+    : null;
+  const daysLeft = opp.deadline
+    ? Math.ceil((new Date(opp.deadline).getTime() - Date.now()) / 86400000)
+    : null;
 
   return (
     <div className="p-6 lg:p-10 max-w-4xl mx-auto animate-fade-in">
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-sm text-stone-400 dark:text-stone-500 hover:text-brand-600 dark:hover:text-brand-300 mb-6 transition-colors"
+        className="flex items-center gap-1.5 text-sm text-stone-400 dark:text-stone-500 hover:text-brand-600 dark:hover:text-brand-300 mb-6 transition-colors"
       >
-        <ArrowLeft size={16} /> back
+        <ArrowLeft size={16} /> Back
       </button>
 
       <div className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-xl rounded-3xl border border-white/30 dark:border-stone-800/60 shadow-xl overflow-hidden">
@@ -71,59 +88,111 @@ export default function OpportunityPage() {
         <div className={`h-1.5 bg-gradient-to-r ${gradientClass}`} />
 
         <div className="p-6 lg:p-10">
-          <div className="flex items-start gap-3 mb-4 flex-wrap">
+          {/* Badges row */}
+          <div className="flex items-center gap-2 flex-wrap mb-4">
             <span className={`px-3 py-1 rounded-full text-sm font-semibold capitalize ${colorClass}`}>
               {opp.category}
             </span>
+            {modeInfo && (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 flex items-center gap-1.5">
+                <modeInfo.icon size={12} /> {modeInfo.label}
+              </span>
+            )}
+            {opp.fee_type && (
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                opp.fee_type === "free"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+              }`}>
+                {opp.fee_type === "free" ? "Free" : "Paid"}
+              </span>
+            )}
             {opp.status === "open" && (
-              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
                 Open
               </span>
             )}
             {opp.status === "coming_soon" && (
-              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                 Coming Soon
               </span>
             )}
-            {opp.status === "expired" && (
-              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400">
-                Expired
+            {!opp.is_active && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-stone-100 dark:bg-stone-800 text-stone-500">
+                Inactive
               </span>
             )}
           </div>
 
-          <h1 className="text-4xl font-bold text-stone-900 dark:text-stone-100 mb-3 font-display">{opp.title}</h1>
-          <div className="text-stone-700 dark:text-stone-300 leading-relaxed mb-8 space-y-4">
-            {renderDescription(opp.description)}
+          {/* Title */}
+          <h1 className="text-3xl lg:text-4xl font-bold text-stone-900 dark:text-stone-100 mb-6 font-display leading-tight">
+            {opp.title}
+          </h1>
+
+          {/* Description */}
+          <div className="text-base text-stone-700 dark:text-stone-300 leading-relaxed mb-8">
+            <RichText text={opp.description} />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            {opp.deadline && (
-              <InfoBox icon={Calendar} label="Deadline" value={new Date(opp.deadline).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })} />
+          {/* Info grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            {deadlineFormatted && (
+              <InfoBox icon={Calendar} label="Deadline">
+                <p className="text-sm text-stone-700 dark:text-stone-300">{deadlineFormatted}</p>
+                {daysLeft !== null && daysLeft >= 0 && (
+                  <p className={`text-xs font-semibold mt-1 ${daysLeft <= 3 ? "text-hot" : daysLeft <= 7 ? "text-amber-600 dark:text-amber-400" : "text-stone-400"}`}>
+                    {daysLeft === 0 ? "Closes today!" : daysLeft === 1 ? "Closes tomorrow" : `${daysLeft} days left`}
+                  </p>
+                )}
+              </InfoBox>
             )}
-            {opp.eligibility && (
-              <InfoBox icon={Users} label="Eligibility" value={opp.eligibility} />
+            {startDateFormatted && (
+              <InfoBox icon={Clock} label="Start Date">
+                <p className="text-sm text-stone-700 dark:text-stone-300">{startDateFormatted}</p>
+              </InfoBox>
             )}
-            {opp.benefits && (
-              <InfoBox icon={Award} label="Benefits" value={opp.benefits} />
+            {locationText && (
+              <InfoBox icon={MapPin} label="Location">
+                <p className="text-sm text-stone-700 dark:text-stone-300">{locationText}</p>
+              </InfoBox>
             )}
-            {opp.domain_tags.length > 0 && (
-              <div className="bg-white/60 dark:bg-stone-900/60 backdrop-blur border border-stone-200/50 dark:border-stone-800/60 rounded-2xl p-4">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-500 mb-2">
-                  <Tag size={14} /> Domains
-                </div>
+            {opp.organizer && (
+              <InfoBox icon={Building2} label="Organizer">
+                <p className="text-sm text-stone-700 dark:text-stone-300">{opp.organizer}</p>
+              </InfoBox>
+            )}
+            {opp.eligibility && opp.eligibility.length > 2 && (
+              <InfoBox icon={Users} label="Eligibility">
+                <p className="text-sm text-stone-700 dark:text-stone-300">{opp.eligibility}</p>
+              </InfoBox>
+            )}
+            {opp.benefits && opp.benefits.length > 2 && (
+              <InfoBox icon={Award} label="Benefits">
+                <p className="text-sm text-stone-700 dark:text-stone-300">{opp.benefits}</p>
+              </InfoBox>
+            )}
+            {opp.domain_tags.length > 0 && !(opp.domain_tags.length === 1 && opp.domain_tags[0] === "general") && (
+              <InfoBox icon={Tag} label="Domains">
                 <div className="flex flex-wrap gap-1.5">
                   {opp.domain_tags.map((t) => (
                     <span key={t} className="px-2.5 py-0.5 bg-brand-50 dark:bg-stone-800 text-brand-700 dark:text-brand-200 rounded-full text-xs font-medium">{t}</span>
                   ))}
                 </div>
-              </div>
+              </InfoBox>
             )}
           </div>
 
+          {/* Source link */}
+          {opp.source_url && (
+            <p className="text-xs text-stone-400 dark:text-stone-500 mb-6">
+              Source: <a href={opp.source_url} target="_blank" rel="noreferrer" className="text-brand-500 hover:text-brand-600 underline">{opp.source_url}</a>
+            </p>
+          )}
+
+          {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-3">
             <a
-              href={opp.url}
+              href={opp.application_link || opp.url}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-brand-500/25 hover:-translate-y-0.5 transition-all"
@@ -131,10 +200,10 @@ export default function OpportunityPage() {
               View application <ExternalLink size={14} />
             </a>
             <button
-              onClick={() => navigate(`/chat?q=Tell me about "${opp.title}"`)}
+              onClick={() => navigate(`/chat?q=Tell me about "${opp.title}"&opp_id=${opp.id}`)}
               className="flex items-center gap-2 px-6 py-3 bg-white/60 dark:bg-stone-900/60 backdrop-blur border border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 rounded-xl font-semibold text-sm hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 dark:hover:bg-stone-800 dark:hover:text-stone-100 transition-all"
             >
-              <MessageSquare size={14} /> Ask SOIP
+              <MessageSquare size={14} /> Ask Steppd
             </button>
             <div className="flex items-center gap-2 px-4 py-2.5 bg-white/60 dark:bg-stone-900/60 backdrop-blur border border-stone-200 dark:border-stone-800 rounded-xl">
               <span className="text-xs font-medium text-stone-400 dark:text-stone-500">Relevant?</span>
@@ -153,112 +222,73 @@ export default function OpportunityPage() {
   );
 }
 
-function InfoBox({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function InfoBox({ icon: Icon, label, highlight, children }: { icon: React.ElementType; label: string; highlight?: boolean; children: React.ReactNode }) {
   return (
-    <div className="bg-white/60 dark:bg-stone-900/60 backdrop-blur border border-stone-200/50 dark:border-stone-800/60 rounded-2xl p-4">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-500 mb-1">
+    <div className={`backdrop-blur border rounded-2xl p-4 ${
+      highlight
+        ? "bg-emerald-50/60 dark:bg-emerald-900/10 border-emerald-200/60 dark:border-emerald-800/40"
+        : "bg-white/60 dark:bg-stone-900/60 border-stone-200/50 dark:border-stone-800/60"
+    }`}>
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-500 mb-1.5">
         <Icon size={14} /> {label}
       </div>
-      <p className="text-sm text-stone-700 dark:text-stone-300">{value}</p>
+      {children}
     </div>
   );
 }
 
-function renderDescription(text: string) {
-  const cleaned = sanitizeDescription(text);
-  const headingRegex = /\*\*([^*]+)\*\*/g;
-  const headings: { title: string; index: number }[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = headingRegex.exec(cleaned)) !== null) {
-    headings.push({ title: match[1], index: match.index });
-  }
+function RichText({ text }: { text: string }) {
+  const cleaned = text
+    .replace(/\r\n/g, "\n")
+    .replace(/https?:\/\/[^\s]*\.\.\./g, "")
+    .trim();
 
-  if (headings.length === 0) {
-    return <p>{renderInline(cleaned)}</p>;
-  }
+  const paragraphs = cleaned.split(/\n{2,}/);
 
-  const sections: { title: string; body: string }[] = [];
-  for (let i = 0; i < headings.length; i++) {
-    const start = headings[i].index + headings[i].title.length + 4;
-    const end = i + 1 < headings.length ? headings[i + 1].index : cleaned.length;
-    const body = cleaned.slice(start, end).trim();
-    sections.push({ title: headings[i].title, body });
-  }
-
-  return sections.map((section, idx) => {
-    const bullets = section.body.split(/\s\*\s+/).map((s) => s.trim()).filter(Boolean);
-    return (
-      <div key={`${section.title}-${idx}`} className="bg-white/60 backdrop-blur border border-stone-200/50 rounded-2xl p-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">
-          {section.title}
-        </h3>
-        {bullets.length > 1 ? (
-          <ul className="list-disc pl-5 space-y-1 text-sm text-stone-700">
-            {bullets.map((b, i) => (
-              <li key={i}>{renderInline(b)}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-stone-700">{renderInline(section.body)}</p>
-        )}
-      </div>
-    );
-  });
+  return (
+    <>
+      {paragraphs.map((para, pi) => {
+        const trimmed = para.trim();
+        if (!trimmed) return null;
+        return <p key={pi} className={pi > 0 ? "mt-3" : ""}>{renderInline(trimmed)}</p>;
+      })}
+    </>
+  );
 }
 
-function renderInline(text: string) {
-  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
+function renderInline(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
 
-  const parts = text.split(linkRegex).filter((p) => p !== "");
-  const nodes: React.ReactNode[] = [];
+  while (remaining.length > 0) {
+    // Match markdown link [label](url)
+    const linkMatch = remaining.match(/\[([^\]]+)\]\(([^)]+)\)/);
+    // Match bold **text**
+    const boldMatch = remaining.match(/\*\*([^*]+)\*\*/);
 
-  for (let i = 0; i < parts.length; i++) {
-    if (i % 3 === 1) {
-      const label = parts[i];
-      const href = parts[i + 1];
-      nodes.push(
-        <a key={`${href}-${i}`} href={href} target="_blank" rel="noreferrer" className="text-brand-600 underline hover:text-brand-700">
-          {label}
-        </a>
-      );
-      i += 1;
-      continue;
+    const linkIdx = linkMatch?.index ?? Infinity;
+    const boldIdx = boldMatch?.index ?? Infinity;
+
+    if (linkIdx === Infinity && boldIdx === Infinity) {
+      parts.push(<span key={key++}>{remaining}</span>);
+      break;
     }
 
-    const chunk = parts[i];
-    const boldSplit = chunk.split(/(\*\*[^*]+\*\*)/g);
-    boldSplit.forEach((seg, idx) => {
-      if (seg.startsWith("**") && seg.endsWith("**")) {
-        nodes.push(<strong key={`${seg}-${idx}`}>{seg.slice(2, -2)}</strong>);
-      } else {
-        const urlParts = seg.split(urlRegex);
-        urlParts.forEach((u, ui) => {
-          if (u.match(urlRegex) && isCompleteUrl(u)) {
-            nodes.push(
-              <a key={`${u}-${ui}`} href={u} target="_blank" rel="noreferrer" className="text-brand-600 underline hover:text-brand-700">
-                {u}
-              </a>
-            );
-          } else {
-            nodes.push(<span key={`${u}-${ui}`}>{u}</span>);
-          }
-        });
-      }
-    });
+    if (linkIdx <= boldIdx && linkMatch) {
+      if (linkIdx > 0) parts.push(<span key={key++}>{remaining.slice(0, linkIdx)}</span>);
+      parts.push(
+        <a key={key++} href={linkMatch[2]} target="_blank" rel="noreferrer" className="text-brand-600 underline hover:text-brand-700">
+          {linkMatch[1]}
+        </a>
+      );
+      remaining = remaining.slice(linkIdx + linkMatch[0].length);
+    } else if (boldMatch) {
+      if (boldIdx > 0) parts.push(<span key={key++}>{remaining.slice(0, boldIdx)}</span>);
+      parts.push(<strong key={key++}>{boldMatch[1]}</strong>);
+      remaining = remaining.slice(boldIdx + boldMatch[0].length);
+    }
   }
 
-  return <>{nodes}</>;
-}
-
-function sanitizeDescription(raw: string) {
-  const cleaned = raw.replace(/\r\n/g, "\n").replace(/\s{2,}/g, " ").trim();
-  const noTruncatedUrls = cleaned.replace(/https?:\/\/[^\s]*\.\.\./g, "").replace(/https?:\/\/\.\.\./g, "");
-  return noTruncatedUrls.replace(/\.\.\.$/g, "").replace(/\s+\.\.\.$/g, "").trim();
-}
-
-function isCompleteUrl(url: string) {
-  if (url.includes("...") || url.includes("\u2026")) return false;
-  if (url.endsWith("...") || url.endsWith("\u2026")) return false;
-  return url.length > 12;
+  return <>{parts}</>;
 }

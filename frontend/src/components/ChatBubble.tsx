@@ -1,21 +1,16 @@
 import React from "react";
 import Markdown from "react-markdown";
-import { Bot, User } from "lucide-react";
-import OpportunityCard from "./OpportunityCard";
-import FeedbackButtons from "./FeedbackButtons";
-import type { Opportunity, FeedbackValue } from "../lib/api";
+import { Bot, User, ExternalLink } from "lucide-react";
+import type { Opportunity } from "../lib/api";
 
 interface Props {
   role: "user" | "assistant";
   content: string;
   citedOpportunities?: Opportunity[];
   onOpportunityClick?: (id: string) => void;
-  feedbackMap?: Record<string, FeedbackValue>;
-  feedbackDisabledIds?: Set<string>;
-  onFeedback?: (opportunityId: string, value: FeedbackValue) => void;
 }
 
-export default function ChatBubble({ role, content, citedOpportunities, onOpportunityClick, feedbackMap, feedbackDisabledIds, onFeedback }: Props) {
+export default function ChatBubble({ role, content, citedOpportunities, onOpportunityClick }: Props) {
   const isUser = role === "user";
 
   return (
@@ -43,11 +38,6 @@ export default function ChatBubble({ role, content, citedOpportunities, onOpport
           ) : (
             <Markdown
               components={{
-                a: ({ href, children }) => (
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200">
-                    {children}
-                  </a>
-                ),
                 p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                 ul: ({ children }) => <ul className="list-disc ml-4 mb-2">{children}</ul>,
                 ol: ({ children }) => <ol className="list-decimal ml-4 mb-2">{children}</ol>,
@@ -60,19 +50,16 @@ export default function ChatBubble({ role, content, citedOpportunities, onOpport
         </div>
 
         {!isUser && citedOpportunities && citedOpportunities.length > 0 && (
-          <div className="mt-2 space-y-2">
-            {citedOpportunities.slice(0, 3).map((opp) => (
-              <div key={opp.id}>
-                <OpportunityCard
-                  opportunity={opp}
-                  compact
-                  onClick={() => onOpportunityClick?.(opp.id)}
-                  feedbackValue={feedbackMap?.[opp.id] ?? null}
-                  feedbackDisabled={feedbackDisabledIds?.has(opp.id)}
-                  feedbackSource="chat"
-                  onFeedback={onFeedback ? (value) => onFeedback(opp.id, value) : undefined}
-                />
-              </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {citedOpportunities.map((opp) => (
+              <button
+                key={opp.id}
+                onClick={() => onOpportunityClick?.(opp.id)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-brand-600 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800 rounded-xl hover:bg-brand-100 dark:hover:bg-brand-900/50 transition-colors"
+              >
+                {opp.title}
+                <ExternalLink size={12} />
+              </button>
             ))}
           </div>
         )}

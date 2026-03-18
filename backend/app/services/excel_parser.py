@@ -113,19 +113,55 @@ def _parse_rows(headers: list[str], rows, start_row: int):
     return valid, errors
 
 
+_SAMPLE_ROWS = [
+    ("Aarav Sharma", "aarav.sharma@college.edu", "CS2101", "Computer Science", "3rd Year"),
+    ("Priya Nair", "priya.nair@college.edu", "EC2205", "Electronics", "2nd Year"),
+    ("Rahul Gupta", "rahul.gupta@college.edu", "ME2312", "Mechanical", "3rd Year"),
+    ("Sneha Reddy", "sneha.reddy@college.edu", "IT2104", "Information Technology", "4th Year"),
+    ("Karthik Iyer", "karthik.iyer@college.edu", "EE2208", "Electrical", "2nd Year"),
+    ("Ananya Das", "ananya.das@college.edu", "CS2115", "Computer Science", "1st Year"),
+    ("Vikram Singh", "vikram.singh@college.edu", "CE2301", "Civil", "3rd Year"),
+    ("Meera Joshi", "meera.joshi@college.edu", "BT2102", "Biotechnology", "2nd Year"),
+    ("Arjun Patel", "arjun.patel@college.edu", "CS2220", "Computer Science", "4th Year"),
+    ("Divya Menon", "divya.menon@college.edu", "CH2107", "Chemical", "1st Year"),
+]
+
+
 def generate_template_xlsx() -> bytes:
-    """Generate a blank .xlsx template with the expected headers."""
+    """Generate an .xlsx template with headers and 10 sample rows."""
     import openpyxl
+    from openpyxl.styles import Font, PatternFill
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Students"
-    ws.append(["Name", "Email", "Roll Number", "Department", "Year of Study"])
 
-    # Set column widths
-    for col, width in [(1, 25), (2, 30), (3, 15), (4, 20), (5, 15)]:
+    headers = ["Name", "Email", "Roll Number", "Department", "Year of Study"]
+    ws.append(headers)
+
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    for col_idx in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+
+    for row in _SAMPLE_ROWS:
+        ws.append(row)
+
+    for col, width in [(1, 25), (2, 30), (3, 15), (4, 25), (5, 15)]:
         ws.column_dimensions[chr(64 + col)].width = width
 
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+def generate_template_csv() -> bytes:
+    """Generate a .csv template with headers and 10 sample rows."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Name", "Email", "Roll Number", "Department", "Year of Study"])
+    for row in _SAMPLE_ROWS:
+        writer.writerow(row)
+    return output.getvalue().encode("utf-8")

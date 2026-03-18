@@ -6,7 +6,9 @@ Embeds both:
   - opportunities (secondary — used for /recommended endpoint)
 """
 
+import hashlib
 import logging
+import time
 from typing import Sequence
 
 from openai import AsyncOpenAI
@@ -22,6 +24,11 @@ logger = logging.getLogger(__name__)
 _client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 _BATCH_SIZE = 100
+
+# In-memory cache for query embeddings (profile text rarely changes)
+_EMBED_CACHE: dict[str, tuple[list[float], float]] = {}
+_EMBED_CACHE_TTL = 600  # 10 minutes
+_EMBED_CACHE_MAX = 128
 
 
 # ── Chunk embeddings (primary for RAG) ──
@@ -151,12 +158,27 @@ async def embed_opportunities(
 
 
 async def embed_query(text: str) -> list[float]:
-    """Embed a single query string for retrieval."""
+    """Embed a single query string for retrieval, with in-memory TTL cache."""
+    cache_key = hashlib.sha256(text.encode()).hexdigest()
+    now = time.monotonic()
+
+    cached = _EMBED_CACHE.get(cache_key)
+    if cached and (now - cached[1]) < _EMBED_CACHE_TTL:
+        logger.debug("embed_query cache hit")
+        return cached[0]
+
     response = await _client.embeddings.create(
         model=settings.openai_embedding_model,
         input=[text],
     )
-    return response.data[0].embedding
+    embedding = response.data[0].embedding
+
+    if len(_EMBED_CACHE) >= _EMBED_CACHE_MAX:
+        oldest_key = min(_EMBED_CACHE, key=lambda k: _EMBED_CACHE[k][1])
+        del _EMBED_CACHE[oldest_key]
+    _EMBED_CACHE[cache_key] = (embedding, now)
+
+    return embedding
 
 
 async def embed_pending(db: Session) -> int:

@@ -47,6 +47,7 @@ class ScoredOpportunity:
     vector_rank: Optional[int] = None
     fts_rank: Optional[int] = None
     chunk_fts_rank: Optional[int] = None
+    keyword_rank: Optional[int] = None
     hybrid_score: float = 0.0
     relevance_score: float = 0.0
 
@@ -177,13 +178,14 @@ async def hybrid_retrieve(
     query_embedding: list[float],
     limit: int = 10,
 ) -> list[ScoredOpportunity]:
-    """Run chunk vector + opportunity FTS + chunk FTS, fuse with RRF."""
+    """Run chunk vector + opportunity FTS + chunk FTS + keyword ILIKE, fuse with RRF."""
 
     chunk_results = _chunk_vector_search(db, query, query_embedding)
     fts_results = _fts_search(db, query)
     chunk_fts_results = _chunk_fts_search(db, query)
+    keyword_results = _keyword_ilike_search(db, query)
 
-    fused = _rrf_fuse(chunk_results, fts_results, chunk_fts_results)
+    fused = _rrf_fuse(chunk_results, fts_results, chunk_fts_results, keyword_results)
 
     top = sorted(fused.values(), key=lambda o: o.hybrid_score, reverse=True)
     return top[:limit]
@@ -306,18 +308,36 @@ def _fts_search(
     db: Session,
     query: ParsedQuery,
 ) -> list[ScoredOpportunity]:
-    """Full-text search on opportunities."""
+    """Full-text search on opportunities across all text fields with OR semantics."""
 
     search_text = query.search_text
     if not search_text or not search_text.strip():
         return []
 
+    _DOC_EXPR = (
+        "to_tsvector('english', "
+        "coalesce(title, '') || ' ' || coalesce(description, '') || ' ' || "
+        "coalesce(eligibility, '') || ' ' || coalesce(benefits, '') || ' ' || "
+        "coalesce(organizer, ''))"
+    )
+
+    # Build OR-based tsquery: each word joined with |
+    words = [w.strip() for w in search_text.split() if w.strip()]
+    or_query = " | ".join(words)
+
     where_clauses = [
         "is_active = true",
         "(deadline IS NULL OR deadline >= CURRENT_DATE)",
-        "to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '')) @@ plainto_tsquery('english', :q)",
+        f"{_DOC_EXPR} @@ to_tsquery('english', :q_or)",
     ]
-    params: dict = {"q": search_text, "lim": _CANDIDATE_LIMIT}
+    params: dict = {"q_or": or_query, "q_and": search_text, "lim": _CANDIDATE_LIMIT}
+
+    categories = _normalize_categories(query.categories)
+    if categories:
+        cat_placeholders = ", ".join(f":fts_cat_{i}" for i in range(len(categories)))
+        where_clauses.append(f"category IN ({cat_placeholders})")
+        for i, cat in enumerate(categories):
+            params[f"fts_cat_{i}"] = cat.value
 
     if query.deadline_before:
         where_clauses.append("(deadline IS NULL OR deadline <= :dl_before)")
@@ -340,12 +360,13 @@ def _fts_search(
 
     where = " AND ".join(where_clauses)
 
+    # Rank higher when AND-match (all words) succeeds, fall back to OR-match score
     sql = sa_text(f"""
         SELECT id, title, description, category, domain_tags,
                eligibility, benefits, deadline, application_link, source_url, confidence,
-               ts_rank(
-                   to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '')),
-                   plainto_tsquery('english', :q)
+               (
+                 ts_rank({_DOC_EXPR}, to_tsquery('english', :q_or))
+                 + CASE WHEN {_DOC_EXPR} @@ plainto_tsquery('english', :q_and) THEN 0.5 ELSE 0.0 END
                ) AS rank
         FROM opportunities
         WHERE {where}
@@ -388,7 +409,15 @@ def _chunk_fts_search(
         return []
 
     params: dict = {"q": search_text, "lim": _CANDIDATE_LIMIT}
-    domain_filter = ""
+    extra_filters = ""
+
+    categories = _normalize_categories(query.categories)
+    if categories:
+        cat_placeholders = ", ".join(f":cfts_cat_{i}" for i in range(len(categories)))
+        extra_filters += f" AND (o.id IS NULL OR o.category IN ({cat_placeholders}))"
+        for i, cat in enumerate(categories):
+            params[f"cfts_cat_{i}"] = cat.value
+
     domains = normalize_domains(query.domains)
     if domains:
         domain_clauses = []
@@ -398,9 +427,9 @@ def _chunk_fts_search(
                 f"EXISTS (SELECT 1 FROM jsonb_array_elements_text(o.domain_tags::jsonb) AS tag(value) "
                 f"WHERE lower(tag.value) = :dom_{i})"
             )
-        domain_filter = " AND (" + " OR ".join(domain_clauses) + ")"
+        extra_filters += " AND (" + " OR ".join(domain_clauses) + ")"
 
-    sql = sa_text("""
+    sql = sa_text(f"""
         SELECT c.id AS chunk_id,
                c.content AS chunk_content,
                c.opportunity_id,
@@ -414,7 +443,7 @@ def _chunk_fts_search(
         LEFT JOIN sources s ON c.source_id = s.id
         WHERE to_tsvector('english', c.content) @@ plainto_tsquery('english', :q)
           AND (o.id IS NULL OR (o.is_active = true AND (o.deadline IS NULL OR o.deadline >= CURRENT_DATE)))
-    """ + domain_filter + """
+          {extra_filters}
         ORDER BY rank DESC
         LIMIT :lim
     """)
@@ -463,6 +492,94 @@ def _chunk_fts_search(
     return results
 
 
+def _keyword_ilike_search(
+    db: Session,
+    query: ParsedQuery,
+) -> list[ScoredOpportunity]:
+    """Direct ILIKE search across multiple opportunity fields for partial keyword matching.
+    Catches results that FTS stemming or vector search may miss."""
+
+    search_text = query.search_text
+    if not search_text or not search_text.strip():
+        return []
+
+    words = [w.strip() for w in search_text.split() if len(w.strip()) >= 3]
+    if not words:
+        return []
+
+    where_parts = [
+        "is_active = true",
+        "(deadline IS NULL OR deadline >= CURRENT_DATE)",
+    ]
+    params: dict = {"lim": _CANDIDATE_LIMIT}
+
+    # Apply category filter from parsed query to narrow keyword results
+    categories = _normalize_categories(query.categories)
+    if categories:
+        cat_placeholders = ", ".join(f":kwcat_{i}" for i in range(len(categories)))
+        where_parts.append(f"category IN ({cat_placeholders})")
+        for i, cat in enumerate(categories):
+            params[f"kwcat_{i}"] = cat.value
+
+    word_conditions = []
+    for i, word in enumerate(words):
+        pkey = f"kw_{i}"
+        params[pkey] = f"%{word}%"
+        word_conditions.append(
+            f"(title ILIKE :{pkey} OR description ILIKE :{pkey} "
+            f"OR eligibility ILIKE :{pkey} OR benefits ILIKE :{pkey} "
+            f"OR domain_tags::text ILIKE :{pkey} OR organizer ILIKE :{pkey})"
+        )
+    where_parts.append("(" + " OR ".join(word_conditions) + ")")
+
+    # Score rows higher when more keyword columns match
+    score_expr_parts = []
+    for i, word in enumerate(words):
+        pkey = f"kw_{i}"
+        score_expr_parts.append(
+            f"(CASE WHEN title ILIKE :{pkey} THEN 3 ELSE 0 END "
+            f"+ CASE WHEN description ILIKE :{pkey} THEN 1 ELSE 0 END "
+            f"+ CASE WHEN eligibility ILIKE :{pkey} THEN 1 ELSE 0 END "
+            f"+ CASE WHEN benefits ILIKE :{pkey} THEN 1 ELSE 0 END "
+            f"+ CASE WHEN domain_tags::text ILIKE :{pkey} THEN 2 ELSE 0 END "
+            f"+ CASE WHEN organizer ILIKE :{pkey} THEN 1 ELSE 0 END)"
+        )
+    score_expr = " + ".join(score_expr_parts)
+    where = " AND ".join(where_parts)
+
+    sql = sa_text(f"""
+        SELECT id, title, description, category, domain_tags,
+               eligibility, benefits, deadline, application_link, source_url,
+               confidence, ({score_expr}) AS kw_score
+        FROM opportunities
+        WHERE {where}
+        ORDER BY kw_score DESC, created_at DESC
+        LIMIT :lim
+    """)
+
+    rows = db.execute(sql, params).fetchall()
+
+    results: list[ScoredOpportunity] = []
+    for rank, row in enumerate(rows, start=1):
+        results.append(ScoredOpportunity(
+            id=row.id,
+            title=row.title,
+            description=row.description,
+            category=row.category or "other",
+            domain_tags=row.domain_tags or [],
+            eligibility=row.eligibility,
+            benefits=row.benefits,
+            deadline=row.deadline,
+            application_link=row.application_link or "",
+            source_url=row.source_url or "",
+            confidence=row.confidence,
+            keyword_rank=rank,
+        ))
+
+    logger.debug(f"Keyword ILIKE search: {len(results)} results")
+    return results
+
+
 def _normalize_categories(
     raw: Optional[list[str]],
 ) -> list[OpportunityCategory]:
@@ -496,8 +613,9 @@ def _rrf_fuse(
     chunk_results: list[ScoredOpportunity],
     fts_results: list[ScoredOpportunity],
     chunk_fts_results: list[ScoredOpportunity],
+    keyword_results: list[ScoredOpportunity] | None = None,
 ) -> dict[UUID, ScoredOpportunity]:
-    """Reciprocal Rank Fusion across three retrieval channels."""
+    """Reciprocal Rank Fusion across retrieval channels."""
     merged: dict[UUID, ScoredOpportunity] = {}
 
     for opp in chunk_results:
@@ -517,6 +635,12 @@ def _rrf_fuse(
         else:
             merged[opp.id] = opp
 
+    for opp in (keyword_results or []):
+        if opp.id in merged:
+            merged[opp.id].keyword_rank = opp.keyword_rank
+        else:
+            merged[opp.id] = opp
+
     for opp in merged.values():
         score = 0.0
         if opp.vector_rank is not None:
@@ -525,6 +649,8 @@ def _rrf_fuse(
             score += 1.0 / (_RRF_K + opp.fts_rank)
         if opp.chunk_fts_rank is not None:
             score += 0.8 / (_RRF_K + opp.chunk_fts_rank)
+        if opp.keyword_rank is not None:
+            score += 1.2 / (_RRF_K + opp.keyword_rank)
 
         score += _freshness_boost(opp.deadline)
         opp.hybrid_score = score
