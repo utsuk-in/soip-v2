@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { adminRegister, login as apiLogin, getUniversities, type University } from "../lib/api";
+import { adminRegister, login as apiLogin, getMe, getUniversities, type University } from "../lib/api";
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
@@ -35,6 +35,12 @@ export default function AdminLoginPage() {
       } else {
         const res = await apiLogin(email, password);
         sessionStorage.setItem("soip_admin_token", res.access_token);
+      }
+      const me = await getMe();
+      if (me.role !== "admin") {
+        sessionStorage.removeItem("soip_admin_token");
+        setError("This account does not have admin access");
+        return;
       }
       await refreshUser();
       navigate("/admin/dashboard");

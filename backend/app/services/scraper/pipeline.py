@@ -521,7 +521,31 @@ def _link_detail_chunks(db: Session, scrape_page_id: UUID, opp_id: UUID) -> None
 
 
 def _expire_past_deadlines(db: Session) -> int:
-    """Mark opportunities with past deadlines as inactive."""
+    """Mark opportunities with past deadlines as inactive.
+
+    Auto-expiry behaviour (SOIP-101 / SOIP-307)
+    ============================================
+    **When it runs:**
+      - Every 1 hour via APScheduler (see scheduler.py → _expire_opportunities)
+      - Can also be triggered manually (see below)
+
+    **What it does:**
+      UPDATE opportunities
+      SET is_active = false, status = 'expired', updated_at = now()
+      WHERE deadline < CURRENT_DATE AND is_active = true
+
+    **Manual trigger for testing:**
+      >>> from app.database import get_db_context
+      >>> from app.services.scraper.pipeline import _expire_past_deadlines
+      >>> with get_db_context() as db:
+      ...     count = _expire_past_deadlines(db)
+      ...     print(f"Expired {count} opportunities")
+
+    **Edge cases:**
+      - Opportunities with no deadline (deadline IS NULL) are left active.
+      - Opportunities whose deadline is today are kept active (strict < comparison).
+      - Already-expired records (is_active=False) are skipped to avoid redundant updates.
+    """
     count = (
         db.query(Opportunity)
         .filter(

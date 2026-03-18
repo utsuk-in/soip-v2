@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { MessageSquare, Search, Sparkles, Clock, AlertTriangle, PartyPopper } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { browseOpportunities, getRecommended, type Opportunity } from "../lib/api";
+import { browseOpportunities, getRecommended, getExplanations, type Opportunity } from "../lib/api";
 import OpportunityCard from "../components/OpportunityCard";
 import { useFeedback } from "../hooks/useFeedback";
 
@@ -15,13 +15,27 @@ export default function DashboardPage() {
   const [recommended, setRecommended] = useState<Opportunity[]>([]);
   const [recent, setRecent] = useState<Opportunity[]>([]);
   const [expiring, setExpiring] = useState<Opportunity[]>([]);
+  const [explanations, setExplanations] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const { feedbackMap, loadFeedback, submit: submitFeedback, hasSubmitted } = useFeedback();
 
   useEffect(() => {
     async function load() {
       try {
-        const rec = await getRecommended(20).catch(() => []);
+        // Fire both calls in parallel — don't wait for recommended before starting browse
+        const [rec, browseResult] = await Promise.all([
+          getRecommended(20).catch(() => []),
+          browseOpportunities({ sort: "newest", page_size: 60 }).catch(() => ({
+            items: [] as Opportunity[],
+            total: 0,
+            page: 1,
+            page_size: 60,
+            total_pages: 1,
+            has_next: false,
+            has_prev: false,
+          })),
+        ]);
+
         const recommendedTop = rec.slice(0, 6);
         setRecommended(recommendedTop);
 
@@ -34,23 +48,14 @@ export default function DashboardPage() {
           .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
           .slice(0, 4);
 
-        const recent = [...rec]
+        const recentOpps = [...rec]
           .filter((o) => o.created_at)
           .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
           .slice(0, 6);
 
-        // If recommended pool is sparse, fill with personalized matches from browse.
-        if (soon.length < 4 || recent.length < 6) {
-          const all = await browseOpportunities({ sort: "newest", page_size: 60 }).catch(() => ({
-            items: [],
-            total: 0,
-            page: 1,
-            page_size: 60,
-            total_pages: 1,
-            has_next: false,
-            has_prev: false,
-          }));
-          const pool = (all.items || []).filter((o) => isRelevantForUser(user, o));
+        // Fill gaps from the already-fetched browse results
+        if (soon.length < 4 || recentOpps.length < 6) {
+          const pool = (browseResult.items || []).filter((o) => isRelevantForUser(user, o));
           if (soon.length < 4) {
             const fillSoon = pool
               .filter((o) => o.deadline)
@@ -62,27 +67,40 @@ export default function DashboardPage() {
               .slice(0, 4 - soon.length);
             soon.push(...fillSoon);
           }
-          if (recent.length < 6) {
+          if (recentOpps.length < 6) {
             const fillRecent = pool
               .filter((o) => o.created_at)
               .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
-              .slice(0, 6 - recent.length);
-            recent.push(...fillRecent);
+              .slice(0, 6 - recentOpps.length);
+            recentOpps.push(...fillRecent);
           }
         }
 
         setExpiring(soon);
-        setRecent(recent);
+        setRecent(recentOpps);
 
-        // Load feedback state for all visible opportunities
-        const allIds = [...new Set([...recommendedTop, ...soon, ...recent].map((o) => o.id))];
+        // Load feedback for all visible opportunities (parallel, non-blocking for cards)
+        const allIds = [...new Set([...recommendedTop, ...soon, ...recentOpps].map((o) => o.id))];
         loadFeedback(allIds);
+
+        // Fetch explanations in background — cards render immediately without them
+        getExplanations(allIds)
+          .then((expl) => setExplanations(expl))
+          .catch(() => {});
       } finally {
         setLoading(false);
       }
     }
     load();
   }, [user]);
+
+  // Enrich opportunities with async explanations as they arrive
+  const withExplanation = useMemo(() => {
+    return (opp: Opportunity): Opportunity =>
+      explanations[opp.id]
+        ? { ...opp, relevance_explanation: explanations[opp.id] }
+        : opp;
+  }, [explanations]);
 
   if (loading) {
     return (
@@ -166,7 +184,7 @@ export default function DashboardPage() {
             {recommended.map((opp, i) => (
               <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
                 <OpportunityCard
-                  opportunity={opp}
+                  opportunity={withExplanation(opp)}
                   onClick={() => navigate(`/browse/${opp.id}`)}
                   feedbackValue={feedbackMap[opp.id] ?? null}
                   feedbackDisabled={hasSubmitted(opp.id)}
@@ -192,7 +210,7 @@ export default function DashboardPage() {
             {expiring.map((opp, i) => (
               <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
                 <OpportunityCard
-                  opportunity={opp}
+                  opportunity={withExplanation(opp)}
                   onClick={() => navigate(`/browse/${opp.id}`)}
                   feedbackValue={feedbackMap[opp.id] ?? null}
                   feedbackDisabled={hasSubmitted(opp.id)}
@@ -218,7 +236,7 @@ export default function DashboardPage() {
             {recent.map((opp, i) => (
               <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
                 <OpportunityCard
-                  opportunity={opp}
+                  opportunity={withExplanation(opp)}
                   onClick={() => navigate(`/browse/${opp.id}`)}
                   feedbackValue={feedbackMap[opp.id] ?? null}
                   feedbackDisabled={hasSubmitted(opp.id)}

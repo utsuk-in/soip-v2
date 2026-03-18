@@ -68,7 +68,7 @@ export default function OpportunityCard({
         <p
           className={`text-xs italic text-brand-700/80 dark:text-brand-200/80 bg-brand-50/70 dark:bg-brand-900/30 px-2 py-1.5 rounded-lg ${
             compact ? "mb-2" : "mb-3"
-          } line-clamp-3`}
+          } line-clamp-3 animate-fade-in`}
         >
           {opp.relevance_explanation}
         </p>

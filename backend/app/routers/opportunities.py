@@ -251,9 +251,37 @@ async def recommended_opportunities(
     id_order = {uid: i for i, uid in enumerate(top_ids)}
     sorted_opps = sorted(opps, key=lambda o: id_order.get(o.id, 999))
 
-    # Only generate explanations for the top results (not all 36) to stay within
-    # LLM token limits and reduce latency.
-    explanation_opps = sorted_opps[:15]
+    return sorted_opps
+
+
+@router.get("/explanations")
+async def get_explanations(
+    opportunity_ids: str = Query(..., description="Comma-separated opportunity UUIDs"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate relevance explanations for a set of opportunities (non-blocking).
+
+    Called by the frontend *after* cards are already rendered so the user
+    doesn't wait for the LLM round-trip.
+    """
+    raw_ids = [s.strip() for s in opportunity_ids.split(",") if s.strip()]
+    if not raw_ids:
+        return {"explanations": {}}
+
+    # Cap to 15 to stay within LLM token limits
+    raw_ids = raw_ids[:15]
+
+    try:
+        uuids = [UUID(rid) for rid in raw_ids]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid opportunity ID format")
+
+    opps = db.query(Opportunity).filter(Opportunity.id.in_(uuids)).all()
+    if not opps:
+        return {"explanations": {}}
+
+    profile_text = _build_profile_query(current_user)
     explanations = await generate_relevance_explanations(
         user=current_user,
         query_text=profile_text,
@@ -267,16 +295,10 @@ async def recommended_opportunities(
                 deadline=o.deadline.isoformat() if o.deadline else None,
                 location=o.location,
             )
-            for o in explanation_opps
+            for o in opps
         ],
     )
-    if explanations:
-        for opp in sorted_opps:
-            text = explanations.get(str(opp.id))
-            if text:
-                setattr(opp, "relevance_explanation", text)
-
-    return sorted_opps
+    return {"explanations": explanations}
 
 
 @router.get("/{opportunity_id}", response_model=OpportunityOut)

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { getMe, login as apiLogin, register as apiRegister, type User, type RegisterData } from "./api";
 
 interface AuthState {
@@ -15,9 +16,14 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   const refreshUser = useCallback(async () => {
-    const token = sessionStorage.getItem("soip_admin_token") || localStorage.getItem("soip_token");
+    const onAdmin = window.location.pathname.startsWith("/admin");
+    const token = onAdmin
+      ? sessionStorage.getItem("soip_admin_token")
+      : localStorage.getItem("soip_token");
+
     if (!token) {
       setUser(null);
       setLoading(false);
@@ -27,17 +33,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const u = await getMe();
       setUser(u);
     } catch {
-      sessionStorage.removeItem("soip_admin_token");
-      localStorage.removeItem("soip_token");
+      if (onAdmin) {
+        sessionStorage.removeItem("soip_admin_token");
+      } else {
+        localStorage.removeItem("soip_token");
+      }
       setUser(null);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // Re-run refreshUser when the route changes (e.g., switching between admin and student contexts)
   useEffect(() => {
     refreshUser();
-  }, [refreshUser]);
+  }, [location.pathname, refreshUser]);
 
   const login = async (email: string, password: string) => {
     const res = await apiLogin(email, password);
@@ -52,8 +62,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    sessionStorage.removeItem("soip_admin_token");
-    localStorage.removeItem("soip_token");
+    if (window.location.pathname.startsWith("/admin")) {
+      sessionStorage.removeItem("soip_admin_token");
+    } else {
+      localStorage.removeItem("soip_token");
+    }
     setUser(null);
   };
 

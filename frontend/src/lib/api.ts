@@ -19,8 +19,15 @@ const API_BASE = normalizeBaseUrl(
     "http://localhost:8000"
 );
 
+function isAdminContext(): boolean {
+  return window.location.pathname.startsWith("/admin");
+}
+
 function getToken(): string | null {
-  return sessionStorage.getItem("soip_admin_token") || localStorage.getItem("soip_token");
+  if (isAdminContext()) {
+    return sessionStorage.getItem("soip_admin_token");
+  }
+  return localStorage.getItem("soip_token");
 }
 
 async function request<T>(
@@ -39,10 +46,20 @@ async function request<T>(
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
   if (res.status === 401) {
-    const wasAdmin = !!sessionStorage.getItem("soip_admin_token");
-    sessionStorage.removeItem("soip_admin_token");
-    localStorage.removeItem("soip_token");
-    window.location.href = wasAdmin ? "/admin/login" : "/login";
+    // Auth endpoints return 401 for wrong credentials — let the caller handle it
+    const AUTH_PATHS = ["/api/auth/login", "/api/auth/register", "/api/admin/register"];
+    if (AUTH_PATHS.some(p => path.startsWith(p))) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || "Invalid credentials");
+    }
+    // Session expired — clear only the relevant token and redirect
+    if (isAdminContext()) {
+      sessionStorage.removeItem("soip_admin_token");
+      window.location.href = "/admin/login";
+    } else {
+      localStorage.removeItem("soip_token");
+      window.location.href = "/login";
+    }
     throw new Error("Unauthorized");
   }
 
@@ -208,6 +225,16 @@ export async function getRecommended(limit = 10): Promise<Opportunity[]> {
   return res.map(normalizeOpportunity);
 }
 
+export async function getExplanations(
+  opportunityIds: string[],
+): Promise<Record<string, string>> {
+  if (!opportunityIds.length) return {};
+  const res = await request<{ explanations: Record<string, string> }>(
+    `/api/opportunities/explanations?opportunity_ids=${opportunityIds.join(",")}`,
+  );
+  return res.explanations;
+}
+
 // --- Chat ---
 
 export interface ChatMessage {
@@ -333,8 +360,13 @@ async function requestFormData<T>(path: string, formData: FormData): Promise<T> 
   });
 
   if (res.status === 401) {
-    localStorage.removeItem("soip_token");
-    window.location.href = "/login";
+    if (isAdminContext()) {
+      sessionStorage.removeItem("soip_admin_token");
+      window.location.href = "/admin/login";
+    } else {
+      localStorage.removeItem("soip_token");
+      window.location.href = "/login";
+    }
     throw new Error("Unauthorized");
   }
   if (!res.ok) {
