@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MessageSquare, Search, Sparkles, Clock, AlertTriangle, PartyPopper, Code2, Briefcase, Banknote, GraduationCap, Trophy, BookOpen, Layers } from "lucide-react";
+import { MessageSquare, Search, Sparkles, AlertTriangle, PartyPopper, Code2, Briefcase, Banknote, GraduationCap, Trophy, BookOpen, Layers } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { browseOpportunities, getRecommended, getOpportunityStats, type Opportunity } from "../lib/api";
+import { getRecommended, getOpportunityStats, type Opportunity } from "../lib/api";
 import { getCached, setCache } from "../lib/cache";
 import { CATEGORY_TILES } from "../lib/constants";
 import OpportunityCard from "../components/OpportunityCard";
-import BrandLogo from "../components/BrandLogo";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Code2, Briefcase, Banknote, GraduationCap, Trophy, BookOpen, Layers,
@@ -22,17 +21,15 @@ export default function DashboardPage() {
 
   const [stats, setStats] = useState<Record<string, number>>(() => getCached<Record<string, number>>("dash:stats") || {});
   const [recommended, setRecommended] = useState<Opportunity[]>(() => getCached<Opportunity[]>("dash:recommended") || []);
-  const [recent, setRecent] = useState<Opportunity[]>(() => getCached<Opportunity[]>("dash:recent") || []);
   const [expiring, setExpiring] = useState<Opportunity[]>(() => getCached<Opportunity[]>("dash:expiring") || []);
   const [loading, setLoading] = useState(() => {
     return !getCached<Opportunity[]>("dash:recommended", CACHE_TTL);
   });
 
   useEffect(() => {
-    const cached = getCached<{ recommended: Opportunity[]; recent: Opportunity[]; expiring: Opportunity[] }>("dash:all", CACHE_TTL);
+    const cached = getCached<{ recommended: Opportunity[]; expiring: Opportunity[] }>("dash:all", CACHE_TTL);
     if (cached) {
       setRecommended(cached.recommended);
-      setRecent(cached.recent);
       setExpiring(cached.expiring);
       setLoading(false);
       return;
@@ -46,7 +43,7 @@ export default function DashboardPage() {
 
     async function load() {
       try {
-        const rec = await getRecommended(20).catch(() => []);
+        const rec = await getRecommended(12).catch(() => []);
         const recommendedTop = rec.slice(0, 6);
 
         const soon = rec
@@ -58,47 +55,10 @@ export default function DashboardPage() {
           .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
           .slice(0, 4);
 
-        const recentItems = [...rec]
-          .filter((o) => o.created_at)
-          .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
-          .slice(0, 6);
-
-        if (soon.length < 4 || recentItems.length < 6) {
-          const all = await browseOpportunities({ sort: "newest", page_size: 60 }).catch(() => ({
-            items: [],
-            total: 0,
-            page: 1,
-            page_size: 60,
-            total_pages: 1,
-            has_next: false,
-            has_prev: false,
-          }));
-          const pool = (all.items || []).filter((o) => isRelevantForUser(user, o));
-          if (soon.length < 4) {
-            const fillSoon = pool
-              .filter((o) => o.deadline)
-              .filter((o) => {
-                const days = Math.ceil((new Date(o.deadline!).getTime() - Date.now()) / 86400000);
-                return days >= 0 && days <= 7;
-              })
-              .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
-              .slice(0, 4 - soon.length);
-            soon.push(...fillSoon);
-          }
-          if (recentItems.length < 6) {
-            const fillRecent = pool
-              .filter((o) => o.created_at)
-              .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
-              .slice(0, 6 - recentItems.length);
-            recentItems.push(...fillRecent);
-          }
-        }
-
         setRecommended(recommendedTop);
         setExpiring(soon);
-        setRecent(recentItems);
 
-        setCache("dash:all", { recommended: recommendedTop, recent: recentItems, expiring: soon });
+        setCache("dash:all", { recommended: recommendedTop, expiring: soon });
       } finally {
         setLoading(false);
       }
@@ -235,24 +195,6 @@ export default function DashboardPage() {
         </Section>
       )}
 
-      {/* New This Week */}
-      {recent.length > 0 && (
-        <Section
-          icon={Clock}
-          title="New Opportunities"
-          color="text-pop"
-          surface="bg-transparent border-stone-200/60 dark:bg-emerald-500/10 dark:border-emerald-400/30"
-          headerAccent="dark:bg-emerald-500/20 dark:text-emerald-200"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recent.map((opp, i) => (
-              <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
-                <OpportunityCard opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
     </div>
   );
 }
@@ -271,33 +213,3 @@ function Section({ icon: Icon, title, color, surface, headerAccent, children }: 
   );
 }
 
-function isRelevantForUser(user: { interests?: string[]; skills?: string[]; aspirations?: string[] } | null, opp: Opportunity) {
-  if (!user) return true;
-  const userDomains = new Set(
-    [...(user.interests || []), ...(user.skills || [])].map((d) => d.toLowerCase())
-  );
-  const userCategories = new Set(
-    (user.aspirations || []).map((a) => normalizeCategory(a))
-  );
-
-  const oppDomains = new Set((opp.domain_tags || []).map((d) => d.toLowerCase()));
-  const hasDomainMatch = [...userDomains].some((d) => oppDomains.has(d));
-
-  const oppCategory = (opp.category || "").toLowerCase();
-  const hasCategoryMatch = userCategories.has(oppCategory);
-
-  return hasDomainMatch || hasCategoryMatch;
-}
-
-function normalizeCategory(value: string) {
-  const v = (value || "").toLowerCase().trim();
-  const map: Record<string, string> = {
-    hackathons: "hackathon",
-    internships: "internship",
-    grants: "grant",
-    fellowships: "fellowship",
-    competitions: "competition",
-    scholarships: "scholarship",
-  };
-  return map[v] || v;
-}

@@ -105,15 +105,20 @@ async def generate_relevance_explanations(
     if not opps or not _has_context(user, query_text):
         return {}
 
-    all_explanations: dict[str, str] = {}
-
-    # Process in batches to stay within token limits
+    # Fire all batches concurrently for maximum throughput
+    tasks = []
     for batch_start in range(0, len(opps), _BATCH_SIZE):
         batch = opps[batch_start : batch_start + _BATCH_SIZE]
-        batch_results = await _generate_batch(user, query_text, batch)
-        all_explanations.update(batch_results)
+        tasks.append(_generate_batch(user, query_text, batch))
 
-    # Fill in fallback explanations for any that are still missing
+    import asyncio
+    batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    all_explanations: dict[str, str] = {}
+    for result in batch_results:
+        if isinstance(result, dict):
+            all_explanations.update(result)
+
     for opp in opps:
         if str(opp.id) not in all_explanations:
             fallback = _fallback_explanation(user, opp)

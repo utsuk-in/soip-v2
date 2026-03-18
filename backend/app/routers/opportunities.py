@@ -25,6 +25,7 @@ from app.services.relevance_explainer import (
     ExplanationOpportunity,
     generate_relevance_explanations,
 )
+from app.config import settings
 from app.utils.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/opportunities", tags=["opportunities"])
@@ -179,7 +180,8 @@ def browse_opportunities(
 
 @router.get("/recommended", response_model=list[OpportunityOut])
 async def recommended_opportunities(
-    limit: int = Query(default=10, ge=1, le=50),
+    limit: int = Query(default=12, ge=1, le=50),
+    explain: bool = Query(default=False, description="Generate LLM explanations (slower)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -196,34 +198,34 @@ async def recommended_opportunities(
     domains = normalize_domains((current_user.interests or []) + (current_user.skills or []))
     categories = _extract_profile_categories(current_user)
 
+    # Retrieve pool only needs to be ~2x the final limit
+    retrieve_pool = min(limit * 2, 30)
+
     candidates: list[ScoredOpportunity] = []
     if profile_text:
         logger.info("Recommended: user=%s profile_query=%s", current_user.id, profile_text[:80])
 
-        # Embedding (cached internally by embedder)
         query_embedding = await embed_query(profile_text)
         t_embed = time.monotonic()
         logger.info("Recommended: embed done (%.0fms)", (t_embed - t0) * 1000)
 
-        # Vector + FTS retrieval (sync DB — run in threadpool to unblock event loop)
         candidates = await asyncio.to_thread(
             lambda: recommend_retrieve(
                 db, query_embedding,
                 search_text=profile_text,
                 categories=categories or None,
                 domains=domains or None,
-                limit=50,
+                limit=retrieve_pool,
             )
         )
         t_retrieve = time.monotonic()
         logger.info("Recommended: retrieve done (%d candidates, %.0fms)", len(candidates), (t_retrieve - t_embed) * 1000)
 
-        # Cross-encoder rerank (sync CPU — run in threadpool)
-        candidates = await asyncio.to_thread(rerank_with_cross_encoder, profile_text, candidates)
-        t_rerank = time.monotonic()
-        logger.info("Recommended: cross-encoder done (%.0fms)", (t_rerank - t_retrieve) * 1000)
+        if settings.rerank_enabled:
+            candidates = await asyncio.to_thread(rerank_with_cross_encoder, profile_text, candidates)
+            t_rerank = time.monotonic()
+            logger.info("Recommended: cross-encoder done (%.0fms)", (t_rerank - t_retrieve) * 1000)
 
-        # Profile rerank (instant, in-memory)
         candidates = rerank_for_user(current_user, candidates)
 
     top_ids = [o.id for o in candidates if o.application_link][:limit]
@@ -267,41 +269,34 @@ async def recommended_opportunities(
             .all()
         )
 
-    # Build explanation input from candidates (already have all data — no DB dependency)
     explanation_candidates = [c for c in candidates if c.id in existing_ids][:limit]
-    explanation_input = [
-        ExplanationOpportunity(
-            id=str(o.id),
-            title=o.title,
-            category=o.category if isinstance(o.category, str) else str(o.category),
-            domain_tags=o.domain_tags,
-            description=o.description,
-            deadline=o.deadline.isoformat() if o.deadline else None,
-            location=None,
-        )
-        for o in explanation_candidates
-    ]
 
-    # Run DB load and explanation generation in parallel
-    t_parallel = time.monotonic()
+    opps = await asyncio.to_thread(
+        lambda: db.query(Opportunity).filter(Opportunity.id.in_(top_ids)).all()
+    )
+    t_load = time.monotonic()
+    logger.info("Recommended: DB load done (%.0fms)", (t_load - t0) * 1000)
 
-    async def _load_opps():
-        return await asyncio.to_thread(
-            lambda: db.query(Opportunity).filter(Opportunity.id.in_(top_ids)).all()
-        )
-
-    opps_task = asyncio.create_task(_load_opps())
-    explanations_task = asyncio.create_task(
-        generate_relevance_explanations(
+    if explain:
+        explanation_input = [
+            ExplanationOpportunity(
+                id=str(o.id),
+                title=o.title,
+                category=o.category if isinstance(o.category, str) else str(o.category),
+                domain_tags=o.domain_tags,
+                description=o.description,
+                deadline=o.deadline.isoformat() if o.deadline else None,
+                location=None,
+            )
+            for o in explanation_candidates
+        ]
+        explanations = await generate_relevance_explanations(
             user=current_user,
             query_text=profile_text,
             opportunities=explanation_input,
         )
-    )
-
-    opps, explanations = await asyncio.gather(opps_task, explanations_task)
-    t_parallel_done = time.monotonic()
-    logger.info("Recommended: parallel load+explain done (%.0fms)", (t_parallel_done - t_parallel) * 1000)
+    else:
+        explanations = _deterministic_explanations(current_user, explanation_candidates)
 
     id_order = {uid: i for i, uid in enumerate(top_ids)}
     sorted_opps = sorted(opps, key=lambda o: id_order.get(o.id, 999))
@@ -312,11 +307,39 @@ async def recommended_opportunities(
             if text:
                 setattr(opp, "relevance_explanation", text)
 
-    # Cache the response
     _recommended_cache[current_user.id] = (time.monotonic(), limit, sorted_opps)
     logger.info("Recommended: total %.0fms, returned %d opps", (time.monotonic() - t0) * 1000, len(sorted_opps))
 
     return sorted_opps
+
+
+def _deterministic_explanations(
+    user: User,
+    candidates: list[ScoredOpportunity],
+) -> dict[str, str]:
+    """Instant, zero-cost explanations from profile/tag overlap."""
+    user_tags = set(
+        t.lower() for t in (user.interests or [])
+    ) | set(
+        t.lower() for t in (user.skills or [])
+    )
+    result: dict[str, str] = {}
+    for opp in candidates:
+        opp_tags = set(t.lower() for t in (opp.domain_tags or []))
+        overlap = user_tags & opp_tags
+        cat = opp.category
+        if hasattr(cat, "value"):
+            cat = cat.value
+        parts: list[str] = []
+        if overlap:
+            parts.append(f"This {cat or 'opportunity'} aligns with your interest in {', '.join(sorted(overlap))}.")
+        elif cat:
+            parts.append(f"This {cat} may match your profile.")
+        if opp.deadline:
+            parts.append(f"Deadline: {opp.deadline.isoformat() if hasattr(opp.deadline, 'isoformat') else opp.deadline}.")
+        if parts:
+            result[str(opp.id)] = " ".join(parts)
+    return result
 
 
 @router.get("/stats")
