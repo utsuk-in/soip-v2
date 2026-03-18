@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { ComposableMap, Geographies, Geography, ZoomableGroup, Marker } from "react-simple-maps";
-import type { Opportunity } from "../../lib/api";
-import { STATE_GEO_CENTERS, matchStateToGeo, normalizeStateName } from "../../lib/india-states-geo";
+import { STATE_GEO_CENTERS, normalizeStateName } from "../../lib/india-states-geo";
 import { useDarkMode } from "../../hooks/useDarkMode";
 import StateTooltip from "./StateTooltip";
 import indiaGeo from "../../assets/india-states.json";
@@ -10,31 +9,23 @@ const INDIA_CENTER: [number, number] = [78.9, 22.5];
 const INDIA_SCALE = 1000;
 
 interface Props {
-  opportunities: Opportunity[];
+  stateCounts: Record<string, number>;
   userState: string | null;
   loading: boolean;
-  onStateSelect: (stateName: string, opportunities: Opportunity[]) => void;
+  onStateSelect: (stateName: string) => void;
 }
 
-export default function IndiaMapView({ opportunities, userState, loading, onStateSelect }: Props) {
+export default function IndiaMapView({ stateCounts, userState, loading, onStateSelect }: Props) {
   const isDark = useDarkMode();
   const [hoveredState, setHoveredState] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const normalizedUserState = userState ? normalizeStateName(userState) : null;
 
-  const oppsByState = useMemo(() => {
-    const map = new Map<string, Opportunity[]>();
-    for (const opp of opportunities) {
-      const loc = opp.state || opp.location || "";
-      const stateName = matchStateToGeo(loc);
-      if (stateName) {
-        const existing = map.get(stateName) || [];
-        existing.push(opp);
-        map.set(stateName, existing);
-      }
-    }
-    return map;
-  }, [opportunities]);
+  const statesWithData = useMemo(() => {
+    return Object.entries(stateCounts)
+      .filter(([, count]) => count > 0)
+      .map(([state, count]) => ({ state, count }));
+  }, [stateCounts]);
 
   const { center, scale } = useMemo(() => {
     if (normalizedUserState && normalizedUserState !== "Pan India") {
@@ -43,11 +34,6 @@ export default function IndiaMapView({ opportunities, userState, loading, onStat
     }
     return { center: INDIA_CENTER, scale: INDIA_SCALE };
   }, [normalizedUserState]);
-
-  function handleStateClick(stateName: string) {
-    const opps = oppsByState.get(stateName) || [];
-    onStateSelect(stateName, opps);
-  }
 
   const fillDefault = isDark ? "#292524" : "#f5f5f4";
   const fillHasData = isDark ? "#164e63" : "#a5f3fc";
@@ -70,7 +56,7 @@ export default function IndiaMapView({ opportunities, userState, loading, onStat
               {({ geographies }: { geographies: any[] }) =>
                 geographies.map((geo: any) => {
                   const stateName = geo.properties.ST_NM;
-                  const count = oppsByState.get(stateName)?.length || 0;
+                  const count = stateCounts[stateName] || 0;
                   const isUserState = normalizedUserState === stateName;
 
                   let fill = fillDefault;
@@ -92,7 +78,7 @@ export default function IndiaMapView({ opportunities, userState, loading, onStat
                         setHoveredState(null);
                         setTooltipPos(null);
                       }}
-                      onClick={() => handleStateClick(stateName)}
+                      onClick={() => onStateSelect(stateName)}
                       style={{
                         default: {
                           fill,
@@ -116,7 +102,7 @@ export default function IndiaMapView({ opportunities, userState, loading, onStat
               }
             </Geographies>
 
-            {Array.from(oppsByState.entries()).map(([state, opps]) => {
+            {statesWithData.map(({ state, count }) => {
               const geo = STATE_GEO_CENTERS[state];
               if (!geo) return null;
               return (
@@ -124,12 +110,12 @@ export default function IndiaMapView({ opportunities, userState, loading, onStat
                   <g
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleStateClick(state);
+                      onStateSelect(state);
                     }}
                     style={{ cursor: "pointer" }}
                   >
                     <circle
-                      r={Math.min(4 + opps.length * 1.5, 12)}
+                      r={Math.min(4 + count * 1.5, 12)}
                       fill="#06b6d4"
                       fillOpacity={0.9}
                       stroke="#fff"
@@ -141,7 +127,7 @@ export default function IndiaMapView({ opportunities, userState, loading, onStat
                       y={4}
                       style={{ fontSize: 8, fill: "#fff", fontWeight: "bold", pointerEvents: "none" }}
                     >
-                      {opps.length}
+                      {count}
                     </text>
                   </g>
                 </Marker>
@@ -159,7 +145,7 @@ export default function IndiaMapView({ opportunities, userState, loading, onStat
         {hoveredState && tooltipPos && (
           <StateTooltip
             stateName={hoveredState}
-            count={oppsByState.get(hoveredState)?.length || 0}
+            count={stateCounts[hoveredState] || 0}
             x={tooltipPos.x}
             y={tooltipPos.y}
           />

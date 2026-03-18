@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy import or_, func, select
+from sqlalchemy import or_, func, select, over, literal_column
 
 from app.database import get_db
 from app.models.opportunity import Opportunity
@@ -119,6 +119,7 @@ def browse_opportunities(
                 if not loc:
                     continue
                 loc_conditions.append(func.lower(Opportunity.location).ilike(f"%{loc}%"))
+                loc_conditions.append(func.lower(Opportunity.state).ilike(f"%{loc}%"))
             if loc_conditions:
                 query = query.filter(or_(*loc_conditions))
 
@@ -137,7 +138,13 @@ def browse_opportunities(
     if state:
         states = _split_list_param(state)
         if states:
-            query = query.filter(Opportunity.state.in_(states))
+            geo_terms = _geo_state_search_terms(states)
+            geo_conditions = []
+            for term in geo_terms:
+                pattern = f"%{term}%"
+                geo_conditions.append(func.lower(Opportunity.state).ilike(pattern))
+                geo_conditions.append(func.lower(Opportunity.location).ilike(pattern))
+            query = query.filter(or_(*geo_conditions))
 
     if deadline_before:
         query = query.filter(
@@ -163,9 +170,22 @@ def browse_opportunities(
     else:
         query = query.order_by(Opportunity.created_at.desc())
 
-    total = query.order_by(None).count()
     offset = (page - 1) * page_size
-    items = query.offset(offset).limit(page_size).all()
+
+    # Single query: fetch items + total count via window function (one DB round trip)
+    count_col = func.count(Opportunity.id).over().label("_total")
+    rows = query.add_columns(count_col).offset(offset).limit(page_size).all()
+
+    if rows:
+        items = [row[0] for row in rows]
+        total = rows[0][1]
+    else:
+        items = []
+        total = 0
+
+    # Truncate heavy text fields for list views — full text is served by the detail endpoint
+    _truncate_for_listing(items)
+
     total_pages = math.ceil(total / page_size) if page_size else 1
     return OpportunityListResponse(
         items=items,
@@ -359,6 +379,115 @@ def opportunity_stats(
     }
 
 
+@router.get("/stats/by-state")
+def opportunity_stats_by_state(
+    mode: str | None = Query(default="offline"),
+    category: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """Lightweight state-level counts for the HackMap. Returns {state_name: count}."""
+    q = db.query(Opportunity.state, Opportunity.location).filter(
+        Opportunity.is_active.is_(True),
+        (Opportunity.deadline.is_(None)) | (Opportunity.deadline >= date.today()),
+    )
+    if mode:
+        try:
+            q = q.filter(Opportunity.mode == OpportunityMode(mode.strip().lower()))
+        except ValueError:
+            pass
+    if category:
+        normalized = _normalize_categories(_split_list_param(category))
+        if normalized:
+            q = q.filter(Opportunity.category.in_(normalized))
+
+    rows = q.all()
+
+    counts: dict[str, int] = {}
+    for state_val, location_val in rows:
+        geo = _match_to_geo_state(state_val or location_val or "")
+        if geo:
+            counts[geo] = counts.get(geo, 0) + 1
+    return counts
+
+
+_CITY_STATE_MAP: dict[str, str] = {
+    "bangalore": "Karnataka", "bengaluru": "Karnataka",
+    "mumbai": "Maharashtra", "pune": "Maharashtra", "nagpur": "Maharashtra",
+    "delhi": "NCT of Delhi", "new delhi": "NCT of Delhi",
+    "noida": "Uttar Pradesh", "lucknow": "Uttar Pradesh",
+    "gurgaon": "Haryana", "gurugram": "Haryana",
+    "hyderabad": "Telangana",
+    "chennai": "Tamil Nadu", "coimbatore": "Tamil Nadu",
+    "kolkata": "West Bengal",
+    "ahmedabad": "Gujarat", "surat": "Gujarat",
+    "jaipur": "Rajasthan",
+    "chandigarh": "Chandigarh",
+    "bhopal": "Madhya Pradesh", "indore": "Madhya Pradesh",
+    "thiruvananthapuram": "Kerala", "kochi": "Kerala",
+    "bhubaneswar": "Odisha",
+    "patna": "Bihar",
+    "ranchi": "Jharkhand",
+    "guwahati": "Assam",
+    "visakhapatnam": "Andhra Pradesh", "vijayawada": "Andhra Pradesh",
+    "dehradun": "Uttarakhand",
+    "shimla": "Himachal Pradesh",
+    "gangtok": "Sikkim",
+    "panaji": "Goa",
+    "raipur": "Chhattisgarh",
+}
+
+_KNOWN_STATES: set[str] = {
+    "andhra pradesh", "arunachal pradesh", "assam", "bihar", "chhattisgarh",
+    "goa", "gujarat", "haryana", "himachal pradesh", "jharkhand", "karnataka",
+    "kerala", "madhya pradesh", "maharashtra", "manipur", "meghalaya",
+    "mizoram", "nagaland", "odisha", "punjab", "rajasthan", "sikkim",
+    "tamil nadu", "telangana", "tripura", "uttar pradesh", "uttarakhand",
+    "west bengal", "delhi", "nct of delhi", "jammu & kashmir", "ladakh",
+    "chandigarh", "puducherry",
+}
+
+_STATE_NAME_NORMALIZE: dict[str, str] = {
+    "delhi": "NCT of Delhi",
+    "jammu and kashmir": "Jammu & Kashmir",
+}
+
+
+# Reverse lookup: geo state name → all search terms (state + city names)
+_GEO_STATE_TERMS: dict[str, list[str]] = {}
+for _city, _st in _CITY_STATE_MAP.items():
+    _GEO_STATE_TERMS.setdefault(_st, []).append(_city)
+for _s in _KNOWN_STATES:
+    _canonical = _STATE_NAME_NORMALIZE.get(_s, _s.title())
+    _GEO_STATE_TERMS.setdefault(_canonical, []).append(_s)
+
+
+def _geo_state_search_terms(state_names: list[str]) -> list[str]:
+    """Return all search terms (state names + city names) for geo-state matching."""
+    terms: list[str] = []
+    for name in state_names:
+        terms.append(name.lower())
+        for term in _GEO_STATE_TERMS.get(name, []):
+            if term.lower() not in terms:
+                terms.append(term.lower())
+    return terms
+
+
+def _match_to_geo_state(location: str) -> str | None:
+    if not location:
+        return None
+    loc = location.lower().strip()
+    # Direct state match
+    for state in _KNOWN_STATES:
+        if loc == state or state in loc:
+            canonical = _STATE_NAME_NORMALIZE.get(state, state.title())
+            return canonical
+    # City lookup
+    for city, state in _CITY_STATE_MAP.items():
+        if city in loc:
+            return state
+    return None
+
+
 @router.get("/search", response_model=list[OpportunityBrief])
 def search_opportunities(
     q: str = Query(..., min_length=1, description="Search query string"),
@@ -419,6 +548,24 @@ def get_opportunity(
         db.add(log)
         db.commit()
     return opp
+
+
+_LISTING_MAX_DESC = 400
+_LISTING_MAX_TEXT = 250
+
+
+def _truncate_for_listing(items: list[Opportunity]) -> None:
+    """Trim heavy text columns in-place for list/card views.
+
+    Full content is still available via GET /api/opportunities/{id}.
+    """
+    for opp in items:
+        if opp.description and len(opp.description) > _LISTING_MAX_DESC:
+            opp.__dict__["description"] = opp.description[:_LISTING_MAX_DESC] + "…"
+        if opp.eligibility and len(opp.eligibility) > _LISTING_MAX_TEXT:
+            opp.__dict__["eligibility"] = opp.eligibility[:_LISTING_MAX_TEXT] + "…"
+        if opp.benefits and len(opp.benefits) > _LISTING_MAX_TEXT:
+            opp.__dict__["benefits"] = opp.benefits[:_LISTING_MAX_TEXT] + "…"
 
 
 def _build_profile_query(user: User) -> str:
