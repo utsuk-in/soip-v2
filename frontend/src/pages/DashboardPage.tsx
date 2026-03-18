@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MessageSquare, Search, Sparkles, Clock, AlertTriangle, PartyPopper } from "lucide-react";
+import { MessageSquare, Search, Sparkles, AlertTriangle, PartyPopper, Code2, Briefcase, Banknote, GraduationCap, Trophy, BookOpen, Layers } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { browseOpportunities, getRecommended, type Opportunity } from "../lib/api";
+import { getRecommended, getOpportunityStats, type Opportunity } from "../lib/api";
+import { getCached, setCache } from "../lib/cache";
+import { CATEGORY_TILES } from "../lib/constants";
 import OpportunityCard from "../components/OpportunityCard";
+
+const ICON_MAP: Record<string, React.ElementType> = {
+  Code2, Briefcase, Banknote, GraduationCap, Trophy, BookOpen, Layers,
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -11,17 +17,34 @@ export default function DashboardPage() {
   const location = useLocation();
   const [showWelcome, setShowWelcome] = useState(() => !!(location.state as any)?.welcome);
 
-  const [recommended, setRecommended] = useState<Opportunity[]>([]);
-  const [recent, setRecent] = useState<Opportunity[]>([]);
-  const [expiring, setExpiring] = useState<Opportunity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const CACHE_TTL = 5 * 60 * 1000;
+
+  const [stats, setStats] = useState<Record<string, number>>(() => getCached<Record<string, number>>("dash:stats") || {});
+  const [recommended, setRecommended] = useState<Opportunity[]>(() => getCached<Opportunity[]>("dash:recommended") || []);
+  const [expiring, setExpiring] = useState<Opportunity[]>(() => getCached<Opportunity[]>("dash:expiring") || []);
+  const [loading, setLoading] = useState(() => {
+    return !getCached<Opportunity[]>("dash:recommended", CACHE_TTL);
+  });
 
   useEffect(() => {
+    const cached = getCached<{ recommended: Opportunity[]; expiring: Opportunity[] }>("dash:all", CACHE_TTL);
+    if (cached) {
+      setRecommended(cached.recommended);
+      setExpiring(cached.expiring);
+      setLoading(false);
+      return;
+    }
+
+    if (!getCached<Record<string, number>>("dash:stats", CACHE_TTL)) {
+      getOpportunityStats()
+        .then((s) => { setStats(s); setCache("dash:stats", s); })
+        .catch(() => {});
+    }
+
     async function load() {
       try {
-        const rec = await getRecommended(20).catch(() => []);
+        const rec = await getRecommended(12).catch(() => []);
         const recommendedTop = rec.slice(0, 6);
-        setRecommended(recommendedTop);
 
         const soon = rec
           .filter((o) => o.deadline)
@@ -32,45 +55,10 @@ export default function DashboardPage() {
           .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
           .slice(0, 4);
 
-        const recent = [...rec]
-          .filter((o) => o.created_at)
-          .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
-          .slice(0, 6);
-
-        // If recommended pool is sparse, fill with personalized matches from browse.
-        if (soon.length < 4 || recent.length < 6) {
-          const all = await browseOpportunities({ sort: "newest", page_size: 60 }).catch(() => ({
-            items: [],
-            total: 0,
-            page: 1,
-            page_size: 60,
-            total_pages: 1,
-            has_next: false,
-            has_prev: false,
-          }));
-          const pool = (all.items || []).filter((o) => isRelevantForUser(user, o));
-          if (soon.length < 4) {
-            const fillSoon = pool
-              .filter((o) => o.deadline)
-              .filter((o) => {
-                const days = Math.ceil((new Date(o.deadline!).getTime() - Date.now()) / 86400000);
-                return days >= 0 && days <= 7;
-              })
-              .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
-              .slice(0, 4 - soon.length);
-            soon.push(...fillSoon);
-          }
-          if (recent.length < 6) {
-            const fillRecent = pool
-              .filter((o) => o.created_at)
-              .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
-              .slice(0, 6 - recent.length);
-            recent.push(...fillRecent);
-          }
-        }
-
+        setRecommended(recommendedTop);
         setExpiring(soon);
-        setRecent(recent);
+
+        setCache("dash:all", { recommended: recommendedTop, expiring: soon });
       } finally {
         setLoading(false);
       }
@@ -101,7 +89,7 @@ export default function DashboardPage() {
                 Welcome, {user?.first_name || "there"}!
               </h2>
               <p className="text-sm text-stone-500 dark:text-stone-400 leading-relaxed mb-6">
-                Your account is all set. SOIP will now surface the best opportunities tailored to your profile — explore, discover, and start applying.
+                Your account is all set. Steppd will now surface the best opportunities tailored to your profile — explore, discover, and start applying.
               </p>
               <button
                 type="button"
@@ -117,11 +105,33 @@ export default function DashboardPage() {
 
       {/* Greeting */}
       <div>
-        <h1 className="text-3xl font-bold text-stone-900 dark:text-stone-100 font-display">
-          Hello <span className="gradient-text">{user?.first_name || "there"}</span>, what would you like to do?
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-800 dark:text-stone-100">
+          Hello <span className="gradient-text font-bold">{user?.first_name || "there"}</span>, what would you like to do?
         </h1>
-        <p className="text-stone-400 dark:text-stone-500 mt-1">Here are your top opportunities right now.</p>
+        <p className="text-stone-400 dark:text-stone-500 mt-1.5 text-sm sm:text-base">Here are your top opportunities right now.</p>
       </div>
+
+      {/* Category tiles */}
+      {Object.keys(stats).length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+          {CATEGORY_TILES.filter((t) => (stats[t.key] || 0) > 0).map((tile, i) => {
+            const Icon = ICON_MAP[tile.icon];
+            const count = stats[tile.key] || 0;
+            return (
+              <button
+                key={tile.key}
+                onClick={() => navigate(`/browse?category=${tile.key}`)}
+                className={`${tile.bg} ${tile.border} border rounded-2xl p-4 text-left hover:-translate-y-0.5 hover:shadow-md transition-all animate-slide-up`}
+                style={{ animationDelay: `${i * 50}ms` }}
+              >
+                {Icon && <Icon size={20} className={`${tile.text} mb-2`} />}
+                <p className={`text-2xl font-bold ${tile.text}`}>{count}</p>
+                <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mt-0.5">{tile.label}</p>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -131,7 +141,7 @@ export default function DashboardPage() {
         >
           <MessageSquare size={24} />
           <div>
-            <p className="font-bold">Ask SOIP Anything</p>
+            <p className="font-bold">Ask Steppd Anything</p>
             <p className="text-sm text-brand-100">Get personalized recommendations, powered by AI.</p>
           </div>
         </button>
@@ -185,24 +195,6 @@ export default function DashboardPage() {
         </Section>
       )}
 
-      {/* New This Week */}
-      {recent.length > 0 && (
-        <Section
-          icon={Clock}
-          title="New Opportunities"
-          color="text-pop"
-          surface="bg-transparent border-stone-200/60 dark:bg-emerald-500/10 dark:border-emerald-400/30"
-          headerAccent="dark:bg-emerald-500/20 dark:text-emerald-200"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recent.map((opp, i) => (
-              <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
-                <OpportunityCard opportunity={opp} onClick={() => navigate(`/browse/${opp.id}`)} />
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
     </div>
   );
 }
@@ -221,33 +213,3 @@ function Section({ icon: Icon, title, color, surface, headerAccent, children }: 
   );
 }
 
-function isRelevantForUser(user: { interests?: string[]; skills?: string[]; aspirations?: string[] } | null, opp: Opportunity) {
-  if (!user) return true;
-  const userDomains = new Set(
-    [...(user.interests || []), ...(user.skills || [])].map((d) => d.toLowerCase())
-  );
-  const userCategories = new Set(
-    (user.aspirations || []).map((a) => normalizeCategory(a))
-  );
-
-  const oppDomains = new Set((opp.domain_tags || []).map((d) => d.toLowerCase()));
-  const hasDomainMatch = [...userDomains].some((d) => oppDomains.has(d));
-
-  const oppCategory = (opp.category || "").toLowerCase();
-  const hasCategoryMatch = userCategories.has(oppCategory);
-
-  return hasDomainMatch || hasCategoryMatch;
-}
-
-function normalizeCategory(value: string) {
-  const v = (value || "").toLowerCase().trim();
-  const map: Record<string, string> = {
-    hackathons: "hackathon",
-    internships: "internship",
-    grants: "grant",
-    fellowships: "fellowship",
-    competitions: "competition",
-    scholarships: "scholarship",
-  };
-  return map[v] || v;
-}

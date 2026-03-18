@@ -8,6 +8,7 @@ from app.schemas.user import ProfileUpdate, UniversityOut, UserOut
 from app.utils.dependencies import get_current_user
 from app.services.auth import hash_password
 from app.services.taxonomy import merge_domains_with_raw
+from app.routers.opportunities import invalidate_recommended_cache
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -59,6 +60,9 @@ def update_profile(
 
     db.commit()
     db.refresh(current_user)
+
+    invalidate_recommended_cache(current_user.id)
+
     return current_user
 
 

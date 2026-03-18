@@ -148,6 +148,12 @@ export interface Opportunity {
   confidence: number | null;
   is_active: boolean;
   created_at: string | null;
+  location?: string;
+  mode?: string;
+  state?: string | null;
+  start_date?: string | null;
+  fee_type?: string | null;
+  organizer?: string | null;
 }
 
 export interface BrowseParams {
@@ -155,10 +161,12 @@ export interface BrowseParams {
   domain?: string | string[];
   location?: string | string[];
   mode?: string;
+  state?: string;
   search?: string;
   deadline_before?: string;
   deadline_after?: string;
   sort?: string;
+  active_only?: boolean;
   page?: number;
   page_size?: number;
 }
@@ -208,6 +216,22 @@ export async function getRecommended(limit = 10): Promise<Opportunity[]> {
   return res.map(normalizeOpportunity);
 }
 
+export async function getOpportunityStats(): Promise<Record<string, number>> {
+  return request("/api/opportunities/stats");
+}
+
+export async function getOpportunityStatsByState(mode: "offline" | "online" = "offline", category?: string): Promise<Record<string, number>> {
+  const qs = new URLSearchParams({ mode });
+  if (category) qs.set("category", category);
+  return request(`/api/opportunities/stats/by-state?${qs}`);
+}
+
+export async function searchOpportunities(q: string, limit = 20): Promise<Opportunity[]> {
+  const qs = new URLSearchParams({ q, limit: String(limit) });
+  const res = await request<Opportunity[]>(`/api/opportunities/search?${qs}`);
+  return res.map(normalizeOpportunity);
+}
+
 // --- Chat ---
 
 export interface ChatMessage {
@@ -215,6 +239,7 @@ export interface ChatMessage {
   role: string;
   content: string;
   cited_opportunity_ids: string[];
+  cited_opportunities?: Opportunity[];
   created_at: string | null;
 }
 
@@ -237,11 +262,14 @@ export interface ChatSessionDetail {
 
 export async function sendChatMessage(
   message: string,
-  sessionId?: string
+  sessionId?: string,
+  opportunityId?: string,
 ): Promise<ChatResponseData> {
+  const payload: Record<string, unknown> = { message, session_id: sessionId };
+  if (opportunityId) payload.opportunity_id = opportunityId;
   return request("/api/chat", {
     method: "POST",
-    body: JSON.stringify({ message, session_id: sessionId }),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -381,17 +409,17 @@ export async function confirmStudentUpload(students: StudentRow[]): Promise<Uplo
   });
 }
 
-export async function downloadTemplate(): Promise<void> {
+export async function downloadTemplate(format: "xlsx" | "csv" = "xlsx"): Promise<void> {
   const token = getToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}/api/admin/students/template`, { headers });
+  const res = await fetch(`${API_BASE}/api/admin/students/template?format=${format}`, { headers });
   if (!res.ok) throw new Error("Failed to download template");
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "student_upload_template.xlsx";
+  a.download = `student_upload_template.${format}`;
   a.click();
   URL.revokeObjectURL(url);
 }

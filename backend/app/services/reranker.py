@@ -88,6 +88,12 @@ def _load_cross_encoder():
         return None
 
 
+def warmup():
+    """Pre-load the cross-encoder model so first request isn't slow."""
+    if settings.rerank_enabled:
+        _load_cross_encoder()
+
+
 def rerank_with_cross_encoder(
     query: str,
     candidates: List[ScoredOpportunity],
