@@ -25,6 +25,7 @@ export default function BrowsePage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showExpired, setShowExpired] = useState(false);
   const { feedbackMap, loadFeedback, submit: submitFeedback, hasSubmitted } = useFeedback();
 
   const load = useCallback(async () => {
@@ -36,6 +37,7 @@ export default function BrowsePage() {
         location: filters.location || undefined,
         mode: filters.mode || undefined,
         search: filters.search || undefined,
+        active_only: !showExpired,
         sort: filters.sort,
         page,
         page_size: 20,
@@ -49,7 +51,7 @@ export default function BrowsePage() {
     } finally {
       setLoading(false);
     }
-  }, [filters, page, loadFeedback]);
+  }, [filters, page, showExpired, loadFeedback]);
 
   useEffect(() => {
     load();
@@ -57,7 +59,7 @@ export default function BrowsePage() {
 
   useEffect(() => {
     setPage(1);
-  }, [filters]);
+  }, [filters, showExpired]);
 
   return (
     <div className="flex h-full">
@@ -76,12 +78,26 @@ export default function BrowsePage() {
               {loading ? "Loading..." : meta ? `Showing ${Math.min((page - 1) * meta.page_size + 1, meta.total)}–${Math.min(page * meta.page_size, meta.total)} of ${meta.total}` : `${opportunities.length} results`}
             </p>
           </div>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden flex items-center gap-2 px-4 py-2.5 bg-white/70 dark:bg-brand-500/15 backdrop-blur border border-stone-200 dark:border-brand-400/40 rounded-xl text-sm font-medium text-stone-600 dark:text-brand-200 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/25 transition-all"
-          >
-            <Filter size={16} /> Filters
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowExpired((v) => !v)}
+              className={`flex items-center gap-2 px-4 py-2.5 backdrop-blur border rounded-xl text-sm font-medium transition-all ${
+                showExpired
+                  ? "bg-stone-200 dark:bg-stone-700 border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-200"
+                  : "bg-white/70 dark:bg-stone-900/70 border-stone-200 dark:border-stone-800 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800"
+              }`}
+            >
+              {showExpired ? "Hide Expired" : "Show Expired"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden flex items-center gap-2 px-4 py-2.5 bg-white/70 dark:bg-brand-500/15 backdrop-blur border border-stone-200 dark:border-brand-400/40 rounded-xl text-sm font-medium text-stone-600 dark:text-brand-200 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-500/25 transition-all"
+            >
+              <Filter size={16} /> Filters
+            </button>
+          </div>
         </div>
 
         {loading ? (

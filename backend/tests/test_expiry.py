@@ -166,8 +166,8 @@ class TestExpirePastDeadlines:
 class TestExpiredExcludedFromFeed:
     """Verify expired opportunities are excluded from student-facing endpoints (SOIP-306)."""
 
-    def test_browse_excludes_expired(self, client, db_session: Session, unique_id: str):
-        """The browse endpoint should not return expired opportunities."""
+    def test_browse_excludes_already_expired(self, client, db_session: Session, unique_id: str):
+        """Opportunity already marked is_active=False should not appear in default browse."""
         try:
             opp = _make_opportunity(
                 db_session,
@@ -181,5 +181,64 @@ class TestExpiredExcludedFromFeed:
             assert resp.status_code == 200
             ids = [o["id"] for o in resp.json()["items"]]
             assert str(opp.id) not in ids
+        finally:
+            _cleanup_expiry(db_session, unique_id)
+
+    def test_browse_excludes_past_deadline_not_yet_expired_by_scheduler(
+        self, client, db_session: Session, unique_id: str
+    ):
+        """Opportunity with past deadline but is_active=True (scheduler not run yet)
+        should still be excluded from the default browse view."""
+        try:
+            opp = _make_opportunity(
+                db_session,
+                unique_id,
+                deadline=date.today() - timedelta(days=1),
+                is_active=True,  # scheduler hasn't run yet
+                status=OpportunityStatus.OPEN.value,
+            )
+
+            resp = client.get("/api/opportunities")
+            assert resp.status_code == 200
+            ids = [o["id"] for o in resp.json()["items"]]
+            assert str(opp.id) not in ids
+        finally:
+            _cleanup_expiry(db_session, unique_id)
+
+    def test_browse_includes_past_deadline_when_show_expired(
+        self, client, db_session: Session, unique_id: str
+    ):
+        """When active_only=false, past-deadline opportunities should be visible."""
+        try:
+            opp = _make_opportunity(
+                db_session,
+                unique_id,
+                deadline=date.today() - timedelta(days=1),
+                is_active=False,
+                status=OpportunityStatus.EXPIRED.value,
+            )
+
+            resp = client.get("/api/opportunities?active_only=false")
+            assert resp.status_code == 200
+            ids = [o["id"] for o in resp.json()["items"]]
+            assert str(opp.id) in ids
+        finally:
+            _cleanup_expiry(db_session, unique_id)
+
+    def test_browse_includes_active_with_future_deadline(
+        self, client, db_session: Session, unique_id: str
+    ):
+        """Active opportunities with future deadlines should always appear."""
+        try:
+            opp = _make_opportunity(
+                db_session,
+                unique_id,
+                deadline=date.today() + timedelta(days=30),
+            )
+
+            resp = client.get("/api/opportunities")
+            assert resp.status_code == 200
+            ids = [o["id"] for o in resp.json()["items"]]
+            assert str(opp.id) in ids
         finally:
             _cleanup_expiry(db_session, unique_id)

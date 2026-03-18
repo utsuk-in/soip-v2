@@ -175,6 +175,7 @@ export interface BrowseParams {
   search?: string;
   deadline_before?: string;
   deadline_after?: string;
+  active_only?: boolean;
   sort?: string;
   page?: number;
   page_size?: number;

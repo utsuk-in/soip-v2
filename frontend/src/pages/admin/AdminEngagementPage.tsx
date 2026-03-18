@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BarChart3, TrendingUp, Users, Link, Info } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Link } from "lucide-react";
 import { getEngagementReport, type EngagementReport } from "../../lib/api";
 
 export default function AdminEngagementPage() {
@@ -28,17 +28,6 @@ export default function AdminEngagementPage() {
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100">Engagement Report</h1>
-
-      {/* Mixpanel Placeholder */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-start gap-3">
-        <Info size={18} className="text-blue-500 mt-0.5 flex-shrink-0" />
-        <div>
-          <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">Mixpanel Integration Planned</p>
-          <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-            All metrics below are DB-driven for the PoC. Mixpanel (SOIP-49) will augment these with richer event tracking in MVP.
-          </p>
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Weekly Activity Trend */}

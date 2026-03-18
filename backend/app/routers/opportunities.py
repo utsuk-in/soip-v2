@@ -71,7 +71,10 @@ def browse_opportunities(
     query = db.query(Opportunity)
 
     if active_only:
-        query = query.filter(Opportunity.is_active.is_(True))
+        query = query.filter(
+            Opportunity.is_active.is_(True),
+            or_(Opportunity.deadline.is_(None), Opportunity.deadline >= date.today()),
+        )
 
     if category:
         normalized = _normalize_categories(_split_list_param(category))
