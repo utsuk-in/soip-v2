@@ -10,7 +10,7 @@ class Settings(BaseSettings):
         "extra": "ignore",
     }
 
-    app_name: str = "SOIP API"
+    app_name: str = "Steppd API"
     debug: bool = False
 
     database_url: str = Field(
@@ -48,6 +48,14 @@ class Settings(BaseSettings):
 
     # Extraction: limit segments to process (1 = validate on first "page" only; 3 = first 3; 0 = all).
     extraction_max_segments: int = Field(default=3, description="Limit extraction to first N segments. Use 1 to validate accuracy, then 3 or 0 for full.")
+
+    # SMTP email (optional — falls back to console logging when not configured)
+    smtp_host: str = Field(default="smtp.gmail.com")
+    smtp_port: int = Field(default=587)
+    smtp_username: str = Field(default="steppd.soip@gmail.com")
+    smtp_password: str = Field(default="zxbcfggqqbzryjdo")
+    smtp_from_email: str = Field(default="noreply@soip.app")
+    smtp_use_tls: bool = Field(default=True)
 
     # Cross-encoder reranker (local)
     rerank_enabled: bool = Field(default=False)

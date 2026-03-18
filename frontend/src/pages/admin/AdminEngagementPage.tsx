@@ -35,7 +35,7 @@ export default function AdminEngagementPage() {
         <div>
           <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">Mixpanel Integration Planned</p>
           <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-            All metrics below are DB-driven for the PoC. Mixpanel (SOIP-49) will augment these with richer event tracking in MVP.
+            All metrics below are DB-driven for the PoC. Mixpanel (Steppd-49) will augment these with richer event tracking in MVP.
           </p>
         </div>
       </div>

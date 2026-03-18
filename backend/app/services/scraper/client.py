@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 _HTTPX_TIMEOUT = 30.0
 _MAX_CONTENT_LENGTH = 500_000
-_USER_AGENT = "SOIP-Bot/1.0 (Student Opportunity Aggregator)"
+_USER_AGENT = "Steppd-Bot/1.0 (Student Opportunity Aggregator)"
 _DEFAULT_MAX_PAGES = 3
 _CRAWLER_CLOSE_TIMEOUT = 10.0
 

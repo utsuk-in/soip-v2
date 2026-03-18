@@ -1,5 +1,6 @@
 """Validate and upload student records from parsed Excel data."""
 
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -7,8 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.schemas.admin import MagicLinkResult, StudentRow, UploadSummary
-from app.services.magic_link import create_magic_link
+from app.services.magic_link import create_magic_link, MAGIC_LINK_EXPIRY_HOURS
+from app.services.email_service import send_invite_email
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 DISABLED_PASSWORD_HASH = "!disabled"
 
@@ -60,16 +64,26 @@ def confirm_upload(
                     is_onboarded=False,
                 )
                 db.add(user)
-                db.flush()  # get user.id
+                db.flush()
                 ml_token = create_magic_link(db, user.id)
+
+            link_url = f"{settings.frontend_base_url}/magic-link?token={ml_token.token}"
             invited_students.append(MagicLinkResult(
                 student_id=user.id,
                 email=student.email,
                 magic_token=ml_token.token,
-                magic_link_url=f"{settings.frontend_base_url}/magic-link?token={ml_token.token}",
+                magic_link_url=link_url,
             ))
             invited += 1
-        except Exception:
+
+            send_invite_email(
+                to_email=student.email,
+                student_name=student.name,
+                magic_link_url=link_url,
+                token_validity_hours=MAGIC_LINK_EXPIRY_HOURS,
+            )
+        except Exception as e:
+            logger.error("Failed to invite %s: %s", student.email, e)
             failed += 1
 
     db.commit()

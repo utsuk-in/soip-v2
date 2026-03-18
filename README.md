@@ -1,4 +1,4 @@
-# SOIP — Student Opportunity Intelligence Platform
+# Steppd — Student Opportunity Intelligence Platform
 
 A RAG-powered platform that aggregates student opportunities (hackathons, internships, scholarships, fellowships, grants) from Indian sources, and surfaces them through a conversational AI interface with personalized relevance matching.
 
