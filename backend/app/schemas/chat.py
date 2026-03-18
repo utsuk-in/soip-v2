@@ -9,6 +9,7 @@ from app.schemas.opportunity import OpportunityOut
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     session_id: UUID | None = None
+    opportunity_id: UUID | None = None
 
 
 class ChatMessageOut(BaseModel):
@@ -16,6 +17,7 @@ class ChatMessageOut(BaseModel):
     role: str
     content: str
     cited_opportunity_ids: list[str] = []
+    cited_opportunities: list["OpportunityOut"] = []
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}

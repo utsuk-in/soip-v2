@@ -1,7 +1,6 @@
-import React, { useMemo } from "react";
+import React from "react";
 import Markdown from "react-markdown";
-import { Bot, User } from "lucide-react";
-import OpportunityCard from "./OpportunityCard";
+import { Bot, User, ExternalLink } from "lucide-react";
 import type { Opportunity } from "../lib/api";
 
 interface Props {
@@ -9,43 +8,10 @@ interface Props {
   content: string;
   citedOpportunities?: Opportunity[];
   onOpportunityClick?: (id: string) => void;
-  onNavigate?: (path: string) => void;
 }
 
-export default function ChatBubble({ role, content, citedOpportunities, onOpportunityClick, onNavigate }: Props) {
+export default function ChatBubble({ role, content, citedOpportunities, onOpportunityClick }: Props) {
   const isUser = role === "user";
-
-  const urlToOppId = useMemo(() => {
-    const map = new Map<string, string>();
-    if (!citedOpportunities) return map;
-    for (const opp of citedOpportunities) {
-      if (opp.application_link) map.set(opp.application_link, opp.id);
-      if (opp.application_url) map.set(opp.application_url, opp.id);
-      if (opp.url) map.set(opp.url, opp.id);
-      if (opp.source_url) map.set(opp.source_url, opp.id);
-    }
-    return map;
-  }, [citedOpportunities]);
-
-  const resolveLink = (href: string | undefined): { internal: boolean; path: string } => {
-    if (!href) return { internal: false, path: "" };
-    if (href.startsWith("/browse/")) return { internal: true, path: href };
-
-    // LLM may prepend a domain to /browse/ paths (e.g. https://example.com/browse/uuid)
-    const browseMatch = href.match(/\/browse\/([0-9a-f-]{36})/);
-    if (browseMatch) return { internal: true, path: `/browse/${browseMatch[1]}` };
-
-    const matchedId = urlToOppId.get(href);
-    if (matchedId) return { internal: true, path: `/browse/${matchedId}` };
-
-    for (const [url, id] of urlToOppId.entries()) {
-      if (href.includes(url) || url.includes(href)) {
-        return { internal: true, path: `/browse/${id}` };
-      }
-    }
-
-    return { internal: false, path: href };
-  };
 
   return (
     <div className={`flex gap-3 animate-fade-in ${isUser ? "flex-row-reverse" : ""}`}>
@@ -72,25 +38,6 @@ export default function ChatBubble({ role, content, citedOpportunities, onOpport
           ) : (
             <Markdown
               components={{
-                a: ({ href, children }) => {
-                  const resolved = resolveLink(href);
-                  if (resolved.internal && onNavigate) {
-                    return (
-                      <a
-                        href={resolved.path}
-                        onClick={(e) => { e.preventDefault(); onNavigate(resolved.path); }}
-                        className="text-brand-600 underline hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 cursor-pointer"
-                      >
-                        {children}
-                      </a>
-                    );
-                  }
-                  return (
-                    <a href={href} target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200">
-                      {children}
-                    </a>
-                  );
-                },
                 p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                 ul: ({ children }) => <ul className="list-disc ml-4 mb-2">{children}</ul>,
                 ol: ({ children }) => <ol className="list-decimal ml-4 mb-2">{children}</ol>,
@@ -103,14 +50,16 @@ export default function ChatBubble({ role, content, citedOpportunities, onOpport
         </div>
 
         {!isUser && citedOpportunities && citedOpportunities.length > 0 && (
-          <div className="mt-2 space-y-2">
-            {citedOpportunities.slice(0, 3).map((opp) => (
-              <OpportunityCard
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {citedOpportunities.map((opp) => (
+              <button
                 key={opp.id}
-                opportunity={opp}
-                compact
                 onClick={() => onOpportunityClick?.(opp.id)}
-              />
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-brand-600 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800 rounded-xl hover:bg-brand-100 dark:hover:bg-brand-900/50 transition-colors"
+              >
+                {opp.title}
+                <ExternalLink size={12} />
+              </button>
             ))}
           </div>
         )}

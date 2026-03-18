@@ -1,7 +1,12 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, MapPin, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, MapPin, Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import OpportunityCard from "../OpportunityCard";
 import type { Opportunity } from "../../lib/api";
+
+interface CategoryOption {
+  value: string;
+  label: string;
+}
 
 interface Props {
   stateName: string;
@@ -10,6 +15,9 @@ interface Props {
   page: number;
   pageSize: number;
   loading: boolean;
+  category: string;
+  categoryOptions: CategoryOption[];
+  onCategoryChange: (value: string) => void;
   onPageChange: (page: number) => void;
   onBack: () => void;
   onOpportunityClick: (id: string) => void;
@@ -17,7 +25,8 @@ interface Props {
 
 export default function StateDetailView({
   stateName, opportunities, total, page, pageSize,
-  loading, onPageChange, onBack, onOpportunityClick,
+  loading, category, categoryOptions, onCategoryChange,
+  onPageChange, onBack, onOpportunityClick,
 }: Props) {
   const [search, setSearch] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("");
@@ -82,6 +91,18 @@ export default function StateDetailView({
               placeholder={`Search events in ${stateName}...`}
               className="w-full pl-9 pr-4 py-2.5 border border-stone-200 dark:border-stone-800 rounded-xl text-sm bg-white/50 dark:bg-stone-900/60 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-brand-300"
             />
+          </div>
+          <div className="relative">
+            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+            <select
+              value={category}
+              onChange={(e) => onCategoryChange(e.target.value)}
+              className="pl-8 pr-4 py-2.5 border border-stone-200 dark:border-stone-800 rounded-xl text-sm bg-white/50 dark:bg-stone-900/60 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-brand-300 appearance-none cursor-pointer"
+            >
+              {categoryOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
           {domains.length > 1 && (
             <select

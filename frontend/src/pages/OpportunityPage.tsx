@@ -184,7 +184,7 @@ export default function OpportunityPage() {
               View application <ExternalLink size={14} />
             </a>
             <button
-              onClick={() => navigate(`/chat?q=Tell me about "${opp.title}"`)}
+              onClick={() => navigate(`/chat?q=Tell me about "${opp.title}"&opp_id=${opp.id}`)}
               className="flex items-center gap-2 px-6 py-3 bg-white/60 dark:bg-stone-900/60 backdrop-blur border border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 rounded-xl font-semibold text-sm hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 dark:hover:bg-stone-800 dark:hover:text-stone-100 transition-all"
             >
               <MessageSquare size={14} /> Ask Steppd

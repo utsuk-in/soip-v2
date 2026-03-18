@@ -239,6 +239,7 @@ export interface ChatMessage {
   role: string;
   content: string;
   cited_opportunity_ids: string[];
+  cited_opportunities?: Opportunity[];
   created_at: string | null;
 }
 
@@ -261,11 +262,14 @@ export interface ChatSessionDetail {
 
 export async function sendChatMessage(
   message: string,
-  sessionId?: string
+  sessionId?: string,
+  opportunityId?: string,
 ): Promise<ChatResponseData> {
+  const payload: Record<string, unknown> = { message, session_id: sessionId };
+  if (opportunityId) payload.opportunity_id = opportunityId;
   return request("/api/chat", {
     method: "POST",
-    body: JSON.stringify({ message, session_id: sessionId }),
+    body: JSON.stringify(payload),
   });
 }
 
