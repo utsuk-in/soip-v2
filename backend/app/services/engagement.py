@@ -14,6 +14,7 @@ from app.schemas.admin import (
     CategoryBreakdown,
     EngagementBucket,
     EngagementReport,
+    FeedbackSummary,
     MagicLinkStats,
     TopOpportunity,
     WeeklyTrend,
@@ -43,6 +44,7 @@ def get_engagement_report(db: Session, university_id: UUID, weeks: int = 8) -> E
             ],
             weekly_trends=[],
             magic_link_stats=MagicLinkStats(total_sent=0, total_used=0, open_rate=0.0),
+            feedback_summary=FeedbackSummary(thumbs_up=0, thumbs_down=0, positive_rate=0.0),
         )
 
     # Top viewed opportunities
@@ -127,6 +129,26 @@ def get_engagement_report(db: Session, university_id: UUID, weeks: int = 8) -> E
         for r in weekly_rows
     ]
 
+    # Feedback summary (thumbs up/down on recommendations)
+    thumbs_up = (
+        db.query(func.count(InteractionLog.id))
+        .filter(
+            InteractionLog.user_id.in_(student_ids),
+            InteractionLog.action == "thumbs_up",
+        )
+        .scalar() or 0
+    )
+    thumbs_down = (
+        db.query(func.count(InteractionLog.id))
+        .filter(
+            InteractionLog.user_id.in_(student_ids),
+            InteractionLog.action == "thumbs_down",
+        )
+        .scalar() or 0
+    )
+    total_feedback = thumbs_up + thumbs_down
+    positive_rate = round(thumbs_up / total_feedback * 100, 1) if total_feedback > 0 else 0.0
+
     # Magic link stats
     total_sent = (
         db.query(func.count(MagicLinkToken.id))
@@ -151,5 +173,10 @@ def get_engagement_report(db: Session, university_id: UUID, weeks: int = 8) -> E
             total_sent=total_sent,
             total_used=total_used,
             open_rate=round(open_rate, 1),
+        ),
+        feedback_summary=FeedbackSummary(
+            thumbs_up=thumbs_up,
+            thumbs_down=thumbs_down,
+            positive_rate=positive_rate,
         ),
     )

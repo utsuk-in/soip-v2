@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BarChart3, TrendingUp, Users, Link } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Link, ThumbsUp } from "lucide-react";
 import { getEngagementReport, type EngagementReport } from "../../lib/api";
 
 export default function AdminEngagementPage() {
@@ -125,6 +125,32 @@ export default function AdminEngagementPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Recommendation Feedback Summary */}
+      <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <ThumbsUp size={18} className="text-brand-500" />
+          <h2 className="text-sm font-semibold text-stone-700 dark:text-stone-300">Recommendation Feedback</h2>
+        </div>
+        {report.feedback_summary.thumbs_up + report.feedback_summary.thumbs_down === 0 ? (
+          <p className="text-sm text-stone-400 dark:text-stone-500 text-center py-4">No feedback submitted yet</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-stone-50 dark:bg-stone-800 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-green-600">{report.feedback_summary.thumbs_up}</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400">Thumbs Up</p>
+            </div>
+            <div className="bg-stone-50 dark:bg-stone-800 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-hot">{report.feedback_summary.thumbs_down}</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400">Thumbs Down</p>
+            </div>
+            <div className="bg-stone-50 dark:bg-stone-800 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-brand-600">{report.feedback_summary.positive_rate}%</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400">Positive Rate</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Top Viewed Opportunities */}

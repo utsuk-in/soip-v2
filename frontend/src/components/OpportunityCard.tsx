@@ -45,9 +45,21 @@ export default function OpportunityCard({
       } ${compact ? "p-3" : "p-5"} animate-fade-in`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${colorClass}`}>
-          {opp.category}
-        </span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${colorClass}`}>
+            {opp.category}
+          </span>
+          {opp.status === "coming_soon" && (
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+              Coming Soon
+            </span>
+          )}
+          {opp.status === "open" && (
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+              Open
+            </span>
+          )}
+        </div>
         {dl && (
           <span className={`flex items-center gap-1 text-xs font-medium ${dl.urgent ? "text-hot bg-hot/10 px-2 py-0.5 rounded-full" : "text-stone-500"}`}>
             <Calendar size={12} />

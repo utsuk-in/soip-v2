@@ -242,3 +242,88 @@ class TestExpiredExcludedFromFeed:
             assert str(opp.id) in ids
         finally:
             _cleanup_expiry(db_session, unique_id)
+
+
+class TestStatusBadgeField:
+    """Verify the API returns the correct status field for each opportunity state (SOIP-266)."""
+
+    def test_open_opportunity_returns_open_status(
+        self, client, db_session: Session, unique_id: str
+    ):
+        """An open opportunity should have status='open' in the API response."""
+        try:
+            opp = _make_opportunity(
+                db_session,
+                unique_id,
+                deadline=date.today() + timedelta(days=30),
+                status=OpportunityStatus.OPEN.value,
+            )
+
+            resp = client.get("/api/opportunities")
+            assert resp.status_code == 200
+            match = next((o for o in resp.json()["items"] if o["id"] == str(opp.id)), None)
+            assert match is not None
+            assert match["status"] == "open"
+        finally:
+            _cleanup_expiry(db_session, unique_id)
+
+    def test_coming_soon_opportunity_returns_coming_soon_status(
+        self, client, db_session: Session, unique_id: str
+    ):
+        """A coming_soon opportunity should have status='coming_soon' in the API response."""
+        try:
+            opp = _make_opportunity(
+                db_session,
+                unique_id,
+                deadline=date.today() + timedelta(days=30),
+                status=OpportunityStatus.COMING_SOON.value,
+            )
+
+            resp = client.get("/api/opportunities")
+            assert resp.status_code == 200
+            match = next((o for o in resp.json()["items"] if o["id"] == str(opp.id)), None)
+            assert match is not None
+            assert match["status"] == "coming_soon"
+        finally:
+            _cleanup_expiry(db_session, unique_id)
+
+    def test_expired_opportunity_status_not_in_default_feed(
+        self, client, db_session: Session, unique_id: str
+    ):
+        """Expired opportunities should not appear in the default feed at all."""
+        try:
+            opp = _make_opportunity(
+                db_session,
+                unique_id,
+                deadline=date.today() - timedelta(days=1),
+                is_active=False,
+                status=OpportunityStatus.EXPIRED.value,
+            )
+
+            resp = client.get("/api/opportunities")
+            assert resp.status_code == 200
+            ids = [o["id"] for o in resp.json()["items"]]
+            assert str(opp.id) not in ids
+        finally:
+            _cleanup_expiry(db_session, unique_id)
+
+    def test_expired_status_visible_when_show_expired(
+        self, client, db_session: Session, unique_id: str
+    ):
+        """When active_only=false, expired opportunities return status='expired'."""
+        try:
+            opp = _make_opportunity(
+                db_session,
+                unique_id,
+                deadline=date.today() - timedelta(days=1),
+                is_active=False,
+                status=OpportunityStatus.EXPIRED.value,
+            )
+
+            resp = client.get("/api/opportunities?active_only=false")
+            assert resp.status_code == 200
+            match = next((o for o in resp.json()["items"] if o["id"] == str(opp.id)), None)
+            assert match is not None
+            assert match["status"] == "expired"
+        finally:
+            _cleanup_expiry(db_session, unique_id)

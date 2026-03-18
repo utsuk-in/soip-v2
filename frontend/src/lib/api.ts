@@ -164,6 +164,7 @@ export interface Opportunity {
   source_url: string;
   confidence: number | null;
   is_active: boolean;
+  status: "open" | "coming_soon" | "expired" | null;
   created_at: string | null;
 }
 
@@ -576,6 +577,7 @@ export interface EngagementReport {
   engagement_distribution: { bucket: string; count: number }[];
   weekly_trends: { week: string; interactions: number }[];
   magic_link_stats: { total_sent: number; total_used: number; open_rate: number };
+  feedback_summary: { thumbs_up: number; thumbs_down: number; positive_rate: number };
 }
 
 export async function getEngagementReport(weeks = 8): Promise<EngagementReport> {

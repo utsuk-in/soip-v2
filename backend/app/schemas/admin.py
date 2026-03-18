@@ -137,9 +137,16 @@ class MagicLinkStats(BaseModel):
     open_rate: float
 
 
+class FeedbackSummary(BaseModel):
+    thumbs_up: int
+    thumbs_down: int
+    positive_rate: float  # percentage
+
+
 class EngagementReport(BaseModel):
     top_opportunities: list[TopOpportunity]
     category_breakdown: list[CategoryBreakdown]
     engagement_distribution: list[EngagementBucket]
     weekly_trends: list[WeeklyTrend]
     magic_link_stats: MagicLinkStats
+    feedback_summary: FeedbackSummary

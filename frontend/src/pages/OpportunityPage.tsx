@@ -75,9 +75,19 @@ export default function OpportunityPage() {
             <span className={`px-3 py-1 rounded-full text-sm font-semibold capitalize ${colorClass}`}>
               {opp.category}
             </span>
-            {!opp.is_active && (
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-stone-100 text-stone-500">
-                inactive
+            {opp.status === "open" && (
+              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                Open
+              </span>
+            )}
+            {opp.status === "coming_soon" && (
+              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                Coming Soon
+              </span>
+            )}
+            {opp.status === "expired" && (
+              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400">
+                Expired
               </span>
             )}
           </div>
