@@ -35,6 +35,7 @@ async def handle_chat_message(
     user: User,
     message: str,
     session_id: UUID | None = None,
+    opportunity_id: UUID | None = None,
 ) -> tuple[ChatMessage, list[Opportunity], UUID]:
     """End-to-end RAG chat: returns (assistant_message, cited_opportunities, session_id)."""
 
@@ -50,6 +51,16 @@ async def handle_chat_message(
     db.add(user_msg)
     db.commit()
 
+    # 7. Load chat history for context
+    history = _load_history(db, session.id)
+
+    # --- Single-opportunity mode (from browse detail page) ---
+    if opportunity_id:
+        return await _handle_single_opportunity_chat(
+            db, user, message, session, history, opportunity_id
+        )
+
+    # --- Normal RAG flow ---
     # 3. Query understanding
     parsed = await understand_query(message)
     logger.info(f"Parsed query: intent={parsed.intent}, search='{parsed.search_text}'")
@@ -65,9 +76,6 @@ async def handle_chat_message(
     # 6. Profile-aware re-ranking
     ranked = rerank_for_user(user, candidates)
     top = ranked[:_MAX_CITED]
-
-    # 7. Load chat history for context
-    history = _load_history(db, session.id)
 
     # 8. Generate response
     response_text = await _generate_response(user, message, top, history)
@@ -116,6 +124,94 @@ async def handle_chat_message(
     db.refresh(assistant_msg)
 
     return assistant_msg, cited_opps, session.id
+
+
+async def _handle_single_opportunity_chat(
+    db: Session,
+    user: User,
+    message: str,
+    session: "ChatSession",
+    history: list[ChatMessage],
+    opportunity_id: UUID,
+) -> tuple[ChatMessage, list[Opportunity], UUID]:
+    """Focused chat about a single opportunity — no retrieval, no other suggestions."""
+    opp = db.query(Opportunity).filter(Opportunity.id == opportunity_id).first()
+    if not opp:
+        content = "Sorry, I couldn't find that opportunity. It may have been removed."
+        assistant_msg = ChatMessage(
+            session_id=session.id, role="assistant", content=content,
+            cited_opportunity_ids=[],
+        )
+        db.add(assistant_msg)
+        db.commit()
+        db.refresh(assistant_msg)
+        return assistant_msg, [], session.id
+
+    deadline_str = opp.deadline.isoformat() if opp.deadline else "No deadline"
+    eligibility_str = opp.eligibility or "Not specified"
+    benefits_str = opp.benefits or "Not specified"
+    description_str = opp.description or ""
+    location_str = opp.state or opp.location or "Not specified"
+    organizer_str = opp.organizer or "Not specified"
+    category_str = opp.category.value if hasattr(opp.category, "value") else str(opp.category)
+    mode_str = opp.mode.value if hasattr(opp.mode, "value") else str(opp.mode) if opp.mode else "Not specified"
+
+    system_prompt = (
+        "You are Steppd, an AI assistant that helps students learn about opportunities.\n\n"
+        "The student is asking about a SPECIFIC opportunity. Answer ONLY about this opportunity.\n"
+        "Do NOT suggest or mention any other opportunities unless the student explicitly asks.\n\n"
+        f"Opportunity details:\n"
+        f"- Title: {opp.title}\n"
+        f"- Category: {category_str}\n"
+        f"- Deadline: {deadline_str}\n"
+        f"- Mode: {mode_str}\n"
+        f"- Location: {location_str}\n"
+        f"- Organizer: {organizer_str}\n"
+        f"- Eligibility: {eligibility_str}\n"
+        f"- Benefits: {benefits_str}\n"
+        f"- Description: {description_str[:1500]}\n\n"
+        f"Student profile:\n"
+        f"- Name: {user.first_name or 'Student'}\n"
+        f"- Academic Background: {user.academic_background or 'Not specified'}\n"
+        f"- Skills: {', '.join(user.skills or []) or 'Not specified'}\n"
+        f"- Interests: {', '.join(user.interests or []) or 'Not specified'}\n\n"
+        "Rules:\n"
+        "- Focus ONLY on this opportunity. Do not recommend other opportunities.\n"
+        "- NEVER generate hyperlinks, URLs, or markdown links.\n"
+        "- Be concise, friendly, and actionable.\n"
+        "- Highlight how this opportunity matches the student's profile if relevant.\n"
+        "- Mention the deadline prominently."
+    )
+
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in history[-_MAX_HISTORY:]:
+        messages.append({"role": msg.role, "content": msg.content})
+    messages.append({"role": "user", "content": message})
+
+    try:
+        response = await _client.chat.completions.create(
+            model=settings.openai_model,
+            messages=messages,
+            max_tokens=1024,
+            temperature=0.7,
+        )
+        response_text = response.choices[0].message.content
+    except Exception as e:
+        logger.error(f"Single-opp response generation failed: {e}")
+        response_text = "I'm sorry, I encountered an error. Please try again."
+
+    cited_ids = [str(opp.id)]
+    assistant_msg = ChatMessage(
+        session_id=session.id,
+        role="assistant",
+        content=response_text,
+        cited_opportunity_ids=cited_ids,
+    )
+    db.add(assistant_msg)
+    db.commit()
+    db.refresh(assistant_msg)
+
+    return assistant_msg, [opp], session.id
 
 
 def _get_or_create_session(
@@ -200,7 +296,7 @@ def _build_system_prompt(user: User, retrieved: list[ScoredOpportunity]) -> str:
         eligibility_str = opp.eligibility[:150] if opp.eligibility else "Not specified"
         benefits_str = opp.benefits[:150] if opp.benefits else "Not specified"
         opp_lines.append(
-            f"{i}. [{opp.title}](/browse/{opp.id})\n"
+            f"{i}. **{opp.title}**\n"
             f"   Category: {opp.category} | Deadline: {deadline_str}\n"
             f"   Eligibility: {eligibility_str}\n"
             f"   Benefits: {benefits_str}\n"
@@ -220,7 +316,8 @@ def _build_system_prompt(user: User, retrieved: list[ScoredOpportunity]) -> str:
         "that opportunity IS applicable because engineering students are undergraduates. Similarly, 'all students' "
         "includes every discipline. Always apply this inclusive logic.\n"
         "- If a retrieved opportunity has NO connection at all to the user's query topic, skip it.\n"
-        "- Cite opportunities using [title](/browse/ID) markdown format — use the EXACT link provided above for each opportunity\n"
+        "- Refer to each opportunity by its **bold title** exactly as listed above. "
+        "NEVER generate hyperlinks, URLs, or markdown links — the UI renders opportunity cards automatically.\n"
         "- Explain WHY each cited opportunity is relevant, including eligibility reasoning\n"
         "- Mention deadlines prominently\n"
         "- If none of the retrieved opportunities are relevant even with inclusive eligibility reasoning, "

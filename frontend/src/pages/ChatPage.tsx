@@ -4,6 +4,10 @@ import { Send, PanelLeftClose, PanelLeft, Plus, Sparkles } from "lucide-react";
 import { sendChatMessage, getChatSessions, getChatSession, type ChatMessage, type ChatSession, type Opportunity } from "../lib/api";
 import ChatBubble, { TypingIndicator } from "../components/ChatBubble";
 
+function stripMarkdownLinks(text: string): string {
+  return text.replace(/\[([^\]]*)\]\([^)]+\)/g, "$1");
+}
+
 const SUGGESTED_PROMPTS = [
   "what hackathons are coming up?",
   "Show me hackathons happening online",
@@ -30,6 +34,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [pendingOppId, setPendingOppId] = useState<string | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,9 +45,11 @@ export default function ChatPage() {
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session");
     const q = searchParams.get("q");
+    const oppId = searchParams.get("opp_id") || undefined;
 
     if (q) {
       setInput(q);
+      setPendingOppId(oppId);
       setActiveSessionId(undefined);
       setMessages([]);
       return;
@@ -75,7 +82,8 @@ export default function ChatPage() {
         detail.messages.map((m) => ({
           id: m.id,
           role: m.role as "user" | "assistant",
-          content: m.content,
+          content: stripMarkdownLinks(m.content),
+          citedOpportunities: m.cited_opportunities,
         }))
       );
     } catch {
@@ -88,6 +96,9 @@ export default function ChatPage() {
     if (!message || sending) return;
     setInput("");
 
+    const oppId = pendingOppId;
+    setPendingOppId(undefined);
+
     const userMsg: DisplayMessage = {
       id: `temp-${Date.now()}`,
       role: "user",
@@ -97,46 +108,10 @@ export default function ChatPage() {
     setSending(true);
 
     try {
-      const res = await sendChatMessage(message, activeSessionId);
+      const res = await sendChatMessage(message, activeSessionId, oppId);
       setActiveSessionId(res.session_id);
 
-      let processedContent = res.message.content;
-
-      // Build a set of cited opportunity IDs for fast lookup
-      const citedIdSet = new Set<string>(
-        (res.cited_opportunities || []).map((o) => o.id)
-      );
-      // Map external URLs → internal browse path
-      const urlToPath = new Map<string, string>();
-      for (const opp of res.cited_opportunities || []) {
-        const dest = `/browse/${opp.id}`;
-        for (const u of [opp.application_link, opp.application_url, opp.url, opp.source_url].filter(Boolean) as string[]) {
-          urlToPath.set(u, dest);
-        }
-      }
-
-      // Rewrite ALL markdown links: [text](url) → internal /browse/{id} where possible
-      processedContent = processedContent.replace(
-        /\[([^\]]*)\]\(([^)]+)\)/g,
-        (_match, text: string, href: string) => {
-          // Already an internal link
-          if (href.startsWith("/browse/")) return `[${text}](${href})`;
-          // LLM prepended a domain to /browse/{uuid}
-          const browseMatch = href.match(/\/browse\/([0-9a-f-]{36})/);
-          if (browseMatch) return `[${text}](/browse/${browseMatch[1]})`;
-          // UUID embedded anywhere in the URL that matches a cited opportunity
-          const uuidMatch = href.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/);
-          if (uuidMatch && citedIdSet.has(uuidMatch[1])) return `[${text}](/browse/${uuidMatch[1]})`;
-          // Exact URL match from cited opportunities
-          const mapped = urlToPath.get(href);
-          if (mapped) return `[${text}](${mapped})`;
-          // Substring match (handles trailing slashes, query params, etc.)
-          for (const [url, path] of urlToPath.entries()) {
-            if (href.includes(url) || url.includes(href)) return `[${text}](${path})`;
-          }
-          return `[${text}](${href})`;
-        }
-      );
+      const processedContent = stripMarkdownLinks(res.message.content);
 
       const assistantMsg: DisplayMessage = {
         id: res.message.id,
@@ -248,7 +223,6 @@ export default function ChatPage() {
                   content={msg.content}
                   citedOpportunities={msg.citedOpportunities}
                   onOpportunityClick={(id) => navigate(`/browse/${id}`)}
-                  onNavigate={(path) => navigate(path)}
                 />
               ))}
               {sending && <TypingIndicator />}

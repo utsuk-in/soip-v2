@@ -90,9 +90,6 @@ def _fallback_explanation(user: User, opp: ExplanationOpportunity) -> str | None
     elif cat:
         parts.append(f"This {cat} may match your profile.")
 
-    if opp.deadline:
-        parts.append(f"Deadline: {opp.deadline}.")
-
     return " ".join(parts) if parts else None
 
 

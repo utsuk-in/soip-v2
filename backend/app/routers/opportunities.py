@@ -355,8 +355,6 @@ def _deterministic_explanations(
             parts.append(f"This {cat or 'opportunity'} aligns with your interest in {', '.join(sorted(overlap))}.")
         elif cat:
             parts.append(f"This {cat} may match your profile.")
-        if opp.deadline:
-            parts.append(f"Deadline: {opp.deadline.isoformat() if hasattr(opp.deadline, 'isoformat') else opp.deadline}.")
         if parts:
             result[str(opp.id)] = " ".join(parts)
     return result

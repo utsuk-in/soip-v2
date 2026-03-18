@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Map, Filter } from "lucide-react";
+import { Map } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { browseOpportunities, getOpportunityStatsByState, type Opportunity } from "../lib/api";
 import { getCached, setCache } from "../lib/cache";
@@ -55,24 +55,24 @@ export default function HackMapPage() {
 
   const currentView: View = mode === "online" ? "online" : selectedStateName ? "state" : "map";
 
-  // Fetch lightweight state counts for the map (re-fetch when category changes)
+  // Fetch lightweight state counts for the map (all categories)
   useEffect(() => {
     if (mode !== "offline") return;
-    const cacheKey = `hackmap:stateCounts:${category}`;
+    const cacheKey = "hackmap:stateCounts:all";
     const cached = getCached<Record<string, number>>(cacheKey, CACHE_TTL);
     if (cached) {
       setStateCounts(cached);
       return;
     }
     setCountsLoading(true);
-    getOpportunityStatsByState("offline", category || undefined)
+    getOpportunityStatsByState("offline")
       .then((data) => {
         setStateCounts(data);
         setCache(cacheKey, data);
       })
       .catch(() => {})
       .finally(() => setCountsLoading(false));
-  }, [mode, category]);
+  }, [mode]);
 
   const fetchStateOpps = useCallback(async (stateName: string, page: number, cat: string) => {
     setStateLoading(true);
@@ -150,8 +150,6 @@ export default function HackMapPage() {
 
   function handleCategoryChange(next: string) {
     setCategory(next);
-    setSelectedStateName(null);
-    setStateOpps([]);
   }
 
   function handleStateSelect(stateName: string) {
@@ -164,7 +162,6 @@ export default function HackMapPage() {
   }
 
   const userState = user?.state && user.state !== "Pan India" ? user.state : null;
-  const categoryLabel = CATEGORY_OPTIONS.find((c) => c.value === category)?.label || "All";
   const subtitle =
     currentView === "state"
       ? `${selectedStateName} — ${stateTotal} event${stateTotal !== 1 ? "s" : ""}`
@@ -187,21 +184,7 @@ export default function HackMapPage() {
               <p className="text-xs text-stone-400 dark:text-stone-500">{subtitle}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
-              <select
-                value={category}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-                className="pl-8 pr-4 py-2 border border-stone-200 dark:border-stone-700 rounded-full text-sm bg-white/80 dark:bg-stone-800/80 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-brand-300 appearance-none cursor-pointer"
-              >
-                {CATEGORY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-            <ModeToggle mode={mode} onChange={handleModeChange} />
-          </div>
+          <ModeToggle mode={mode} onChange={handleModeChange} />
         </div>
       )}
 
@@ -222,6 +205,9 @@ export default function HackMapPage() {
             page={statePage}
             pageSize={PAGE_SIZE}
             loading={stateLoading}
+            category={category}
+            categoryOptions={CATEGORY_OPTIONS}
+            onCategoryChange={handleCategoryChange}
             onPageChange={(p) => fetchStateOpps(selectedStateName, p, category)}
             onBack={handleBackToMap}
             onOpportunityClick={(id) => navigate(`/browse/${id}`)}
