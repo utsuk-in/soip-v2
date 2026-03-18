@@ -220,6 +220,12 @@ export async function getOpportunityStats(): Promise<Record<string, number>> {
   return request("/api/opportunities/stats");
 }
 
+export async function getOpportunityStatsByState(mode: "offline" | "online" = "offline", category?: string): Promise<Record<string, number>> {
+  const qs = new URLSearchParams({ mode });
+  if (category) qs.set("category", category);
+  return request(`/api/opportunities/stats/by-state?${qs}`);
+}
+
 export async function searchOpportunities(q: string, limit = 20): Promise<Opportunity[]> {
   const qs = new URLSearchParams({ q, limit: String(limit) });
   const res = await request<Opportunity[]>(`/api/opportunities/search?${qs}`);

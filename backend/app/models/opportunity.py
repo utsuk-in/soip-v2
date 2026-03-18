@@ -15,6 +15,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID, ENUM
+from sqlalchemy.orm import deferred
 from pgvector.sqlalchemy import Vector
 
 from app.models.base import Base
@@ -97,7 +98,7 @@ class Opportunity(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    embedding = Column(Vector(1536), nullable=True)
+    embedding = deferred(Column(Vector(1536), nullable=True))
 
     __table_args__ = (
         Index("ix_opportunities_category", "category"),

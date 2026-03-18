@@ -1,18 +1,28 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, MapPin, Search } from "lucide-react";
+import { ArrowLeft, MapPin, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import OpportunityCard from "../OpportunityCard";
 import type { Opportunity } from "../../lib/api";
 
 interface Props {
   stateName: string;
   opportunities: Opportunity[];
+  total: number;
+  page: number;
+  pageSize: number;
+  loading: boolean;
+  onPageChange: (page: number) => void;
   onBack: () => void;
   onOpportunityClick: (id: string) => void;
 }
 
-export default function StateDetailView({ stateName, opportunities, onBack, onOpportunityClick }: Props) {
+export default function StateDetailView({
+  stateName, opportunities, total, page, pageSize,
+  loading, onPageChange, onBack, onOpportunityClick,
+}: Props) {
   const [search, setSearch] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("");
+
+  const totalPages = Math.ceil(total / pageSize);
 
   const filtered = useMemo(() => {
     let list = opportunities;
@@ -38,7 +48,6 @@ export default function StateDetailView({ stateName, opportunities, onBack, onOp
 
   return (
     <div className="flex flex-col h-full animate-fade-in">
-      {/* Breadcrumb header */}
       <div className="px-6 lg:px-8 py-4 border-b border-stone-200/60 dark:border-stone-800/60 bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm">
         <button
           onClick={onBack}
@@ -56,13 +65,12 @@ export default function StateDetailView({ stateName, opportunities, onBack, onOp
               {stateName}
             </h2>
             <p className="text-xs text-stone-400 dark:text-stone-500">
-              {opportunities.length} event{opportunities.length !== 1 ? "s" : ""} found
+              {total} event{total !== 1 ? "s" : ""} found
             </p>
           </div>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="px-6 lg:px-8 pt-4 pb-2">
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px]">
@@ -89,13 +97,17 @@ export default function StateDetailView({ stateName, opportunities, onBack, onOp
           )}
         </div>
         <p className="text-sm text-stone-400 dark:text-stone-500 mt-3">
-          Showing {filtered.length} of {opportunities.length} event{opportunities.length !== 1 ? "s" : ""}
+          Showing {filtered.length} of {total} event{total !== 1 ? "s" : ""}
+          {totalPages > 1 && ` — page ${page} of ${totalPages}`}
         </p>
       </div>
 
-      {/* Opportunity list */}
       <div className="flex-1 overflow-y-auto px-6 lg:px-8 pb-6">
-        {filtered.length > 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center h-40">
+            <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
+          </div>
+        ) : filtered.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pt-2">
             {filtered.map((opp, i) => (
               <div key={opp.id} className="animate-slide-up" style={{ animationDelay: `${i * 40}ms` }}>
@@ -106,10 +118,10 @@ export default function StateDetailView({ stateName, opportunities, onBack, onOp
         ) : (
           <div className="text-center py-16">
             <p className="text-stone-400 dark:text-stone-500 text-lg font-display">
-              {opportunities.length === 0 ? `No events in ${stateName} yet` : "No matching events"}
+              {total === 0 ? `No events in ${stateName} yet` : "No matching events"}
             </p>
             <p className="text-sm text-stone-400 mt-1">
-              {opportunities.length === 0
+              {total === 0
                 ? "Check back soon or explore online events."
                 : "Try different search terms or clear the filter."}
             </p>
@@ -118,6 +130,28 @@ export default function StateDetailView({ stateName, opportunities, onBack, onOp
               className="mt-4 px-4 py-2 bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300 rounded-xl text-sm font-medium hover:bg-brand-100 dark:hover:bg-brand-900/50 transition-colors"
             >
               Back to Map
+            </button>
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <button
+              disabled={page <= 1}
+              onClick={() => onPageChange(page - 1)}
+              className="p-2 rounded-lg border border-stone-200 dark:border-stone-700 disabled:opacity-30 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="text-sm font-medium text-stone-600 dark:text-stone-300">
+              {page} / {totalPages}
+            </span>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => onPageChange(page + 1)}
+              className="p-2 rounded-lg border border-stone-200 dark:border-stone-700 disabled:opacity-30 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+            >
+              <ChevronRight size={18} />
             </button>
           </div>
         )}

@@ -101,22 +101,42 @@ export default function ChatPage() {
       setActiveSessionId(res.session_id);
 
       let processedContent = res.message.content;
-      // Fix links: strip any domain prefix the LLM may have added to /browse/ paths
-      processedContent = processedContent.replace(
-        /https?:\/\/[^/\s)]+\/browse\//g,
-        "/browse/"
+
+      // Build a set of cited opportunity IDs for fast lookup
+      const citedIdSet = new Set<string>(
+        (res.cited_opportunities || []).map((o) => o.id)
       );
-      // Replace any remaining external application URLs with internal /browse/{id}
-      if (res.cited_opportunities?.length) {
-        for (const opp of res.cited_opportunities) {
-          const browsePath = `/browse/${opp.id}`;
-          for (const url of [opp.application_link, opp.application_url, opp.url].filter(Boolean)) {
-            if (url && processedContent.includes(url)) {
-              processedContent = processedContent.split(url).join(browsePath);
-            }
-          }
+      // Map external URLs → internal browse path
+      const urlToPath = new Map<string, string>();
+      for (const opp of res.cited_opportunities || []) {
+        const dest = `/browse/${opp.id}`;
+        for (const u of [opp.application_link, opp.application_url, opp.url, opp.source_url].filter(Boolean) as string[]) {
+          urlToPath.set(u, dest);
         }
       }
+
+      // Rewrite ALL markdown links: [text](url) → internal /browse/{id} where possible
+      processedContent = processedContent.replace(
+        /\[([^\]]*)\]\(([^)]+)\)/g,
+        (_match, text: string, href: string) => {
+          // Already an internal link
+          if (href.startsWith("/browse/")) return `[${text}](${href})`;
+          // LLM prepended a domain to /browse/{uuid}
+          const browseMatch = href.match(/\/browse\/([0-9a-f-]{36})/);
+          if (browseMatch) return `[${text}](/browse/${browseMatch[1]})`;
+          // UUID embedded anywhere in the URL that matches a cited opportunity
+          const uuidMatch = href.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/);
+          if (uuidMatch && citedIdSet.has(uuidMatch[1])) return `[${text}](/browse/${uuidMatch[1]})`;
+          // Exact URL match from cited opportunities
+          const mapped = urlToPath.get(href);
+          if (mapped) return `[${text}](${mapped})`;
+          // Substring match (handles trailing slashes, query params, etc.)
+          for (const [url, path] of urlToPath.entries()) {
+            if (href.includes(url) || url.includes(href)) return `[${text}](${path})`;
+          }
+          return `[${text}](${href})`;
+        }
+      );
 
       const assistantMsg: DisplayMessage = {
         id: res.message.id,
