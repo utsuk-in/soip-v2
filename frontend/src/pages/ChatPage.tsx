@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Send, PanelLeftClose, PanelLeft, Plus, Sparkles } from "lucide-react";
-import { sendChatMessage, getChatSessions, getChatSession, type ChatMessage, type ChatSession, type Opportunity } from "../lib/api";
+import { sendChatMessage, getChatSessions, getChatSession, batchGetSatisfaction, type ChatMessage, type ChatSession, type Opportunity } from "../lib/api";
 import ChatBubble, { TypingIndicator } from "../components/ChatBubble";
+import SatisfactionPrompt from "../components/SatisfactionPrompt";
 import { useFeedback } from "../hooks/useFeedback";
 
 const SUGGESTED_PROMPTS = [
@@ -30,6 +31,7 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [satisfactionMap, setSatisfactionMap] = useState<Record<string, "yes" | "no">>({});
   const { feedbackMap, loadFeedback, submit: submitFeedback, hasSubmitted } = useFeedback();
   const feedbackDisabledIds = new Set(
     Object.keys(feedbackMap).filter((id) => hasSubmitted(id)),
@@ -63,6 +65,13 @@ export default function ChatPage() {
           content: m.content,
         }))
       );
+      const assistantIds = detail.messages
+        .filter((m) => m.role === "assistant")
+        .map((m) => m.id);
+      if (assistantIds.length) {
+        const existing = await batchGetSatisfaction(assistantIds);
+        setSatisfactionMap(existing as Record<string, "yes" | "no">);
+      }
     } catch {
       setMessages([]);
     }
@@ -191,17 +200,31 @@ export default function ChatPage() {
             </div>
           ) : (
             <>
-              {messages.map((msg) => (
-                <ChatBubble
-                  key={msg.id}
-                  role={msg.role}
-                  content={msg.content}
-                  citedOpportunities={msg.citedOpportunities}
-                  onOpportunityClick={(id) => navigate(`/browse/${id}`)}
-                  feedbackMap={feedbackMap}
-                  feedbackDisabledIds={feedbackDisabledIds}
-                  onFeedback={(oppId, value) => submitFeedback(oppId, value, "chat")}
-                />
+              {messages.map((msg, idx) => (
+                <React.Fragment key={msg.id}>
+                  <ChatBubble
+                    role={msg.role}
+                    content={msg.content}
+                    citedOpportunities={msg.citedOpportunities}
+                    onOpportunityClick={(id) => navigate(`/browse/${id}`)}
+                    feedbackMap={feedbackMap}
+                    feedbackDisabledIds={feedbackDisabledIds}
+                    onFeedback={(oppId, value) => submitFeedback(oppId, value, "chat")}
+                  />
+                  {msg.role === "assistant" && activeSessionId && (
+                    <SatisfactionPrompt
+                      messageId={msg.id}
+                      sessionId={activeSessionId}
+                      queryText={
+                        messages
+                          .slice(0, idx)
+                          .filter((m) => m.role === "user")
+                          .pop()?.content ?? ""
+                      }
+                      alreadySubmitted={(satisfactionMap[msg.id] as "yes" | "no") ?? null}
+                    />
+                  )}
+                </React.Fragment>
               ))}
               {sending && <TypingIndicator />}
               <div ref={messagesEndRef} />

@@ -38,3 +38,17 @@ class ChatSessionOut(BaseModel):
 class ChatSessionDetail(BaseModel):
     session: ChatSessionOut
     messages: list[ChatMessageOut] = []
+
+
+class SatisfactionRequest(BaseModel):
+    message_id: UUID
+    session_id: UUID
+    query_text: str = Field(max_length=2000)
+    response: str = Field(pattern="^(yes|no)$")
+
+
+class SatisfactionOut(BaseModel):
+    id: UUID
+    message_id: UUID
+    response: str
+    created_at: datetime | None = None

@@ -316,6 +316,35 @@ export async function batchGetFeedback(
   return res.feedbacks;
 }
 
+// --- Chat satisfaction ---
+
+export async function submitSatisfaction(
+  messageId: string,
+  sessionId: string,
+  queryText: string,
+  response: "yes" | "no",
+): Promise<{ id: string; message_id: string; response: string }> {
+  return request("/api/chat/satisfaction", {
+    method: "POST",
+    body: JSON.stringify({
+      message_id: messageId,
+      session_id: sessionId,
+      query_text: queryText,
+      response,
+    }),
+  });
+}
+
+export async function batchGetSatisfaction(
+  messageIds: string[],
+): Promise<Record<string, string>> {
+  if (!messageIds.length) return {};
+  const res = await request<{ responses: Record<string, string> }>(
+    `/api/chat/satisfaction/batch?message_ids=${messageIds.join(",")}`,
+  );
+  return res.responses;
+}
+
 // --- Alerts ---
 
 export interface Alert {
