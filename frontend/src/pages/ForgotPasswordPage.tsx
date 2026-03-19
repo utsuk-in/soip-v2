@@ -1,9 +1,13 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { forgotPassword } from "../lib/api";
 import { ArrowLeft } from "lucide-react";
 
 export default function ForgotPasswordPage() {
+  const [searchParams] = useSearchParams();
+  const isAdmin = searchParams.get("from") === "admin";
+  const backTo = isAdmin ? "/admin/login" : "/login";
+
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -54,7 +58,7 @@ export default function ForgotPasswordPage() {
                 If an account exists with <strong className="text-stone-700 dark:text-stone-300">{email}</strong>, we've sent a password reset link. It expires in 30 minutes.
               </p>
               <Link
-                to="/login"
+                to={backTo}
                 className="inline-flex items-center gap-1.5 text-sm text-brand-600 dark:text-brand-300 font-semibold hover:text-brand-700 dark:hover:text-brand-200 transition-colors"
               >
                 <ArrowLeft size={14} /> Back to Sign In
@@ -63,7 +67,7 @@ export default function ForgotPasswordPage() {
           ) : (
             <>
               <Link
-                to="/login"
+                to={backTo}
                 className="flex items-center gap-1 text-sm text-stone-400 dark:text-stone-500 hover:text-brand-600 dark:hover:text-brand-300 mb-4 transition-colors"
               >
                 <ArrowLeft size={14} /> Back to Sign In

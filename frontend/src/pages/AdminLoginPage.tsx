@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { adminRegister, login as apiLogin, getMe, getUniversities, type University } from "../lib/api";
 
@@ -115,6 +115,14 @@ export default function AdminLoginPage() {
               {loading ? "Please wait..." : mode === "login" ? "Sign In" : "Register"}
             </button>
           </form>
+
+          {mode === "login" && (
+            <p className="mt-4 text-center text-sm">
+              <Link to="/forgot-password?from=admin" className="text-brand-600 dark:text-brand-400 font-semibold hover:text-brand-700 dark:hover:text-brand-300 transition-colors">
+                Forgot Password?
+              </Link>
+            </p>
+          )}
         </div>
       </div>
     </div>
