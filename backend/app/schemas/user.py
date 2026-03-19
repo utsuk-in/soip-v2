@@ -26,6 +26,7 @@ class UserOut(BaseModel):
 
 class ProfileUpdate(BaseModel):
     """Onboarding + profile edit payload."""
+
     first_name: str | None = None
     academic_background: str | None = None
     year_of_study: str | None = None

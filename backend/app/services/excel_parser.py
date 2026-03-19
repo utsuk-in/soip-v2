@@ -43,7 +43,9 @@ def parse_xlsx(file: BinaryIO) -> tuple[list[StudentRow], list[RowError]]:
 
     raw_headers = next(rows_iter, None)
     if not raw_headers:
-        return [], [RowError(row_number=1, field="file", message="Empty file — no header row")]
+        return [], [
+            RowError(row_number=1, field="file", message="Empty file — no header row")
+        ]
 
     headers = [_normalize_header(str(h)) if h else "" for h in raw_headers]
     return _parse_rows(headers, rows_iter, start_row=2)
@@ -54,7 +56,9 @@ def parse_csv(file: BinaryIO) -> tuple[list[StudentRow], list[RowError]]:
     reader = csv.reader(io.StringIO(text))
     raw_headers = next(reader, None)
     if not raw_headers:
-        return [], [RowError(row_number=1, field="file", message="Empty file — no header row")]
+        return [], [
+            RowError(row_number=1, field="file", message="Empty file — no header row")
+        ]
 
     headers = [_normalize_header(h) for h in raw_headers]
     return _parse_rows(headers, (tuple(r) for r in reader), start_row=2)
@@ -68,7 +72,11 @@ def _parse_rows(headers: list[str], rows, start_row: int):
     header_set = set(headers)
     for req in REQUIRED_COLUMNS:
         if req not in header_set:
-            errors.append(RowError(row_number=1, field=req, message=f"Missing required column: {req}"))
+            errors.append(
+                RowError(
+                    row_number=1, field=req, message=f"Missing required column: {req}"
+                )
+            )
     if errors:
         return valid, errors
 
@@ -90,39 +98,67 @@ def _parse_rows(headers: list[str], rows, start_row: int):
         email = cell("email")
 
         if not name:
-            errors.append(RowError(row_number=row_idx, field="name", message="Name is required"))
+            errors.append(
+                RowError(row_number=row_idx, field="name", message="Name is required")
+            )
             continue
         if not email:
-            errors.append(RowError(row_number=row_idx, field="email", message="Email is required"))
+            errors.append(
+                RowError(row_number=row_idx, field="email", message="Email is required")
+            )
             continue
 
         # Basic email format check
         if "@" not in email:
-            errors.append(RowError(row_number=row_idx, field="email", message=f"Invalid email: {email}"))
+            errors.append(
+                RowError(
+                    row_number=row_idx, field="email", message=f"Invalid email: {email}"
+                )
+            )
             continue
 
-        valid.append(StudentRow(
-            row_number=row_idx,
-            name=name,
-            email=email.lower(),
-            roll_number=cell("roll_number"),
-            department=cell("department"),
-            year_of_study=cell("year_of_study"),
-        ))
+        valid.append(
+            StudentRow(
+                row_number=row_idx,
+                name=name,
+                email=email.lower(),
+                roll_number=cell("roll_number"),
+                department=cell("department"),
+                year_of_study=cell("year_of_study"),
+            )
+        )
 
     return valid, errors
 
 
 _SAMPLE_ROWS = [
-    ("Aarav Sharma", "aarav.sharma@college.edu", "CS2101", "Computer Science", "3rd Year"),
+    (
+        "Aarav Sharma",
+        "aarav.sharma@college.edu",
+        "CS2101",
+        "Computer Science",
+        "3rd Year",
+    ),
     ("Priya Nair", "priya.nair@college.edu", "EC2205", "Electronics", "2nd Year"),
     ("Rahul Gupta", "rahul.gupta@college.edu", "ME2312", "Mechanical", "3rd Year"),
-    ("Sneha Reddy", "sneha.reddy@college.edu", "IT2104", "Information Technology", "4th Year"),
+    (
+        "Sneha Reddy",
+        "sneha.reddy@college.edu",
+        "IT2104",
+        "Information Technology",
+        "4th Year",
+    ),
     ("Karthik Iyer", "karthik.iyer@college.edu", "EE2208", "Electrical", "2nd Year"),
     ("Ananya Das", "ananya.das@college.edu", "CS2115", "Computer Science", "1st Year"),
     ("Vikram Singh", "vikram.singh@college.edu", "CE2301", "Civil", "3rd Year"),
     ("Meera Joshi", "meera.joshi@college.edu", "BT2102", "Biotechnology", "2nd Year"),
-    ("Arjun Patel", "arjun.patel@college.edu", "CS2220", "Computer Science", "4th Year"),
+    (
+        "Arjun Patel",
+        "arjun.patel@college.edu",
+        "CS2220",
+        "Computer Science",
+        "4th Year",
+    ),
     ("Divya Menon", "divya.menon@college.edu", "CH2107", "Chemical", "1st Year"),
 ]
 
@@ -140,7 +176,9 @@ def generate_template_xlsx() -> bytes:
     ws.append(headers)
 
     header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    header_fill = PatternFill(
+        start_color="4F46E5", end_color="4F46E5", fill_type="solid"
+    )
     for col_idx in range(1, len(headers) + 1):
         cell = ws.cell(row=1, column=col_idx)
         cell.font = header_font

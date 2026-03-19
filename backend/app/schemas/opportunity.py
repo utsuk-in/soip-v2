@@ -37,6 +37,7 @@ class OpportunityOut(BaseModel):
 
 class OpportunityBrief(BaseModel):
     """Compact card representation for listings."""
+
     id: UUID
     title: str
     category: str

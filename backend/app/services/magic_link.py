@@ -51,18 +51,17 @@ def create_magic_link(db: Session, user_id: UUID) -> MagicLinkToken:
 
 def validate_and_consume_magic_link(db: Session, token_str: str) -> str | None:
     """Validate a magic link token. Returns a JWT access token or None if invalid."""
-    token = (
-        db.query(MagicLinkToken)
-        .filter(MagicLinkToken.token == token_str)
-        .first()
-    )
+    token = db.query(MagicLinkToken).filter(MagicLinkToken.token == token_str).first()
     if not token:
         logger.info("Magic link validation failed: token not found")
         return None
 
     user = db.query(User).filter(User.id == token.user_id).first()
     if not user or not user.is_active:
-        logger.info("Magic link validation failed: user inactive or missing for token=%s", token_str)
+        logger.info(
+            "Magic link validation failed: user inactive or missing for token=%s",
+            token_str,
+        )
         return None
     now = datetime.now(timezone.utc)
     if token.expires_at.replace(tzinfo=timezone.utc) < now:
@@ -72,7 +71,10 @@ def validate_and_consume_magic_link(db: Session, token_str: str) -> str | None:
     # Allow idempotent redemption for invited users who have not finished onboarding.
     # This avoids false failures from duplicate calls (e.g. browser double execution).
     if token.used_at is not None and user.is_onboarded:
-        logger.info("Magic link validation failed: token already used for onboarded user token=%s", token_str)
+        logger.info(
+            "Magic link validation failed: token already used for onboarded user token=%s",
+            token_str,
+        )
         return None
     if token.used_at is None:
         token.used_at = now

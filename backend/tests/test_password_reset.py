@@ -3,12 +3,11 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.password_reset import PasswordResetToken
 from app.models.user import User
-from app.services.auth import create_access_token, hash_password, verify_password
+from app.services.auth import hash_password, verify_password
 
 
 PREFIX = "pwreset-test"
@@ -46,7 +45,9 @@ def _cleanup(db: Session, suffix: str) -> None:
 class TestForgotPassword:
     """Tests for POST /api/auth/forgot-password."""
 
-    def test_happy_path_creates_token(self, client, db_session: Session, unique_id: str):
+    def test_happy_path_creates_token(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Valid request should return 200 and create a reset token."""
         try:
             user = _create_user(db_session, unique_id)
@@ -78,7 +79,9 @@ class TestForgotPassword:
         )
         assert resp.status_code == 200
 
-    def test_inactive_user_returns_200_no_token(self, client, db_session: Session, unique_id: str):
+    def test_inactive_user_returns_200_no_token(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Inactive user should get 200 but no token created."""
         try:
             user = _create_user(db_session, unique_id, is_active=False)
@@ -98,7 +101,9 @@ class TestForgotPassword:
         finally:
             _cleanup(db_session, unique_id)
 
-    def test_not_onboarded_user_returns_200_no_token(self, client, db_session: Session, unique_id: str):
+    def test_not_onboarded_user_returns_200_no_token(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Not-onboarded user should get 200 but no token created."""
         try:
             user = _create_user(db_session, unique_id, is_onboarded=False)
@@ -118,10 +123,14 @@ class TestForgotPassword:
         finally:
             _cleanup(db_session, unique_id)
 
-    def test_magic_link_only_user_returns_200_no_token(self, client, db_session: Session, unique_id: str):
+    def test_magic_link_only_user_returns_200_no_token(
+        self, client, db_session: Session, unique_id: str
+    ):
         """User with disabled password (magic-link-only) gets 200 but no token."""
         try:
-            user = _create_user(db_session, unique_id, password_hash_override="!disabled")
+            user = _create_user(
+                db_session, unique_id, password_hash_override="!disabled"
+            )
 
             resp = client.post(
                 "/api/auth/forgot-password",
@@ -138,7 +147,9 @@ class TestForgotPassword:
         finally:
             _cleanup(db_session, unique_id)
 
-    def test_new_token_invalidates_old_tokens(self, client, db_session: Session, unique_id: str):
+    def test_new_token_invalidates_old_tokens(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Requesting a new token should invalidate previous unused tokens."""
         try:
             user = _create_user(db_session, unique_id)
@@ -147,7 +158,10 @@ class TestForgotPassword:
             client.post("/api/auth/forgot-password", json={"email": user.email})
             first_token = (
                 db_session.query(PasswordResetToken)
-                .filter(PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None))
+                .filter(
+                    PasswordResetToken.user_id == user.id,
+                    PasswordResetToken.used_at.is_(None),
+                )
                 .first()
             )
             assert first_token is not None
@@ -158,13 +172,20 @@ class TestForgotPassword:
             db_session.expire_all()
 
             # First token should now be marked used
-            old_token = db_session.query(PasswordResetToken).filter(PasswordResetToken.id == first_token_id).first()
+            old_token = (
+                db_session.query(PasswordResetToken)
+                .filter(PasswordResetToken.id == first_token_id)
+                .first()
+            )
             assert old_token.used_at is not None
 
             # New unused token should exist
             active_tokens = (
                 db_session.query(PasswordResetToken)
-                .filter(PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None))
+                .filter(
+                    PasswordResetToken.user_id == user.id,
+                    PasswordResetToken.used_at.is_(None),
+                )
                 .count()
             )
             assert active_tokens == 1
@@ -177,7 +198,9 @@ class TestForgotPassword:
             user = _create_user(db_session, unique_id)
 
             for i in range(3):
-                resp = client.post("/api/auth/forgot-password", json={"email": user.email})
+                resp = client.post(
+                    "/api/auth/forgot-password", json={"email": user.email}
+                )
                 assert resp.status_code == 200
 
             resp = client.post("/api/auth/forgot-password", json={"email": user.email})
@@ -196,12 +219,17 @@ class TestResetPassword:
         db_session.expire_all()
         token = (
             db_session.query(PasswordResetToken)
-            .filter(PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None))
+            .filter(
+                PasswordResetToken.user_id == user.id,
+                PasswordResetToken.used_at.is_(None),
+            )
             .first()
         )
         return token.token
 
-    def test_happy_path_resets_password(self, client, db_session: Session, unique_id: str):
+    def test_happy_path_resets_password(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Valid token + new password should update the user's password."""
         try:
             user = _create_user(db_session, unique_id, password="OldPassword1!")
@@ -222,7 +250,9 @@ class TestResetPassword:
         finally:
             _cleanup(db_session, unique_id)
 
-    def test_can_login_with_new_password(self, client, db_session: Session, unique_id: str):
+    def test_can_login_with_new_password(
+        self, client, db_session: Session, unique_id: str
+    ):
         """After reset, user should be able to login with the new password."""
         try:
             user = _create_user(db_session, unique_id, password="OldPassword1!")
@@ -258,7 +288,9 @@ class TestResetPassword:
         )
         assert resp.status_code == 400
 
-    def test_expired_token_returns_400(self, client, db_session: Session, unique_id: str):
+    def test_expired_token_returns_400(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Expired token should return 400."""
         try:
             user = _create_user(db_session, unique_id)
@@ -305,7 +337,9 @@ class TestResetPassword:
         finally:
             _cleanup(db_session, unique_id)
 
-    def test_short_password_returns_422(self, client, db_session: Session, unique_id: str):
+    def test_short_password_returns_422(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Password shorter than 8 chars should be rejected by schema validation."""
         try:
             user = _create_user(db_session, unique_id)

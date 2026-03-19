@@ -2,7 +2,6 @@
 
 import uuid
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.chat import ChatMessage, ChatSession
@@ -64,9 +63,7 @@ class TestSatisfactionEndpoint:
         """Submitting 'yes' should store the response and return it."""
         try:
             user = _create_user(db_session, unique_id)
-            session, msg = _create_session_and_message(
-                db_session, user.id, unique_id
-            )
+            session, msg = _create_session_and_message(db_session, user.id, unique_id)
             token = create_access_token(user.id)
 
             resp = client.post(
@@ -103,9 +100,7 @@ class TestSatisfactionEndpoint:
         """Submitting 'no' should store the response and return it."""
         try:
             user = _create_user(db_session, unique_id)
-            session, msg = _create_session_and_message(
-                db_session, user.id, unique_id
-            )
+            session, msg = _create_session_and_message(db_session, user.id, unique_id)
             token = create_access_token(user.id)
 
             resp = client.post(
@@ -129,9 +124,7 @@ class TestSatisfactionEndpoint:
         """Submitting satisfaction for the same message twice returns the original response."""
         try:
             user = _create_user(db_session, unique_id)
-            session, msg = _create_session_and_message(
-                db_session, user.id, unique_id
-            )
+            session, msg = _create_session_and_message(db_session, user.id, unique_id)
             token = create_access_token(user.id)
             payload = {
                 "message_id": str(msg.id),
@@ -163,9 +156,7 @@ class TestSatisfactionEndpoint:
                 db_session.query(InteractionLog)
                 .filter(
                     InteractionLog.user_id == user.id,
-                    InteractionLog.action.in_(
-                        ("chat_helpful_yes", "chat_helpful_no")
-                    ),
+                    InteractionLog.action.in_(("chat_helpful_yes", "chat_helpful_no")),
                 )
                 .count()
             )

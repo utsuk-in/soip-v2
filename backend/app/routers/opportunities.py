@@ -9,13 +9,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy import or_, func, select, over, literal_column
+from sqlalchemy import or_, func, select
 
 from app.database import get_db
 from app.models.opportunity import Opportunity
 from app.utils.enums import OpportunityCategory, OpportunityMode
 from app.models.user import User
-from app.schemas.opportunity import OpportunityBrief, OpportunityOut, OpportunityListResponse
+from app.schemas.opportunity import (
+    OpportunityBrief,
+    OpportunityOut,
+    OpportunityListResponse,
+)
 from app.services.embedder import embed_query
 from app.services.relevance import rerank_for_user
 from app.services.reranker import rerank_with_cross_encoder
@@ -40,6 +44,7 @@ def invalidate_recommended_cache(user_id: UUID) -> None:
     """Clear the recommended-opportunities cache for a specific user."""
     _recommended_cache.pop(user_id, None)
 
+
 _optional_bearer = HTTPBearer(auto_error=False)
 
 
@@ -52,9 +57,12 @@ def _optional_current_user(
         return None
     from jose import JWTError, jwt as jose_jwt
     from app.config import settings as _settings
+
     try:
         payload = jose_jwt.decode(
-            credentials.credentials, _settings.jwt_secret, algorithms=[_settings.jwt_algorithm]
+            credentials.credentials,
+            _settings.jwt_secret,
+            algorithms=[_settings.jwt_algorithm],
         )
         user_id_raw = payload.get("sub")
         if not user_id_raw:
@@ -99,9 +107,11 @@ def browse_opportunities(
         if domains:
             conditions = []
             for d in domains:
-                tag = func.jsonb_array_elements_text(
-                    Opportunity.domain_tags.cast(JSONB)
-                ).table_valued("value").alias("tag")
+                tag = (
+                    func.jsonb_array_elements_text(Opportunity.domain_tags.cast(JSONB))
+                    .table_valued("value")
+                    .alias("tag")
+                )
                 conditions.append(
                     select(1)
                     .select_from(tag)
@@ -118,7 +128,9 @@ def browse_opportunities(
                 loc = loc.strip().lower()
                 if not loc:
                     continue
-                loc_conditions.append(func.lower(Opportunity.location).ilike(f"%{loc}%"))
+                loc_conditions.append(
+                    func.lower(Opportunity.location).ilike(f"%{loc}%")
+                )
                 loc_conditions.append(func.lower(Opportunity.state).ilike(f"%{loc}%"))
             if loc_conditions:
                 query = query.filter(or_(*loc_conditions))
@@ -201,7 +213,9 @@ def browse_opportunities(
 @router.get("/recommended", response_model=list[OpportunityOut])
 async def recommended_opportunities(
     limit: int = Query(default=12, ge=1, le=50),
-    explain: bool = Query(default=False, description="Generate LLM explanations (slower)"),
+    explain: bool = Query(
+        default=False, description="Generate LLM explanations (slower)"
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -210,12 +224,22 @@ async def recommended_opportunities(
 
     # Check per-user response cache
     cached = _recommended_cache.get(current_user.id)
-    if cached and (time.monotonic() - cached[0]) < _RECOMMENDED_TTL and cached[1] >= limit:
-        logger.info("Recommended: cache hit for user %s (%.0fms)", current_user.id, (time.monotonic() - t0) * 1000)
+    if (
+        cached
+        and (time.monotonic() - cached[0]) < _RECOMMENDED_TTL
+        and cached[1] >= limit
+    ):
+        logger.info(
+            "Recommended: cache hit for user %s (%.0fms)",
+            current_user.id,
+            (time.monotonic() - t0) * 1000,
+        )
         return cached[2][:limit]
 
     profile_text = _build_profile_query(current_user)
-    domains = normalize_domains((current_user.interests or []) + (current_user.skills or []))
+    domains = normalize_domains(
+        (current_user.interests or []) + (current_user.skills or [])
+    )
     categories = _extract_profile_categories(current_user)
 
     # Retrieve pool only needs to be ~2x the final limit
@@ -223,7 +247,9 @@ async def recommended_opportunities(
 
     candidates: list[ScoredOpportunity] = []
     if profile_text:
-        logger.info("Recommended: user=%s profile_query=%s", current_user.id, profile_text[:80])
+        logger.info(
+            "Recommended: user=%s profile_query=%s", current_user.id, profile_text[:80]
+        )
 
         query_embedding = await embed_query(profile_text)
         t_embed = time.monotonic()
@@ -231,7 +257,8 @@ async def recommended_opportunities(
 
         candidates = await asyncio.to_thread(
             lambda: recommend_retrieve(
-                db, query_embedding,
+                db,
+                query_embedding,
                 search_text=profile_text,
                 categories=categories or None,
                 domains=domains or None,
@@ -239,12 +266,21 @@ async def recommended_opportunities(
             )
         )
         t_retrieve = time.monotonic()
-        logger.info("Recommended: retrieve done (%d candidates, %.0fms)", len(candidates), (t_retrieve - t_embed) * 1000)
+        logger.info(
+            "Recommended: retrieve done (%d candidates, %.0fms)",
+            len(candidates),
+            (t_retrieve - t_embed) * 1000,
+        )
 
         if settings.rerank_enabled:
-            candidates = await asyncio.to_thread(rerank_with_cross_encoder, profile_text, candidates)
+            candidates = await asyncio.to_thread(
+                rerank_with_cross_encoder, profile_text, candidates
+            )
             t_rerank = time.monotonic()
-            logger.info("Recommended: cross-encoder done (%.0fms)", (t_rerank - t_retrieve) * 1000)
+            logger.info(
+                "Recommended: cross-encoder done (%.0fms)",
+                (t_rerank - t_retrieve) * 1000,
+            )
 
         candidates = rerank_for_user(current_user, candidates)
 
@@ -258,9 +294,11 @@ async def recommended_opportunities(
         if domains:
             conditions = []
             for d in domains:
-                tag = func.jsonb_array_elements_text(
-                    Opportunity.domain_tags.cast(JSONB)
-                ).table_valued("value").alias("tag")
+                tag = (
+                    func.jsonb_array_elements_text(Opportunity.domain_tags.cast(JSONB))
+                    .table_valued("value")
+                    .alias("tag")
+                )
                 conditions.append(
                     select(1)
                     .select_from(tag)
@@ -328,7 +366,11 @@ async def recommended_opportunities(
                 setattr(opp, "relevance_explanation", text)
 
     _recommended_cache[current_user.id] = (time.monotonic(), limit, sorted_opps)
-    logger.info("Recommended: total %.0fms, returned %d opps", (time.monotonic() - t0) * 1000, len(sorted_opps))
+    logger.info(
+        "Recommended: total %.0fms, returned %d opps",
+        (time.monotonic() - t0) * 1000,
+        len(sorted_opps),
+    )
 
     return sorted_opps
 
@@ -384,9 +426,7 @@ def _deterministic_explanations(
     candidates: list[ScoredOpportunity],
 ) -> dict[str, str]:
     """Instant, zero-cost explanations from profile/tag overlap."""
-    user_tags = set(
-        t.lower() for t in (user.interests or [])
-    ) | set(
+    user_tags = set(t.lower() for t in (user.interests or [])) | set(
         t.lower() for t in (user.skills or [])
     )
     result: dict[str, str] = {}
@@ -398,7 +438,9 @@ def _deterministic_explanations(
             cat = cat.value
         parts: list[str] = []
         if overlap:
-            parts.append(f"This {cat or 'opportunity'} aligns with your interest in {', '.join(sorted(overlap))}.")
+            parts.append(
+                f"This {cat or 'opportunity'} aligns with your interest in {', '.join(sorted(overlap))}."
+            )
         elif cat:
             parts.append(f"This {cat} may match your profile.")
         if parts:
@@ -455,24 +497,35 @@ def opportunity_stats_by_state(
 
 
 _CITY_STATE_MAP: dict[str, str] = {
-    "bangalore": "Karnataka", "bengaluru": "Karnataka",
-    "mumbai": "Maharashtra", "pune": "Maharashtra", "nagpur": "Maharashtra",
-    "delhi": "NCT of Delhi", "new delhi": "NCT of Delhi",
-    "noida": "Uttar Pradesh", "lucknow": "Uttar Pradesh",
-    "gurgaon": "Haryana", "gurugram": "Haryana",
+    "bangalore": "Karnataka",
+    "bengaluru": "Karnataka",
+    "mumbai": "Maharashtra",
+    "pune": "Maharashtra",
+    "nagpur": "Maharashtra",
+    "delhi": "NCT of Delhi",
+    "new delhi": "NCT of Delhi",
+    "noida": "Uttar Pradesh",
+    "lucknow": "Uttar Pradesh",
+    "gurgaon": "Haryana",
+    "gurugram": "Haryana",
     "hyderabad": "Telangana",
-    "chennai": "Tamil Nadu", "coimbatore": "Tamil Nadu",
+    "chennai": "Tamil Nadu",
+    "coimbatore": "Tamil Nadu",
     "kolkata": "West Bengal",
-    "ahmedabad": "Gujarat", "surat": "Gujarat",
+    "ahmedabad": "Gujarat",
+    "surat": "Gujarat",
     "jaipur": "Rajasthan",
     "chandigarh": "Chandigarh",
-    "bhopal": "Madhya Pradesh", "indore": "Madhya Pradesh",
-    "thiruvananthapuram": "Kerala", "kochi": "Kerala",
+    "bhopal": "Madhya Pradesh",
+    "indore": "Madhya Pradesh",
+    "thiruvananthapuram": "Kerala",
+    "kochi": "Kerala",
     "bhubaneswar": "Odisha",
     "patna": "Bihar",
     "ranchi": "Jharkhand",
     "guwahati": "Assam",
-    "visakhapatnam": "Andhra Pradesh", "vijayawada": "Andhra Pradesh",
+    "visakhapatnam": "Andhra Pradesh",
+    "vijayawada": "Andhra Pradesh",
     "dehradun": "Uttarakhand",
     "shimla": "Himachal Pradesh",
     "gangtok": "Sikkim",
@@ -481,13 +534,40 @@ _CITY_STATE_MAP: dict[str, str] = {
 }
 
 _KNOWN_STATES: set[str] = {
-    "andhra pradesh", "arunachal pradesh", "assam", "bihar", "chhattisgarh",
-    "goa", "gujarat", "haryana", "himachal pradesh", "jharkhand", "karnataka",
-    "kerala", "madhya pradesh", "maharashtra", "manipur", "meghalaya",
-    "mizoram", "nagaland", "odisha", "punjab", "rajasthan", "sikkim",
-    "tamil nadu", "telangana", "tripura", "uttar pradesh", "uttarakhand",
-    "west bengal", "delhi", "nct of delhi", "jammu & kashmir", "ladakh",
-    "chandigarh", "puducherry",
+    "andhra pradesh",
+    "arunachal pradesh",
+    "assam",
+    "bihar",
+    "chhattisgarh",
+    "goa",
+    "gujarat",
+    "haryana",
+    "himachal pradesh",
+    "jharkhand",
+    "karnataka",
+    "kerala",
+    "madhya pradesh",
+    "maharashtra",
+    "manipur",
+    "meghalaya",
+    "mizoram",
+    "nagaland",
+    "odisha",
+    "punjab",
+    "rajasthan",
+    "sikkim",
+    "tamil nadu",
+    "telangana",
+    "tripura",
+    "uttar pradesh",
+    "uttarakhand",
+    "west bengal",
+    "delhi",
+    "nct of delhi",
+    "jammu & kashmir",
+    "ladakh",
+    "chandigarh",
+    "puducherry",
 }
 
 _STATE_NAME_NORMALIZE: dict[str, str] = {
@@ -583,6 +663,7 @@ def get_opportunity(
         )
     if current_user:
         from app.models.interaction_log import InteractionLog
+
         log = InteractionLog(
             user_id=current_user.id,
             opportunity_id=opp.id,

@@ -66,7 +66,9 @@ def recommend_retrieve(
     Optionally supplements with FTS for keyword coverage on opps with
     missing/poor embeddings. Fuses both channels with RRF.
     """
-    vector_results = _opportunity_vector_search(db, query_embedding, categories, domains, limit)
+    vector_results = _opportunity_vector_search(
+        db, query_embedding, categories, domains, limit
+    )
 
     fts_results: list[ScoredOpportunity] = []
     if search_text and search_text.strip():
@@ -152,21 +154,23 @@ def _opportunity_vector_search(
 
     results: list[ScoredOpportunity] = []
     for rank, row in enumerate(rows, start=1):
-        results.append(ScoredOpportunity(
-            id=row.id,
-            title=row.title,
-            description=row.description,
-            category=row.category or "other",
-            domain_tags=row.domain_tags or [],
-            eligibility=row.eligibility,
-            benefits=row.benefits,
-            deadline=row.deadline,
-            application_link=row.application_link or "",
-            source_url=row.source_url or "",
-            confidence=row.confidence,
-            vector_rank=rank,
-            hybrid_score=1.0 / (_RRF_K + rank),
-        ))
+        results.append(
+            ScoredOpportunity(
+                id=row.id,
+                title=row.title,
+                description=row.description,
+                category=row.category or "other",
+                domain_tags=row.domain_tags or [],
+                eligibility=row.eligibility,
+                benefits=row.benefits,
+                deadline=row.deadline,
+                application_link=row.application_link or "",
+                source_url=row.source_url or "",
+                confidence=row.confidence,
+                vector_rank=rank,
+                hybrid_score=1.0 / (_RRF_K + rank),
+            )
+        )
 
     logger.debug(f"Opportunity vector search: {len(results)} results")
     return results
@@ -273,34 +277,40 @@ def _chunk_vector_search(
 
         if opp_id:
             seen_opps[opp_id] = rank
-            results.append(ScoredOpportunity(
-                id=opp_id,
-                title=row.title,
-                description=row.description,
-                category=row.category or "other",
-                domain_tags=row.domain_tags or [],
-                eligibility=row.eligibility,
-                benefits=row.benefits,
-                deadline=row.deadline,
-                application_link=row.application_link or "",
-                source_url=row.source_url or row.s_base_url or "",
-                confidence=row.confidence,
-                chunk_context=row.chunk_content,
-                vector_rank=rank,
-            ))
+            results.append(
+                ScoredOpportunity(
+                    id=opp_id,
+                    title=row.title,
+                    description=row.description,
+                    category=row.category or "other",
+                    domain_tags=row.domain_tags or [],
+                    eligibility=row.eligibility,
+                    benefits=row.benefits,
+                    deadline=row.deadline,
+                    application_link=row.application_link or "",
+                    source_url=row.source_url or row.s_base_url or "",
+                    confidence=row.confidence,
+                    chunk_context=row.chunk_content,
+                    vector_rank=rank,
+                )
+            )
         else:
             # Orphan chunk — synthesize a result from chunk content + source info
-            results.append(ScoredOpportunity(
-                id=row.chunk_id,
-                title=_extract_title_from_chunk(row.chunk_content),
-                description=row.chunk_content[:500],
-                category="other",
-                source_url=row.s_base_url or "",
-                chunk_context=row.chunk_content,
-                vector_rank=rank,
-            ))
+            results.append(
+                ScoredOpportunity(
+                    id=row.chunk_id,
+                    title=_extract_title_from_chunk(row.chunk_content),
+                    description=row.chunk_content[:500],
+                    category="other",
+                    source_url=row.s_base_url or "",
+                    chunk_context=row.chunk_content,
+                    vector_rank=rank,
+                )
+            )
 
-    logger.debug(f"Chunk vector search: {len(results)} results ({len(seen_opps)} linked, {len(results) - len(seen_opps)} orphan)")
+    logger.debug(
+        f"Chunk vector search: {len(results)} results ({len(seen_opps)} linked, {len(results) - len(seen_opps)} orphan)"
+    )
     return results
 
 
@@ -378,20 +388,22 @@ def _fts_search(
 
     results: list[ScoredOpportunity] = []
     for rank, row in enumerate(rows, start=1):
-        results.append(ScoredOpportunity(
-            id=row.id,
-            title=row.title,
-            description=row.description,
-            category=row.category,
-            domain_tags=row.domain_tags or [],
-            eligibility=row.eligibility,
-            benefits=row.benefits,
-            deadline=row.deadline,
-            application_link=row.application_link,
-            source_url=row.source_url,
-            confidence=row.confidence,
-            fts_rank=rank,
-        ))
+        results.append(
+            ScoredOpportunity(
+                id=row.id,
+                title=row.title,
+                description=row.description,
+                category=row.category,
+                domain_tags=row.domain_tags or [],
+                eligibility=row.eligibility,
+                benefits=row.benefits,
+                deadline=row.deadline,
+                application_link=row.application_link,
+                source_url=row.source_url,
+                confidence=row.confidence,
+                fts_rank=rank,
+            )
+        )
 
     logger.debug(f"FTS returned {len(results)} results")
     return results
@@ -462,31 +474,35 @@ def _chunk_fts_search(
 
         if opp_id:
             seen_opps.add(opp_id)
-            results.append(ScoredOpportunity(
-                id=opp_id,
-                title=row.title,
-                description=row.description,
-                category=row.category or "other",
-                domain_tags=row.domain_tags or [],
-                eligibility=row.eligibility,
-                benefits=row.benefits,
-                deadline=row.deadline,
-                application_link=row.application_link or "",
-                source_url=row.source_url or row.s_base_url or "",
-                confidence=row.confidence,
-                chunk_context=row.chunk_content,
-                chunk_fts_rank=rank_num,
-            ))
+            results.append(
+                ScoredOpportunity(
+                    id=opp_id,
+                    title=row.title,
+                    description=row.description,
+                    category=row.category or "other",
+                    domain_tags=row.domain_tags or [],
+                    eligibility=row.eligibility,
+                    benefits=row.benefits,
+                    deadline=row.deadline,
+                    application_link=row.application_link or "",
+                    source_url=row.source_url or row.s_base_url or "",
+                    confidence=row.confidence,
+                    chunk_context=row.chunk_content,
+                    chunk_fts_rank=rank_num,
+                )
+            )
         else:
-            results.append(ScoredOpportunity(
-                id=row.chunk_id,
-                title=_extract_title_from_chunk(row.chunk_content),
-                description=row.chunk_content[:500],
-                category="other",
-                source_url=row.s_base_url or "",
-                chunk_context=row.chunk_content,
-                chunk_fts_rank=rank_num,
-            ))
+            results.append(
+                ScoredOpportunity(
+                    id=row.chunk_id,
+                    title=_extract_title_from_chunk(row.chunk_content),
+                    description=row.chunk_content[:500],
+                    category="other",
+                    source_url=row.s_base_url or "",
+                    chunk_context=row.chunk_content,
+                    chunk_fts_rank=rank_num,
+                )
+            )
 
     logger.debug(f"Chunk FTS returned {len(results)} results")
     return results
@@ -561,20 +577,22 @@ def _keyword_ilike_search(
 
     results: list[ScoredOpportunity] = []
     for rank, row in enumerate(rows, start=1):
-        results.append(ScoredOpportunity(
-            id=row.id,
-            title=row.title,
-            description=row.description,
-            category=row.category or "other",
-            domain_tags=row.domain_tags or [],
-            eligibility=row.eligibility,
-            benefits=row.benefits,
-            deadline=row.deadline,
-            application_link=row.application_link or "",
-            source_url=row.source_url or "",
-            confidence=row.confidence,
-            keyword_rank=rank,
-        ))
+        results.append(
+            ScoredOpportunity(
+                id=row.id,
+                title=row.title,
+                description=row.description,
+                category=row.category or "other",
+                domain_tags=row.domain_tags or [],
+                eligibility=row.eligibility,
+                benefits=row.benefits,
+                deadline=row.deadline,
+                application_link=row.application_link or "",
+                source_url=row.source_url or "",
+                confidence=row.confidence,
+                keyword_rank=rank,
+            )
+        )
 
     logger.debug(f"Keyword ILIKE search: {len(results)} results")
     return results
@@ -635,7 +653,7 @@ def _rrf_fuse(
         else:
             merged[opp.id] = opp
 
-    for opp in (keyword_results or []):
+    for opp in keyword_results or []:
         if opp.id in merged:
             merged[opp.id].keyword_rank = opp.keyword_rank
         else:

@@ -2,7 +2,6 @@
 
 import logging
 from datetime import datetime, timezone
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -21,11 +20,7 @@ def find_duplicate_emails(db: Session, emails: list[str]) -> list[str]:
     """Return emails that already exist in the DB."""
     if not emails:
         return []
-    existing = (
-        db.query(User.email)
-        .filter(User.email.in_(emails))
-        .all()
-    )
+    existing = db.query(User.email).filter(User.email.in_(emails)).all()
     return [row.email for row in existing]
 
 
@@ -68,12 +63,14 @@ def confirm_upload(
                 ml_token = create_magic_link(db, user.id)
 
             link_url = f"{settings.frontend_base_url}/magic-link?token={ml_token.token}"
-            invited_students.append(MagicLinkResult(
-                student_id=user.id,
-                email=student.email,
-                magic_token=ml_token.token,
-                magic_link_url=link_url,
-            ))
+            invited_students.append(
+                MagicLinkResult(
+                    student_id=user.id,
+                    email=student.email,
+                    magic_token=ml_token.token,
+                    magic_link_url=link_url,
+                )
+            )
             invited += 1
 
             send_invite_email(

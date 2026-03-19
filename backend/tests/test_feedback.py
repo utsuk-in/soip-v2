@@ -2,7 +2,6 @@
 
 import uuid
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.interaction_log import InteractionLog
@@ -65,10 +64,12 @@ def _cleanup(db: Session, suffix: str) -> None:
     test_users = db.query(User.id).filter(User.email.like(f"%fb-test-{suffix}%")).all()
     test_user_ids = [u[0] for u in test_users] if test_users else []
     if test_user_ids:
-        db.query(InteractionLog).filter(InteractionLog.user_id.in_(test_user_ids)).delete(
-            synchronize_session=False
-        )
-    db.query(Opportunity).filter(Opportunity.title.like(f"%Feedback Test Opp {suffix}%")).delete()
+        db.query(InteractionLog).filter(
+            InteractionLog.user_id.in_(test_user_ids)
+        ).delete(synchronize_session=False)
+    db.query(Opportunity).filter(
+        Opportunity.title.like(f"%Feedback Test Opp {suffix}%")
+    ).delete()
     db.query(User).filter(User.email.like(f"%fb-test-{suffix}%")).delete()
     db.query(University).filter(University.name.like(f"%fb-test-{suffix}%")).delete()
     db.commit()
@@ -77,7 +78,9 @@ def _cleanup(db: Session, suffix: str) -> None:
 class TestFeedbackSubmission:
     """Tests for POST /api/feedback — submit and update feedback."""
 
-    def test_submit_thumbs_up_from_feed(self, client, db_session: Session, unique_id: str):
+    def test_submit_thumbs_up_from_feed(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Submitting thumbs_up from feed should persist correctly."""
         try:
             user = _create_user(db_session, unique_id)
@@ -114,7 +117,9 @@ class TestFeedbackSubmission:
         finally:
             _cleanup(db_session, unique_id)
 
-    def test_submit_thumbs_down_from_chat(self, client, db_session: Session, unique_id: str):
+    def test_submit_thumbs_down_from_chat(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Submitting thumbs_down from chat should persist correctly."""
         try:
             user = _create_user(db_session, unique_id)
@@ -137,7 +142,9 @@ class TestFeedbackSubmission:
         finally:
             _cleanup(db_session, unique_id)
 
-    def test_update_feedback_replaces_value(self, client, db_session: Session, unique_id: str):
+    def test_update_feedback_replaces_value(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Resubmitting feedback should update (not duplicate) the existing row."""
         try:
             user = _create_user(db_session, unique_id)
@@ -148,14 +155,22 @@ class TestFeedbackSubmission:
             client.post(
                 "/api/feedback",
                 headers=_auth_headers(token),
-                json={"opportunity_id": str(opp.id), "value": "thumbs_up", "source": "feed"},
+                json={
+                    "opportunity_id": str(opp.id),
+                    "value": "thumbs_up",
+                    "source": "feed",
+                },
             )
 
             # Update to thumbs_down
             resp = client.post(
                 "/api/feedback",
                 headers=_auth_headers(token),
-                json={"opportunity_id": str(opp.id), "value": "thumbs_down", "source": "feed"},
+                json={
+                    "opportunity_id": str(opp.id),
+                    "value": "thumbs_down",
+                    "source": "feed",
+                },
             )
             assert resp.status_code == 200
             assert resp.json()["value"] == "thumbs_down"
@@ -174,7 +189,9 @@ class TestFeedbackSubmission:
         finally:
             _cleanup(db_session, unique_id)
 
-    def test_update_feedback_changes_source(self, client, db_session: Session, unique_id: str):
+    def test_update_feedback_changes_source(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Resubmitting from a different source should update the source metadata."""
         try:
             user = _create_user(db_session, unique_id)
@@ -185,14 +202,22 @@ class TestFeedbackSubmission:
             client.post(
                 "/api/feedback",
                 headers=_auth_headers(token),
-                json={"opportunity_id": str(opp.id), "value": "thumbs_up", "source": "feed"},
+                json={
+                    "opportunity_id": str(opp.id),
+                    "value": "thumbs_up",
+                    "source": "feed",
+                },
             )
 
             # Resubmit from chat
             resp = client.post(
                 "/api/feedback",
                 headers=_auth_headers(token),
-                json={"opportunity_id": str(opp.id), "value": "thumbs_down", "source": "chat"},
+                json={
+                    "opportunity_id": str(opp.id),
+                    "value": "thumbs_down",
+                    "source": "chat",
+                },
             )
             assert resp.status_code == 200
             assert resp.json()["source"] == "chat"
@@ -216,7 +241,9 @@ class TestFeedbackSubmission:
 class TestFeedbackBatchGet:
     """Tests for GET /api/feedback/batch — batch retrieval."""
 
-    def test_batch_get_returns_correct_mapping(self, client, db_session: Session, unique_id: str):
+    def test_batch_get_returns_correct_mapping(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Batch get should return feedback for submitted opps only."""
         try:
             user = _create_user(db_session, unique_id)
@@ -229,12 +256,20 @@ class TestFeedbackBatchGet:
             client.post(
                 "/api/feedback",
                 headers=_auth_headers(token),
-                json={"opportunity_id": str(opp1.id), "value": "thumbs_up", "source": "feed"},
+                json={
+                    "opportunity_id": str(opp1.id),
+                    "value": "thumbs_up",
+                    "source": "feed",
+                },
             )
             client.post(
                 "/api/feedback",
                 headers=_auth_headers(token),
-                json={"opportunity_id": str(opp2.id), "value": "thumbs_down", "source": "chat"},
+                json={
+                    "opportunity_id": str(opp2.id),
+                    "value": "thumbs_down",
+                    "source": "chat",
+                },
             )
 
             ids = f"{opp1.id},{opp2.id},{opp3.id}"
@@ -253,7 +288,9 @@ class TestFeedbackBatchGet:
             _cleanup(db_session, f"{unique_id}-c")
             _cleanup(db_session, unique_id)
 
-    def test_batch_get_invalid_uuid_returns_400(self, client, db_session: Session, unique_id: str):
+    def test_batch_get_invalid_uuid_returns_400(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Passing invalid UUIDs should return 400."""
         try:
             user = _create_user(db_session, unique_id)

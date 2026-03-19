@@ -23,7 +23,11 @@ def _truncate_password_bytes(password: str | bytes) -> bytes:
     the bcrypt library never receives more than 72 bytes."""
     if isinstance(password, bytes):
         return password[:_BCRYPT_MAX_BYTES]
-    raw = password.encode("utf-8") if isinstance(password, str) else str(password).encode("utf-8")
+    raw = (
+        password.encode("utf-8")
+        if isinstance(password, str)
+        else str(password).encode("utf-8")
+    )
     return raw[:_BCRYPT_MAX_BYTES]
 
 
@@ -38,9 +42,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_access_token(user_id: UUID) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.jwt_expire_minutes
-    )
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
     payload = {"sub": str(user_id), "exp": expire}
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 

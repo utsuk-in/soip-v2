@@ -77,7 +77,9 @@ async def embed_chunks(
                 embedded += 1
 
             db.commit()
-            logger.info(f"Embedded chunk batch {i // _BATCH_SIZE + 1}: {len(batch)} chunks")
+            logger.info(
+                f"Embedded chunk batch {i // _BATCH_SIZE + 1}: {len(batch)} chunks"
+            )
         except Exception as e:
             logger.error(f"Chunk embedding batch {i // _BATCH_SIZE + 1} failed: {e}")
             db.rollback()
@@ -88,11 +90,7 @@ async def embed_chunks(
 
 async def embed_pending_chunks(db: Session) -> int:
     """Find all chunks missing embeddings and generate them with source context."""
-    pending = (
-        db.query(ContentChunk)
-        .filter(ContentChunk.embedding.is_(None))
-        .all()
-    )
+    pending = db.query(ContentChunk).filter(ContentChunk.embedding.is_(None)).all()
     if not pending:
         logger.info("No pending chunk embeddings")
         return 0
@@ -128,9 +126,7 @@ def prepare_embedding_text(opp: Opportunity) -> str:
     return "\n".join(parts)
 
 
-async def embed_opportunities(
-    db: Session, opportunities: Sequence[Opportunity]
-) -> int:
+async def embed_opportunities(db: Session, opportunities: Sequence[Opportunity]) -> int:
     """Batch-embed opportunities and store vectors."""
     if not opportunities:
         return 0

@@ -73,7 +73,11 @@ def _extract_user_categories(user: User) -> set[str]:
         "competitions": "competition",
         "scholarships": "scholarship",
     }
-    raw_terms = _lower_list(user.aspirations) + _lower_list(user.interests) + _lower_list(user.skills)
+    raw_terms = (
+        _lower_list(user.aspirations)
+        + _lower_list(user.interests)
+        + _lower_list(user.skills)
+    )
     categories: set[str] = set()
     for term in raw_terms:
         key = alias_map.get(term, term)

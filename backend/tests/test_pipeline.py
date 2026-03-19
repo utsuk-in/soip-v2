@@ -3,7 +3,6 @@
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.opportunity import Opportunity
@@ -64,7 +63,9 @@ def _make_extracted(suffix: str, **overrides) -> ExtractedOpportunity:
 
 
 def _cleanup_pipeline(db: Session, suffix: str) -> None:
-    db.query(Opportunity).filter(Opportunity.title.like(f"%Pipeline Test Opp {suffix}%")).delete()
+    db.query(Opportunity).filter(
+        Opportunity.title.like(f"%Pipeline Test Opp {suffix}%")
+    ).delete()
     db.query(ScrapePage).filter(ScrapePage.raw_content == "test content").delete()
     db.query(Source).filter(Source.name.like(f"%pipeline-test-{suffix}%")).delete()
     db.commit()
@@ -73,7 +74,9 @@ def _cleanup_pipeline(db: Session, suffix: str) -> None:
 class TestExpirePastDeadlinesIdempotent:
     """Verify _expire_past_deadlines is idempotent."""
 
-    def test_expire_twice_second_returns_zero(self, db_session: Session, unique_id: str):
+    def test_expire_twice_second_returns_zero(
+        self, db_session: Session, unique_id: str
+    ):
         """Running expiry twice should return 0 on the second run."""
         try:
             opp = Opportunity(

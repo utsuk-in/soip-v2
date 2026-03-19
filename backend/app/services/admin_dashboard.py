@@ -9,7 +9,12 @@ from sqlalchemy.orm import Session
 from app.models.interaction_log import InteractionLog
 from app.models.magic_link import MagicLinkToken
 from app.models.user import User
-from app.schemas.admin import DashboardMetrics, StudentActivity, StudentListItem, StudentListResponse
+from app.schemas.admin import (
+    DashboardMetrics,
+    StudentActivity,
+    StudentListItem,
+    StudentListResponse,
+)
 
 
 def get_dashboard_metrics(db: Session, university_id: UUID) -> DashboardMetrics:
@@ -20,7 +25,9 @@ def get_dashboard_metrics(db: Session, university_id: UUID) -> DashboardMetrics:
 
     total_invited = base.count()
     total_activated = base.filter(User.is_onboarded).count()
-    activation_rate = (total_activated / total_invited * 100) if total_invited > 0 else 0.0
+    activation_rate = (
+        (total_activated / total_invited * 100) if total_invited > 0 else 0.0
+    )
 
     student_ids = [r.id for r in base.with_entities(User.id).all()]
 
@@ -29,13 +36,20 @@ def get_dashboard_metrics(db: Session, university_id: UUID) -> DashboardMetrics:
     if student_ids:
         total_views = (
             db.query(func.count(InteractionLog.id))
-            .filter(InteractionLog.user_id.in_(student_ids), InteractionLog.action == "view")
-            .scalar() or 0
+            .filter(
+                InteractionLog.user_id.in_(student_ids), InteractionLog.action == "view"
+            )
+            .scalar()
+            or 0
         )
         total_applications = (
             db.query(func.count(InteractionLog.id))
-            .filter(InteractionLog.user_id.in_(student_ids), InteractionLog.action == "apply")
-            .scalar() or 0
+            .filter(
+                InteractionLog.user_id.in_(student_ids),
+                InteractionLog.action == "apply",
+            )
+            .scalar()
+            or 0
         )
 
     return DashboardMetrics(
@@ -68,9 +82,7 @@ def get_student_list(
     # Global search (name + email combined)
     if search:
         like = f"%{search}%"
-        query = query.filter(
-            User.first_name.ilike(like) | User.email.ilike(like)
-        )
+        query = query.filter(User.first_name.ilike(like) | User.email.ilike(like))
 
     # Per-column text filters
     TEXT_FILTERS = {"name": User.first_name, "email": User.email}
@@ -151,12 +163,14 @@ def get_student_activity(db: Session, student_id: UUID) -> StudentActivity:
     total_views = (
         db.query(func.count(InteractionLog.id))
         .filter(InteractionLog.user_id == student_id, InteractionLog.action == "view")
-        .scalar() or 0
+        .scalar()
+        or 0
     )
     total_logins = (
         db.query(func.count(InteractionLog.id))
         .filter(InteractionLog.user_id == student_id, InteractionLog.action == "login")
-        .scalar() or 0
+        .scalar()
+        or 0
     )
 
     recent = (
@@ -175,7 +189,12 @@ def get_student_activity(db: Session, student_id: UUID) -> StudentActivity:
         }
         if log.opportunity_id:
             from app.models.opportunity import Opportunity
-            opp = db.query(Opportunity.title).filter(Opportunity.id == log.opportunity_id).first()
+
+            opp = (
+                db.query(Opportunity.title)
+                .filter(Opportunity.id == log.opportunity_id)
+                .first()
+            )
             if opp:
                 entry["opportunity_title"] = opp.title
         recent_activity.append(entry)

@@ -83,9 +83,7 @@ async def handle_chat_message(
     # 9. Fetch full opportunity objects for the cited ones
     cited_ids = [str(o.id) for o in top]
     cited_opps = (
-        db.query(Opportunity)
-        .filter(Opportunity.id.in_([o.id for o in top]))
-        .all()
+        db.query(Opportunity).filter(Opportunity.id.in_([o.id for o in top])).all()
         if top
         else []
     )
@@ -97,7 +95,9 @@ async def handle_chat_message(
             ExplanationOpportunity(
                 id=str(o.id),
                 title=o.title,
-                category=o.category.value if hasattr(o.category, "value") else str(o.category),
+                category=o.category.value
+                if hasattr(o.category, "value")
+                else str(o.category),
                 domain_tags=o.domain_tags,
                 description=o.description,
                 deadline=o.deadline.isoformat() if o.deadline else None,
@@ -139,7 +139,9 @@ async def _handle_single_opportunity_chat(
     if not opp:
         content = "Sorry, I couldn't find that opportunity. It may have been removed."
         assistant_msg = ChatMessage(
-            session_id=session.id, role="assistant", content=content,
+            session_id=session.id,
+            role="assistant",
+            content=content,
             cited_opportunity_ids=[],
         )
         db.add(assistant_msg)
@@ -153,8 +155,16 @@ async def _handle_single_opportunity_chat(
     description_str = opp.description or ""
     location_str = opp.state or opp.location or "Not specified"
     organizer_str = opp.organizer or "Not specified"
-    category_str = opp.category.value if hasattr(opp.category, "value") else str(opp.category)
-    mode_str = opp.mode.value if hasattr(opp.mode, "value") else str(opp.mode) if opp.mode else "Not specified"
+    category_str = (
+        opp.category.value if hasattr(opp.category, "value") else str(opp.category)
+    )
+    mode_str = (
+        opp.mode.value
+        if hasattr(opp.mode, "value")
+        else str(opp.mode)
+        if opp.mode
+        else "Not specified"
+    )
 
     system_prompt = (
         "You are Steppd, an AI assistant that helps students learn about opportunities.\n\n"
@@ -292,7 +302,9 @@ def _build_system_prompt(user: User, retrieved: list[ScoredOpportunity]) -> str:
     opp_lines = []
     for i, opp in enumerate(retrieved, 1):
         deadline_str = opp.deadline.isoformat() if opp.deadline else "No deadline"
-        context = opp.chunk_context[:300] if opp.chunk_context else opp.description[:200]
+        context = (
+            opp.chunk_context[:300] if opp.chunk_context else opp.description[:200]
+        )
         eligibility_str = opp.eligibility[:150] if opp.eligibility else "Not specified"
         benefits_str = opp.benefits[:150] if opp.benefits else "Not specified"
         opp_lines.append(
@@ -302,7 +314,9 @@ def _build_system_prompt(user: User, retrieved: list[ScoredOpportunity]) -> str:
             f"   Benefits: {benefits_str}\n"
             f"   Context: {context}"
         )
-    opp_section = "\n".join(opp_lines) if opp_lines else "No matching opportunities found."
+    opp_section = (
+        "\n".join(opp_lines) if opp_lines else "No matching opportunities found."
+    )
 
     return (
         "You are Steppd, an AI assistant that helps students discover opportunities "

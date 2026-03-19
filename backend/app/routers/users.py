@@ -42,19 +42,25 @@ def update_profile(
 
     # Normalize skills + interests for consistent matching
     if current_user.skills is not None:
-        current_user.skills = merge_domains_with_raw(current_user.skills) or current_user.skills
+        current_user.skills = (
+            merge_domains_with_raw(current_user.skills) or current_user.skills
+        )
     if current_user.interests is not None:
-        current_user.interests = merge_domains_with_raw(current_user.interests) or current_user.interests
+        current_user.interests = (
+            merge_domains_with_raw(current_user.interests) or current_user.interests
+        )
 
-    has_profile_fields = all([
-        current_user.first_name,
-        current_user.academic_background,
-        current_user.skills,
-        current_user.interests,
-        current_user.aspirations,
-        current_user.year_of_study,
-        current_user.state,
-    ])
+    has_profile_fields = all(
+        [
+            current_user.first_name,
+            current_user.academic_background,
+            current_user.skills,
+            current_user.interests,
+            current_user.aspirations,
+            current_user.year_of_study,
+            current_user.state,
+        ]
+    )
     if has_profile_fields and not current_user.is_onboarded:
         current_user.is_onboarded = True
 

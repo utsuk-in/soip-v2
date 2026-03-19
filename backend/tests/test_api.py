@@ -1,6 +1,5 @@
 import uuid
 
-import pytest
 
 from app.models.alert import UserAlert
 from app.models.chat import ChatMessage, ChatSession
@@ -70,12 +69,18 @@ def _cleanup(db, suffix: str) -> None:
     db.query(ChatMessage).filter(ChatMessage.content.like(f"%{suffix}%")).delete()
     # Delete sessions by user_id (title may not contain the suffix)
     if test_user_ids:
-        db.query(ChatMessage).filter(ChatMessage.session_id.in_(
-            db.query(ChatSession.id).filter(ChatSession.user_id.in_(test_user_ids))
-        )).delete(synchronize_session=False)
+        db.query(ChatMessage).filter(
+            ChatMessage.session_id.in_(
+                db.query(ChatSession.id).filter(ChatSession.user_id.in_(test_user_ids))
+            )
+        ).delete(synchronize_session=False)
         db.query(ChatSession).filter(ChatSession.user_id.in_(test_user_ids)).delete()
-        db.query(InteractionLog).filter(InteractionLog.user_id.in_(test_user_ids)).delete()
-    db.query(Opportunity).filter(Opportunity.application_link.like(f"%{suffix}%")).delete()
+        db.query(InteractionLog).filter(
+            InteractionLog.user_id.in_(test_user_ids)
+        ).delete()
+    db.query(Opportunity).filter(
+        Opportunity.application_link.like(f"%{suffix}%")
+    ).delete()
     db.query(User).filter(User.email.like(f"%{suffix}%")).delete()
     db.query(University).filter(University.name.like(f"%{suffix}%")).delete()
     db.commit()
@@ -115,7 +120,10 @@ def test_auth_register_login_me(client, db_session, unique_id):
 
         login = client.post(
             "/api/auth/login",
-            json={"email": f"test-soip-{suffix}@example.com", "password": "Password123!"},
+            json={
+                "email": f"test-soip-{suffix}@example.com",
+                "password": "Password123!",
+            },
         )
         assert login.status_code == 200
         assert "access_token" in login.json()
@@ -156,7 +164,9 @@ def test_universities_list(client, db_session, unique_id):
     suffix = unique_id
     try:
         _create_university(db_session, suffix)
-        resp = client.get("/api/users/universities", params={"q": f"test-soip-{suffix}"})
+        resp = client.get(
+            "/api/users/universities", params={"q": f"test-soip-{suffix}"}
+        )
         assert resp.status_code == 200
         assert any(u["name"] == f"test-soip-{suffix}" for u in resp.json())
     finally:
@@ -199,9 +209,7 @@ def test_explanations_endpoint(client, db_session, unique_id, monkeypatch):
         ids = [str(o.id) for o in opportunities]
         if not ids:
             return {}
-        return {
-            ids[0]: "Because your profile mentions AI, this fits your interests."
-        }
+        return {ids[0]: "Because your profile mentions AI, this fits your interests."}
 
     monkeypatch.setattr(
         "app.routers.opportunities.generate_relevance_explanations",
@@ -261,7 +269,9 @@ def test_alerts_list_mark_read(client, db_session, unique_id):
 def test_chat_basic_flow(client, db_session, unique_id, monkeypatch):
     suffix = unique_id
 
-    async def _fake_handle_chat_message(db, user, message, session_id=None, opportunity_id=None):
+    async def _fake_handle_chat_message(
+        db, user, message, session_id=None, opportunity_id=None
+    ):
         session = ChatSession(user_id=user.id, title=f"test-soip-{suffix}-session")
         db.add(session)
         db.commit()
@@ -422,12 +432,20 @@ def test_feedback_batch_get(client, db_session, unique_id):
         client.post(
             "/api/feedback",
             headers=_auth_headers(token),
-            json={"opportunity_id": str(opp1.id), "value": "thumbs_up", "source": "feed"},
+            json={
+                "opportunity_id": str(opp1.id),
+                "value": "thumbs_up",
+                "source": "feed",
+            },
         )
         client.post(
             "/api/feedback",
             headers=_auth_headers(token),
-            json={"opportunity_id": str(opp2.id), "value": "thumbs_down", "source": "chat"},
+            json={
+                "opportunity_id": str(opp2.id),
+                "value": "thumbs_down",
+                "source": "chat",
+            },
         )
 
         # Batch fetch all three

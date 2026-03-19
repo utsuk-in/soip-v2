@@ -60,8 +60,16 @@ Rules:
 """
 
 _VALID_CATEGORIES = frozenset(
-    {"hackathon", "grant", "fellowship", "internship",
-     "competition", "scholarship", "program", "other"}
+    {
+        "hackathon",
+        "grant",
+        "fellowship",
+        "internship",
+        "competition",
+        "scholarship",
+        "program",
+        "other",
+    }
 )
 
 _CATEGORY_FUZZY_MAP = {
@@ -75,7 +83,7 @@ _CATEGORY_FUZZY_MAP = {
 }
 
 _SEGMENT_CHARS = 15_000  # each LLM call gets at most this much content
-_SEGMENT_OVERLAP = 500   # overlap between segments to avoid splitting an opportunity
+_SEGMENT_OVERLAP = 500  # overlap between segments to avoid splitting an opportunity
 _MAX_OUTPUT_TOKENS = 8192
 _MIN_CONTENT_LENGTH = 50
 
@@ -110,21 +118,31 @@ async def extract_opportunities(
     max_segments = getattr(settings, "extraction_max_segments", 0) or 0
     if max_segments > 0:
         segments = segments[:max_segments]
-        logger.info(f"Extracting from first {len(segments)} segment(s) only (extraction_max_segments={max_segments}) for {source_url}")
+        logger.info(
+            f"Extracting from first {len(segments)} segment(s) only (extraction_max_segments={max_segments}) for {source_url}"
+        )
     else:
         logger.info(f"Extracting from {len(segments)} segment(s) for {source_url}")
 
     all_results: list[ExtractedOpportunity] = []
     for i, segment in enumerate(segments):
-        segment_results = await _extract_segment(segment, source_url, i + 1, len(segments))
+        segment_results = await _extract_segment(
+            segment, source_url, i + 1, len(segments)
+        )
         all_results.extend(segment_results)
 
     deduped = _deduplicate(all_results)
-    logger.info(f"Extracted {len(deduped)} unique opportunities from {source_url} ({len(all_results)} before dedup)")
+    logger.info(
+        f"Extracted {len(deduped)} unique opportunities from {source_url} ({len(all_results)} before dedup)"
+    )
     for i, opp in enumerate(deduped, 1):
         logger.info(
             "[EXTRACT] opportunity %s: title=%s | deadline=%s | domain_tags=%s | category=%s",
-            i, repr(opp.title[:60]), opp.deadline, opp.domain_tags, opp.category,
+            i,
+            repr(opp.title[:60]),
+            opp.deadline,
+            opp.domain_tags,
+            opp.category,
         )
     return deduped
 
@@ -173,7 +191,9 @@ async def _extract_segment(
         finish_reason = response.choices[0].finish_reason
 
         if finish_reason == "length":
-            logger.warning(f"Output truncated for {source_url} ({seg_label}), attempting JSON repair")
+            logger.warning(
+                f"Output truncated for {source_url} ({seg_label}), attempting JSON repair"
+            )
             return _parse_response_with_repair(raw, source_url)
 
         return _parse_response(raw, source_url)
@@ -217,14 +237,14 @@ def _find_break(text: str, search_start: int, search_end: int) -> int:
     return search_end
 
 
-def _parse_response(
-    raw_json: str, source_url: str
-) -> list[ExtractedOpportunity]:
+def _parse_response(raw_json: str, source_url: str) -> list[ExtractedOpportunity]:
     """Parse JSON response into ExtractedOpportunity objects."""
     try:
         data = json.loads(raw_json)
     except json.JSONDecodeError:
-        logger.warning(f"Invalid JSON from extraction for {source_url}, attempting repair")
+        logger.warning(
+            f"Invalid JSON from extraction for {source_url}, attempting repair"
+        )
         return _parse_response_with_repair(raw_json, source_url)
 
     items = data.get("opportunities", [])
@@ -257,7 +277,7 @@ def _parse_response_with_repair(
         # Find the last complete opportunity object (ends with })
         last_brace = repaired.rfind("}")
         if last_brace > 0:
-            repaired = repaired[:last_brace + 1]
+            repaired = repaired[: last_brace + 1]
 
     # Close the array
     if repaired.count("[") > repaired.count("]"):
@@ -277,7 +297,9 @@ def _parse_response_with_repair(
                     results.append(opp)
             except Exception:
                 pass
-        logger.info(f"Repaired JSON: salvaged {len(results)} opportunities from {source_url}")
+        logger.info(
+            f"Repaired JSON: salvaged {len(results)} opportunities from {source_url}"
+        )
         return results
     except json.JSONDecodeError:
         logger.error(f"JSON repair failed for {source_url}, raw length={len(raw_json)}")

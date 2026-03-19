@@ -4,7 +4,6 @@ and deadline parsing edge cases (SOIP-93)."""
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.opportunity import Opportunity
@@ -104,7 +103,9 @@ class TestExpirePastDeadlines:
         finally:
             _cleanup_expiry(db_session, unique_id)
 
-    def test_already_expired_not_updated_again(self, db_session: Session, unique_id: str):
+    def test_already_expired_not_updated_again(
+        self, db_session: Session, unique_id: str
+    ):
         """An already-expired opportunity should not be touched (is_active=False skips it)."""
         try:
             opp = _make_opportunity(
@@ -172,7 +173,9 @@ class TestExpirePastDeadlines:
 class TestExpiredExcludedFromFeed:
     """Verify expired opportunities are excluded from student-facing endpoints (SOIP-306)."""
 
-    def test_browse_excludes_already_expired(self, client, db_session: Session, unique_id: str):
+    def test_browse_excludes_already_expired(
+        self, client, db_session: Session, unique_id: str
+    ):
         """Opportunity already marked is_active=False should not appear in default browse."""
         try:
             opp = _make_opportunity(
@@ -267,7 +270,9 @@ class TestStatusBadgeField:
 
             resp = client.get("/api/opportunities")
             assert resp.status_code == 200
-            match = next((o for o in resp.json()["items"] if o["id"] == str(opp.id)), None)
+            match = next(
+                (o for o in resp.json()["items"] if o["id"] == str(opp.id)), None
+            )
             assert match is not None
             assert match["status"] == "open"
         finally:
@@ -287,7 +292,9 @@ class TestStatusBadgeField:
 
             resp = client.get("/api/opportunities")
             assert resp.status_code == 200
-            match = next((o for o in resp.json()["items"] if o["id"] == str(opp.id)), None)
+            match = next(
+                (o for o in resp.json()["items"] if o["id"] == str(opp.id)), None
+            )
             assert match is not None
             assert match["status"] == "coming_soon"
         finally:
@@ -328,7 +335,9 @@ class TestStatusBadgeField:
 
             resp = client.get("/api/opportunities?active_only=false")
             assert resp.status_code == 200
-            match = next((o for o in resp.json()["items"] if o["id"] == str(opp.id)), None)
+            match = next(
+                (o for o in resp.json()["items"] if o["id"] == str(opp.id)), None
+            )
             assert match is not None
             assert match["status"] == "expired"
         finally:
@@ -378,12 +387,16 @@ class TestUnstopDeadlineParsing:
     def test_garbage_input_returns_none(self):
         """Non-date strings should return None."""
         for text in ["TBD", "Rolling basis", "ASAP", "No deadline", ""]:
-            result = _extract_unstop_registration_close_datetime(f"Registration Close: {text}")
+            result = _extract_unstop_registration_close_datetime(
+                f"Registration Close: {text}"
+            )
             assert result is None, f"Expected None for input: {text}"
 
     def test_no_registration_close_marker_returns_none(self):
         """Text without 'Registration Close' marker should return None."""
-        result = _extract_unstop_registration_close_datetime("Deadline: 20 Mar 2026, 11:59 PM IST")
+        result = _extract_unstop_registration_close_datetime(
+            "Deadline: 20 Mar 2026, 11:59 PM IST"
+        )
         assert result is None
 
     def test_leap_year_feb29(self):

@@ -19,7 +19,9 @@ depends_on = None
 def upgrade() -> None:
     # 1. Create the new ENUM type for opportunity status
     opportunitystatus = postgresql.ENUM(
-        "open", "coming_soon", "expired",
+        "open",
+        "coming_soon",
+        "expired",
         name="opportunitystatus",
     )
     opportunitystatus.create(op.get_bind(), checkfirst=True)
@@ -54,12 +56,8 @@ def upgrade() -> None:
     op.create_index("ix_opportunities_status", "opportunities", ["status"])
 
     # 7. Backfill status from is_active for existing rows
-    op.execute(
-        "UPDATE opportunities SET status = 'expired' WHERE is_active = false"
-    )
-    op.execute(
-        "UPDATE opportunities SET status = 'open' WHERE is_active = true"
-    )
+    op.execute("UPDATE opportunities SET status = 'expired' WHERE is_active = false")
+    op.execute("UPDATE opportunities SET status = 'open' WHERE is_active = true")
 
 
 def downgrade() -> None:

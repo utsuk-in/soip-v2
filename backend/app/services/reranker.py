@@ -10,7 +10,7 @@ import logging
 from collections import OrderedDict
 from functools import lru_cache
 import hashlib
-from typing import Iterable, List
+from typing import List
 
 from app.config import settings
 from app.services.retriever import ScoredOpportunity
@@ -84,7 +84,9 @@ def _load_cross_encoder():
         logger.info(f"Loaded cross-encoder model: {settings.rerank_model}")
         return model
     except Exception as e:
-        logger.error(f"Failed to load cross-encoder model '{settings.rerank_model}': {e}")
+        logger.error(
+            f"Failed to load cross-encoder model '{settings.rerank_model}': {e}"
+        )
         return None
 
 

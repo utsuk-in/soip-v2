@@ -6,11 +6,9 @@ Jobs:
   - Every hour: auto-expire past-deadline opportunities
 """
 
-import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 

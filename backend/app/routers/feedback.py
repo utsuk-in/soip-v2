@@ -60,7 +60,9 @@ def submit_feedback(
         user_id=current_user.id,
         opportunity_id=body.opportunity_id,
         action=body.value,
-        category=opp.category.value if hasattr(opp.category, "value") else str(opp.category),
+        category=opp.category.value
+        if hasattr(opp.category, "value")
+        else str(opp.category),
         metadata_={"source": body.source},
     )
     db.add(log)

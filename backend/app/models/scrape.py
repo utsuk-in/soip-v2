@@ -55,15 +55,19 @@ class ContentChunk(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     scrape_page_id = Column(
-        UUID(as_uuid=True), ForeignKey("scrape_pages.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        UUID(as_uuid=True),
+        ForeignKey("scrape_pages.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     source_id = Column(
         UUID(as_uuid=True), ForeignKey("sources.id"), nullable=False, index=True
     )
     opportunity_id = Column(
-        UUID(as_uuid=True), ForeignKey("opportunities.id", ondelete="SET NULL"),
-        nullable=True, index=True,
+        UUID(as_uuid=True),
+        ForeignKey("opportunities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)

@@ -17,7 +17,9 @@ def main() -> None:
     with get_db_context() as db:
         # Count opportunities per source
         counts = (
-            db.query(Source.name, Source.base_url, func.count(Opportunity.id).label("count"))
+            db.query(
+                Source.name, Source.base_url, func.count(Opportunity.id).label("count")
+            )
             .outerjoin(Opportunity, Source.id == Opportunity.source_id)
             .group_by(Source.id, Source.name, Source.base_url)
             .order_by(Source.name)
@@ -43,7 +45,9 @@ def main() -> None:
                 print(f"  Length: {len(raw)} chars")
                 print(f"  First 800 chars:\n  ---\n  {raw[:800]}\n  ---")
                 if "Cookies Disabled" in raw or "Please Wait" in raw:
-                    print("\n  >>> Likely cause: page returned cookie/error screen instead of listings.")
+                    print(
+                        "\n  >>> Likely cause: page returned cookie/error screen instead of listings."
+                    )
             else:
                 print("  No scrape_pages found for Unstop.")
 
@@ -77,7 +81,11 @@ def main() -> None:
                 print("  No opportunities found.")
                 # Check if it appears in any raw content
                 pages = (
-                    db.query(ScrapePage.url, ScrapePage.raw_content, ScrapePage.content_length)
+                    db.query(
+                        ScrapePage.url,
+                        ScrapePage.raw_content,
+                        ScrapePage.content_length,
+                    )
                     .join(Source, ScrapePage.source_id == Source.id)
                     .filter(Source.base_url.like("%unstop.com%"))
                     .order_by(ScrapePage.scraped_at.desc())
@@ -89,7 +97,9 @@ def main() -> None:
                         print(f"  Found in scrape content: {url} ({length} chars)")
                         break
                 else:
-                    print("  Not found in Unstop scrape content either (cookie/error page likely).")
+                    print(
+                        "  Not found in Unstop scrape content either (cookie/error page likely)."
+                    )
 
 
 if __name__ == "__main__":

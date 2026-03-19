@@ -46,7 +46,9 @@ async def scrape_detail_url(url: str, source: Source) -> Optional[str]:
     try:
         if source.scraper_type == "html":
             return await _fetch_single_static(url)
-        return await _fetch_with_crawl4ai(url, source, delay_override=_detail_delay(source.config or {}))
+        return await _fetch_with_crawl4ai(
+            url, source, delay_override=_detail_delay(source.config or {})
+        )
     except Exception as e:
         logger.warning(f"Failed to scrape detail URL {url}: {e}")
         return None
@@ -55,9 +57,14 @@ async def scrape_detail_url(url: str, source: Source) -> Optional[str]:
 # ── Crawl4AI (JS-heavy, with scroll and optional cookie consent) ──
 
 
-async def _fetch_with_crawl4ai(url: str, source: Source, delay_override: float | None = None) -> str:
+async def _fetch_with_crawl4ai(
+    url: str, source: Source, delay_override: float | None = None
+) -> str:
     """JS-heavy scraping with Crawl4AI; supports scroll and optional js_code (e.g. cookie consent)."""
-    from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, VirtualScrollConfig
+    from crawl4ai import (
+        AsyncWebCrawler,
+        BrowserConfig,
+    )
 
     config = source.config or {}
     browser_config = BrowserConfig(headless=True)
@@ -78,7 +85,9 @@ async def _fetch_with_crawl4ai(url: str, source: Source, delay_override: float |
         await _safe_close_crawler(crawler)
         return ""
     if startup_task.exception():
-        logger.error(f"Crawl4AI browser startup failed for {url}: {startup_task.exception()}")
+        logger.error(
+            f"Crawl4AI browser startup failed for {url}: {startup_task.exception()}"
+        )
         await _safe_close_crawler(crawler)
         return ""
 
@@ -127,7 +136,9 @@ async def _fetch_with_crawl4ai_paginated(start_url: str, source: Source) -> str:
         await _safe_close_crawler(crawler)
         return ""
     if startup_task.exception():
-        logger.error(f"Crawl4AI browser startup failed for {start_url}: {startup_task.exception()}")
+        logger.error(
+            f"Crawl4AI browser startup failed for {start_url}: {startup_task.exception()}"
+        )
         await _safe_close_crawler(crawler)
         return ""
 
@@ -165,7 +176,9 @@ async def _fetch_with_crawl4ai_paginated(start_url: str, source: Source) -> str:
 
             content_key = content_hash(cleaned)
             if content_key in seen_hashes:
-                logger.info(f"Pagination content repeated at page {page_num}, stopping.")
+                logger.info(
+                    f"Pagination content repeated at page {page_num}, stopping."
+                )
                 break
 
             seen_hashes.add(content_key)
@@ -201,7 +214,11 @@ def _build_crawl4ai_config(
         combined_js = extra_js_code
     if combined_js:
         kwargs["js_code"] = combined_js
-    delay = delay_override if delay_override is not None else config.get("delay_before_return_html")
+    delay = (
+        delay_override
+        if delay_override is not None
+        else config.get("delay_before_return_html")
+    )
     if delay is not None:
         kwargs["delay_before_return_html"] = float(delay)
 
@@ -223,7 +240,9 @@ def _build_crawl4ai_config(
                 wait_after_scroll=float(config.get("wait_after_scroll", 0.8)),
             )
         else:
-            logger.warning("scroll_mode=virtual but container_selector missing; skipping scroll")
+            logger.warning(
+                "scroll_mode=virtual but container_selector missing; skipping scroll"
+            )
     elif scroll_mode == "full_page":
         kwargs["scan_full_page"] = True
         base_delay = float(config.get("scroll_delay", 0.5))
@@ -241,7 +260,9 @@ def _build_crawl4ai_config(
             max_steps = config.get("max_scroll_steps")
         if max_steps is not None:
             kwargs["max_scroll_steps"] = int(max_steps)
-            logger.info(f"Full-page scroll: max_scroll_steps={max_steps}, scroll_delay={kwargs['scroll_delay']}s (CRAWL_MAX_PAGES={env_pages or 'config'}, steps_per_page={steps_per_page})")
+            logger.info(
+                f"Full-page scroll: max_scroll_steps={max_steps}, scroll_delay={kwargs['scroll_delay']}s (CRAWL_MAX_PAGES={env_pages or 'config'}, steps_per_page={steps_per_page})"
+            )
 
     return CrawlerRunConfig(**kwargs)
 
@@ -311,7 +332,9 @@ async def _fetch_single_static(url: str) -> str:
         response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "html.parser")
-    for tag in soup(["script", "style", "nav", "footer", "header", "aside", "noscript"]):
+    for tag in soup(
+        ["script", "style", "nav", "footer", "header", "aside", "noscript"]
+    ):
         tag.decompose()
 
     main = soup.find("main") or soup.find("article") or soup.find("body")
@@ -322,7 +345,9 @@ async def _fetch_single_static(url: str) -> str:
     return _clean_markdown(markdown)
 
 
-def _get_next_page_url(soup: BeautifulSoup, current_url: str, page_param: str) -> Optional[str]:
+def _get_next_page_url(
+    soup: BeautifulSoup, current_url: str, page_param: str
+) -> Optional[str]:
     """Find next page URL: rel='next', then ?page=N+1, then link text 'Next'."""
     # 1. rel="next"
     next_a = soup.find("a", rel=lambda v: v and "next" in v.lower().split())
@@ -339,7 +364,16 @@ def _get_next_page_url(soup: BeautifulSoup, current_url: str, page_param: str) -
         current_page = 1
     qs[page_param] = [str(current_page + 1)]
     new_query = urlencode(qs, doseq=True)
-    next_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+    next_url = urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            new_query,
+            parsed.fragment,
+        )
+    )
     # We don't know if that page exists; the caller will 404 or get empty content. Alternatively check for presence of a "next" link that points to page N+1.
     # So prefer to only use ?page=N+1 if we also find a link with that pattern on the page.
     next_page_num = current_page + 1
@@ -370,7 +404,16 @@ def _build_paginated_url(base_url: str, page_param: str, page_num: int) -> str:
     qs = parse_qs(parsed.query, keep_blank_values=True)
     qs[page_param] = [str(page_num)]
     new_query = urlencode(qs, doseq=True)
-    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+    return urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            new_query,
+            parsed.fragment,
+        )
+    )
 
 
 def _build_pagination_click_js(page_num: int) -> str:
@@ -445,6 +488,7 @@ async def _safe_close_crawler(crawler) -> None:
             return
         except Exception:
             pass
+
 
 def _resolve_url(href: str, base: str) -> str:
     """Make href absolute against base URL."""

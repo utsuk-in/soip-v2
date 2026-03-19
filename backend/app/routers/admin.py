@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -24,7 +24,12 @@ from app.schemas.admin import (
 )
 from app.schemas.auth import TokenResponse
 from app.services.auth import create_access_token, hash_password
-from app.services.excel_parser import generate_template_xlsx, generate_template_csv, parse_csv, parse_xlsx
+from app.services.excel_parser import (
+    generate_template_xlsx,
+    generate_template_csv,
+    parse_csv,
+    parse_xlsx,
+)
 from app.services.magic_link import create_magic_link
 from app.services.student_upload import confirm_upload, find_duplicate_emails
 from app.utils.dependencies import get_current_admin
@@ -33,6 +38,7 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 # --- Schemas (kept here for the register endpoint) ---
+
 
 class AdminRegisterRequest(BaseModel):
     email: EmailStr
@@ -44,7 +50,10 @@ class AdminRegisterRequest(BaseModel):
 
 # --- Admin Registration ---
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED
+)
 def admin_register(body: AdminRegisterRequest, db: Session = Depends(get_db)):
     if body.invite_code != settings.admin_invite_code:
         raise HTTPException(
@@ -91,6 +100,7 @@ def admin_register(body: AdminRegisterRequest, db: Session = Depends(get_db)):
 
 # --- Admin Logout ---
 
+
 @router.post("/logout")
 def admin_logout(admin: User = Depends(get_current_admin)):
     """Clear the admin HTTP-only auth cookie."""
@@ -100,6 +110,7 @@ def admin_logout(admin: User = Depends(get_current_admin)):
 
 
 # --- Student Upload (SOIP-580) ---
+
 
 @router.post("/students/validate", response_model=UploadValidationResponse)
 def validate_student_upload(
@@ -148,13 +159,17 @@ def download_template(format: str = "xlsx"):
         return Response(
             content=content,
             media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=student_upload_template.csv"},
+            headers={
+                "Content-Disposition": "attachment; filename=student_upload_template.csv"
+            },
         )
     content = generate_template_xlsx()
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=student_upload_template.xlsx"},
+        headers={
+            "Content-Disposition": "attachment; filename=student_upload_template.xlsx"
+        },
     )
 
 
@@ -165,11 +180,15 @@ def bulk_resend_invite(
     admin: User = Depends(get_current_admin),
 ):
     """Generate new magic links for a batch of non-onboarded students."""
-    students = db.query(User).filter(
-        User.id.in_(body.student_ids),
-        User.university_id == admin.university_id,
-        User.role == "student",
-    ).all()
+    students = (
+        db.query(User)
+        .filter(
+            User.id.in_(body.student_ids),
+            User.university_id == admin.university_id,
+            User.role == "student",
+        )
+        .all()
+    )
 
     results = []
     skipped_onboarded = 0
@@ -181,17 +200,21 @@ def bulk_resend_invite(
             continue
         try:
             ml_token = create_magic_link(db, student.id)
-            results.append(MagicLinkResult(
-                student_id=student.id,
-                email=student.email,
-                magic_token=ml_token.token,
-                magic_link_url=f"{settings.frontend_base_url}/magic-link?token={ml_token.token}",
-            ))
+            results.append(
+                MagicLinkResult(
+                    student_id=student.id,
+                    email=student.email,
+                    magic_token=ml_token.token,
+                    magic_link_url=f"{settings.frontend_base_url}/magic-link?token={ml_token.token}",
+                )
+            )
         except Exception:
             failed += 1
 
     db.commit()
-    return BulkResendSummary(results=results, skipped_onboarded=skipped_onboarded, failed=failed)
+    return BulkResendSummary(
+        results=results, skipped_onboarded=skipped_onboarded, failed=failed
+    )
 
 
 @router.delete("/students/bulk", response_model=BulkRemoveSummary)
@@ -221,15 +244,23 @@ def resend_invite(
     admin: User = Depends(get_current_admin),
 ):
     """Regenerate and resend a magic link for a student."""
-    student = db.query(User).filter(
-        User.id == student_id,
-        User.university_id == admin.university_id,
-        User.role == "student",
-    ).first()
+    student = (
+        db.query(User)
+        .filter(
+            User.id == student_id,
+            User.university_id == admin.university_id,
+            User.role == "student",
+        )
+        .first()
+    )
     if not student:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
+        )
     if student.is_onboarded:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Student already activated")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Student already activated"
+        )
 
     ml_token = create_magic_link(db, student.id)
     db.commit()
@@ -243,12 +274,14 @@ def resend_invite(
 
 # --- Dashboard (SOIP-581) ---
 
+
 @router.get("/dashboard/metrics", response_model=DashboardMetrics)
 def dashboard_metrics(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
     from app.services.admin_dashboard import get_dashboard_metrics
+
     return get_dashboard_metrics(db, admin.university_id)
 
 
@@ -296,9 +329,18 @@ def list_students(
     admin: User = Depends(get_current_admin),
 ):
     from app.services.admin_dashboard import get_student_list
+
     return get_student_list(
-        db, admin.university_id, page, page_size, search, status_filter,
-        name=name, email=email, department=department, year_of_study=year_of_study,
+        db,
+        admin.university_id,
+        page,
+        page_size,
+        search,
+        status_filter,
+        name=name,
+        email=email,
+        department=department,
+        year_of_study=year_of_study,
     )
 
 
@@ -308,15 +350,22 @@ def student_activity(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    student = db.query(User).filter(
-        User.id == student_id,
-        User.university_id == admin.university_id,
-        User.role == "student",
-    ).first()
+    student = (
+        db.query(User)
+        .filter(
+            User.id == student_id,
+            User.university_id == admin.university_id,
+            User.role == "student",
+        )
+        .first()
+    )
     if not student:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
+        )
 
     from app.services.admin_dashboard import get_student_activity
+
     return get_student_activity(db, student_id)
 
 
@@ -326,13 +375,19 @@ def remove_student(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    student = db.query(User).filter(
-        User.id == student_id,
-        User.university_id == admin.university_id,
-        User.role == "student",
-    ).first()
+    student = (
+        db.query(User)
+        .filter(
+            User.id == student_id,
+            User.university_id == admin.university_id,
+            User.role == "student",
+        )
+        .first()
+    )
     if not student:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Student not found"
+        )
 
     student.is_active = False
     db.commit()
@@ -341,6 +396,7 @@ def remove_student(
 
 # --- Engagement Report (SOIP-582) ---
 
+
 @router.get("/engagement", response_model=EngagementReport)
 def engagement_report(
     weeks: int = 8,
@@ -348,4 +404,5 @@ def engagement_report(
     admin: User = Depends(get_current_admin),
 ):
     from app.services.engagement import get_engagement_report
+
     return get_engagement_report(db, admin.university_id, weeks)

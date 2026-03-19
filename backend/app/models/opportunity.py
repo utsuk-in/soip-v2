@@ -19,9 +19,20 @@ from sqlalchemy.orm import deferred
 from pgvector.sqlalchemy import Vector
 
 from app.models.base import Base
-from app.utils.enums import OpportunityCategory, OpportunityStatus, OpportunityMode, FeeType
+from app.utils.enums import (
+    OpportunityCategory,
+    OpportunityStatus,
+    OpportunityMode,
+    FeeType,
+)
 
-__all__ = ["Opportunity", "OpportunityCategory", "OpportunityStatus", "OpportunityMode", "FeeType"]
+__all__ = [
+    "Opportunity",
+    "OpportunityCategory",
+    "OpportunityStatus",
+    "OpportunityMode",
+    "FeeType",
+]
 
 
 class Opportunity(Base):
@@ -69,9 +80,7 @@ class Opportunity(Base):
         nullable=True,
     )
     organizer = Column(String(300), nullable=True)
-    source_id = Column(
-        UUID(as_uuid=True), ForeignKey("sources.id"), nullable=True
-    )
+    source_id = Column(UUID(as_uuid=True), ForeignKey("sources.id"), nullable=True)
     scrape_page_id = Column(
         UUID(as_uuid=True), ForeignKey("scrape_pages.id"), nullable=True, index=True
     )

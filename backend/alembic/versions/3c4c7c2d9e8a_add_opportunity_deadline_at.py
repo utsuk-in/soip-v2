@@ -4,6 +4,7 @@ Revision ID: 3c4c7c2d9e8a
 Revises: 9f2c1d5b7d21
 Create Date: 2026-02-26 00:00:00.000000
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -17,8 +18,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("opportunities", sa.Column("deadline_at", sa.DateTime(timezone=True), nullable=True))
-    op.create_index("ix_opportunities_deadline_at", "opportunities", ["deadline_at"], unique=False)
+    op.add_column(
+        "opportunities",
+        sa.Column("deadline_at", sa.DateTime(timezone=True), nullable=True),
+    )
+    op.create_index(
+        "ix_opportunities_deadline_at", "opportunities", ["deadline_at"], unique=False
+    )
 
 
 def downgrade() -> None:

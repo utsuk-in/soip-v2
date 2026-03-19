@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import func, case
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.interaction_log import InteractionLog
@@ -30,7 +30,9 @@ def _get_student_ids(db: Session, university_id: UUID) -> list[UUID]:
     return [r.id for r in rows]
 
 
-def get_engagement_report(db: Session, university_id: UUID, weeks: int = 8) -> EngagementReport:
+def get_engagement_report(
+    db: Session, university_id: UUID, weeks: int = 8
+) -> EngagementReport:
     student_ids = _get_student_ids(db, university_id)
 
     if not student_ids:
@@ -44,7 +46,9 @@ def get_engagement_report(db: Session, university_id: UUID, weeks: int = 8) -> E
             ],
             weekly_trends=[],
             magic_link_stats=MagicLinkStats(total_sent=0, total_used=0, open_rate=0.0),
-            feedback_summary=FeedbackSummary(thumbs_up=0, thumbs_down=0, positive_rate=0.0),
+            feedback_summary=FeedbackSummary(
+                thumbs_up=0, thumbs_down=0, positive_rate=0.0
+            ),
         )
 
     # Top viewed opportunities
@@ -65,12 +69,18 @@ def get_engagement_report(db: Session, university_id: UUID, weeks: int = 8) -> E
     )
     top_opportunities = []
     for row in top_opps_rows:
-        opp = db.query(Opportunity.title).filter(Opportunity.id == row.opportunity_id).first()
-        top_opportunities.append(TopOpportunity(
-            opportunity_id=row.opportunity_id,
-            title=opp.title if opp else "Unknown",
-            view_count=row.cnt,
-        ))
+        opp = (
+            db.query(Opportunity.title)
+            .filter(Opportunity.id == row.opportunity_id)
+            .first()
+        )
+        top_opportunities.append(
+            TopOpportunity(
+                opportunity_id=row.opportunity_id,
+                title=opp.title if opp else "Unknown",
+                view_count=row.cnt,
+            )
+        )
 
     # Category breakdown
     cat_rows = (
@@ -87,7 +97,9 @@ def get_engagement_report(db: Session, university_id: UUID, weeks: int = 8) -> E
         .order_by(func.count(InteractionLog.id).desc())
         .all()
     )
-    category_breakdown = [CategoryBreakdown(category=r.category, count=r.cnt) for r in cat_rows]
+    category_breakdown = [
+        CategoryBreakdown(category=r.category, count=r.cnt) for r in cat_rows
+    ]
 
     # Engagement distribution
     interaction_counts = (
@@ -136,7 +148,8 @@ def get_engagement_report(db: Session, university_id: UUID, weeks: int = 8) -> E
             InteractionLog.user_id.in_(student_ids),
             InteractionLog.action == "thumbs_up",
         )
-        .scalar() or 0
+        .scalar()
+        or 0
     )
     thumbs_down = (
         db.query(func.count(InteractionLog.id))
@@ -144,23 +157,28 @@ def get_engagement_report(db: Session, university_id: UUID, weeks: int = 8) -> E
             InteractionLog.user_id.in_(student_ids),
             InteractionLog.action == "thumbs_down",
         )
-        .scalar() or 0
+        .scalar()
+        or 0
     )
     total_feedback = thumbs_up + thumbs_down
-    positive_rate = round(thumbs_up / total_feedback * 100, 1) if total_feedback > 0 else 0.0
+    positive_rate = (
+        round(thumbs_up / total_feedback * 100, 1) if total_feedback > 0 else 0.0
+    )
 
     # Magic link stats
     total_sent = (
         db.query(func.count(MagicLinkToken.id))
         .join(User, MagicLinkToken.user_id == User.id)
         .filter(User.university_id == university_id)
-        .scalar() or 0
+        .scalar()
+        or 0
     )
     total_used = (
         db.query(func.count(MagicLinkToken.id))
         .join(User, MagicLinkToken.user_id == User.id)
         .filter(User.university_id == university_id, MagicLinkToken.used_at.isnot(None))
-        .scalar() or 0
+        .scalar()
+        or 0
     )
     open_rate = (total_used / total_sent * 100) if total_sent > 0 else 0.0
 

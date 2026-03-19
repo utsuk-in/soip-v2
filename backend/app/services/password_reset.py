@@ -114,4 +114,5 @@ def reset_password(db: Session, token_str: str, new_password: str) -> None:
 
 class RateLimitExceeded(Exception):
     """Raised when a user exceeds the password reset rate limit."""
+
     pass

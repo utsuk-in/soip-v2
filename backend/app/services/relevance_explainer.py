@@ -45,14 +45,16 @@ def _build_profile_context(user: User) -> str:
 def _has_context(user: User, query_text: str | None) -> bool:
     if query_text and query_text.strip():
         return True
-    return any([
-        user.academic_background,
-        user.year_of_study,
-        user.state,
-        user.skills,
-        user.interests,
-        user.aspirations,
-    ])
+    return any(
+        [
+            user.academic_background,
+            user.year_of_study,
+            user.state,
+            user.skills,
+            user.interests,
+            user.aspirations,
+        ]
+    )
 
 
 def _split_sentences(text: str) -> list[str]:
@@ -72,9 +74,7 @@ def _clean_explanation(text: str) -> str | None:
 
 def _fallback_explanation(user: User, opp: ExplanationOpportunity) -> str | None:
     """Deterministic fallback when LLM explanation is unavailable."""
-    user_tags = set(
-        (t.lower() for t in (user.interests or []))
-    ) | set(
+    user_tags = set((t.lower() for t in (user.interests or []))) | set(
         (t.lower() for t in (user.skills or []))
     )
     opp_tags = set(t.lower() for t in (opp.domain_tags or []))
@@ -86,7 +86,9 @@ def _fallback_explanation(user: User, opp: ExplanationOpportunity) -> str | None
 
     parts: list[str] = []
     if overlap:
-        parts.append(f"This {cat or 'opportunity'} aligns with your interest in {', '.join(sorted(overlap))}.")
+        parts.append(
+            f"This {cat or 'opportunity'} aligns with your interest in {', '.join(sorted(overlap))}."
+        )
     elif cat:
         parts.append(f"This {cat} may match your profile.")
 
@@ -109,6 +111,7 @@ async def generate_relevance_explanations(
         tasks.append(_generate_batch(user, query_text, batch))
 
     import asyncio
+
     batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
     all_explanations: dict[str, str] = {}

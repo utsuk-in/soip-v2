@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr
 
 # --- Excel Upload ---
 
+
 class StudentRow(BaseModel):
     row_number: int
     name: str
@@ -49,6 +50,7 @@ class UploadSummary(BaseModel):
 
 # --- Bulk Actions ---
 
+
 class BulkResendRequest(BaseModel):
     student_ids: list[UUID]
 
@@ -68,6 +70,7 @@ class BulkRemoveSummary(BaseModel):
 
 
 # --- Dashboard ---
+
 
 class DashboardMetrics(BaseModel):
     total_invited: int
@@ -109,6 +112,7 @@ class StudentActivity(BaseModel):
 
 
 # --- Engagement ---
+
 
 class TopOpportunity(BaseModel):
     opportunity_id: UUID

@@ -133,7 +133,8 @@ def submit_satisfaction(
             InteractionLog.action.in_(SATISFACTION_ACTIONS),
             InteractionLog.metadata_.op("->>")(  # type: ignore[union-attr]
                 "message_id"
-            ) == str(body.message_id),
+            )
+            == str(body.message_id),
         )
         .first()
     )

@@ -23,7 +23,9 @@ from app.models.user import User
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED
+)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
     try:
         user = register_user(
@@ -105,7 +107,9 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many reset requests. Please try again later.",
         )
-    return {"message": "If an account exists with that email, a reset link has been sent."}
+    return {
+        "message": "If an account exists with that email, a reset link has been sent."
+    }
 
 
 @router.post("/reset-password")

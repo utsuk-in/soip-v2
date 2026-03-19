@@ -33,7 +33,13 @@ def chunk_markdown(raw_content: str) -> list[Chunk]:
     """Split markdown into semantic chunks with overlap."""
     if not raw_content or len(raw_content.strip()) < _MIN_CHUNK_CHARS:
         if raw_content and raw_content.strip():
-            return [Chunk(index=0, content=raw_content.strip(), token_estimate=_estimate_tokens(raw_content))]
+            return [
+                Chunk(
+                    index=0,
+                    content=raw_content.strip(),
+                    token_estimate=_estimate_tokens(raw_content),
+                )
+            ]
         return []
 
     sections = _split_into_sections(raw_content)
@@ -46,11 +52,13 @@ def chunk_markdown(raw_content: str) -> list[Chunk]:
         if prev_tail and i > 0:
             text = prev_tail + "\n" + text
 
-        result.append(Chunk(
-            index=i,
-            content=text.strip(),
-            token_estimate=_estimate_tokens(text),
-        ))
+        result.append(
+            Chunk(
+                index=i,
+                content=text.strip(),
+                token_estimate=_estimate_tokens(text),
+            )
+        )
 
         prev_tail = _get_tail(text, _OVERLAP_CHARS)
 

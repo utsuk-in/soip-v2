@@ -26,7 +26,11 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24 * 1  # 1 day
 
     allowed_origins: list[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000", "http://localhost:5173"]
+        default=[
+            "http://localhost:3000",
+            "http://localhost:8000",
+            "http://localhost:5173",
+        ]
     )
 
     @field_validator("allowed_origins", mode="before")
@@ -44,10 +48,16 @@ class Settings(BaseSettings):
     # Crawl depth:
     # - html paginated sources: max pages
     # - crawl4ai full_page (infinite scroll): max scroll steps
-    crawl_max_pages: int = Field(default=3, description="Global crawl depth. Use 1 for minimal crawl, 3 for first 3 pages/scroll steps.")
+    crawl_max_pages: int = Field(
+        default=3,
+        description="Global crawl depth. Use 1 for minimal crawl, 3 for first 3 pages/scroll steps.",
+    )
 
     # Extraction: limit segments to process (1 = validate on first "page" only; 3 = first 3; 0 = all).
-    extraction_max_segments: int = Field(default=3, description="Limit extraction to first N segments. Use 1 to validate accuracy, then 3 or 0 for full.")
+    extraction_max_segments: int = Field(
+        default=3,
+        description="Limit extraction to first N segments. Use 1 to validate accuracy, then 3 or 0 for full.",
+    )
 
     # SMTP email (optional — falls back to console logging when not configured)
     smtp_host: str = Field(default="smtp.gmail.com")
@@ -74,18 +84,28 @@ class Settings(BaseSettings):
     detail_concurrency: int = Field(default=1, ge=1)
 
     # Timeouts (seconds)
-    crawl4ai_startup_timeout_seconds: float = Field(default=30.0, ge=1, description="Timeout for Crawl4AI browser startup.")
+    crawl4ai_startup_timeout_seconds: float = Field(
+        default=30.0, ge=1, description="Timeout for Crawl4AI browser startup."
+    )
     crawl4ai_timeout_seconds: float = Field(default=60.0, ge=1)
-    scrape_timeout_seconds: float = Field(default=300.0, ge=1, description="Timeout for the full scrape_source call per source.")
+    scrape_timeout_seconds: float = Field(
+        default=300.0,
+        ge=1,
+        description="Timeout for the full scrape_source call per source.",
+    )
     openai_timeout_seconds: float = Field(default=180.0, ge=1)
     extraction_timeout_seconds: float = Field(
         default=180.0, ge=1, description="Timeout for extraction step per source."
     )
     detail_timeout_seconds: float = Field(
-        default=120.0, ge=1, description="Timeout for per-item detail enrichment (fetch + extract)."
+        default=120.0,
+        ge=1,
+        description="Timeout for per-item detail enrichment (fetch + extract).",
     )
     item_processing_timeout_seconds: float = Field(
-        default=240.0, ge=1, description="Timeout for per-item processing (detail + upsert)."
+        default=240.0,
+        ge=1,
+        description="Timeout for per-item processing (detail + upsert).",
     )
 
 

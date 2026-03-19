@@ -9,7 +9,7 @@ Converts "What AI hackathons can I join before April?" into:
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
@@ -66,7 +66,7 @@ async def understand_query(message: str) -> ParsedQuery:
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {
                     "role": "user",
-                    "content": f"Today is {date.today().isoformat()}.\nQuery: \"{message}\"",
+                    "content": f'Today is {date.today().isoformat()}.\nQuery: "{message}"',
                 },
             ],
             temperature=0.0,

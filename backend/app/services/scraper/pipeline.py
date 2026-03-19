@@ -12,7 +12,6 @@ import asyncio
 import json
 import logging
 import re
-import calendar
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 from uuid import UUID
@@ -40,7 +39,14 @@ async def run_pipeline(db: Session) -> dict:
 
     if not sources:
         logger.warning("No enabled sources found. Run seed first.")
-        return {"sources": 0, "new": 0, "updated": 0, "skipped": 0, "chunks": 0, "errors": 0}
+        return {
+            "sources": 0,
+            "new": 0,
+            "updated": 0,
+            "skipped": 0,
+            "chunks": 0,
+            "errors": 0,
+        }
 
     stats = {
         "sources": len(sources),
@@ -162,12 +168,16 @@ async def _process_source(db: Session, source: Source) -> dict:
     done, pending = await asyncio.wait([extract_task], timeout=extract_timeout)
     if pending:
         extract_task.cancel()
-        logger.error("Extraction timeout for %s after %.0fs", listing_url, extract_timeout)
+        logger.error(
+            "Extraction timeout for %s after %.0fs", listing_url, extract_timeout
+        )
         source.last_scraped_at = datetime.now(timezone.utc)
         db.commit()
         return stats
     if extract_task.exception():
-        logger.error("Extraction failed for %s: %s", listing_url, extract_task.exception())
+        logger.error(
+            "Extraction failed for %s: %s", listing_url, extract_task.exception()
+        )
         source.last_scraped_at = datetime.now(timezone.utc)
         db.commit()
         return stats
@@ -187,20 +197,26 @@ async def _process_source(db: Session, source: Source) -> dict:
             detail_error: str | None = None
             # Always fetch detail page for full data (all sources)
             detail_timeout = float(getattr(settings, "detail_timeout_seconds", 120.0))
-            detail_task = asyncio.create_task(_enrich_from_detail(local_db, source, item_inner))
+            detail_task = asyncio.create_task(
+                _enrich_from_detail(local_db, source, item_inner)
+            )
             done, pending = await asyncio.wait([detail_task], timeout=detail_timeout)
             if pending:
                 detail_task.cancel()
                 detail_error = f"detail_enrich_timeout after {detail_timeout:.0f}s"
                 logger.warning(
                     "Detail enrich timeout (title=%s url=%s): %s",
-                    item_inner.title, item_inner.url, detail_error,
+                    item_inner.title,
+                    item_inner.url,
+                    detail_error,
                 )
             elif detail_task.exception():
                 detail_error = f"detail_enrich_failed: {detail_task.exception()}"
                 logger.warning(
                     "Detail enrich failed (title=%s url=%s): %s",
-                    item_inner.title, item_inner.url, detail_task.exception(),
+                    item_inner.title,
+                    item_inner.url,
+                    detail_task.exception(),
                 )
             else:
                 item_inner = detail_task.result()
@@ -223,10 +239,16 @@ async def _process_source(db: Session, source: Source) -> dict:
             #     local_db.commit()
             #     return {"status": "skipped", "item": item_inner, "opp_id": None}
 
-            result, opp_id = _upsert_opportunity(local_db, source, item_inner, scrape_page.id)
+            result, opp_id = _upsert_opportunity(
+                local_db, source, item_inner, scrape_page.id
+            )
             if detail_error and opp_id:
                 try:
-                    existing = local_db.query(Opportunity).filter(Opportunity.id == opp_id).first()
+                    existing = (
+                        local_db.query(Opportunity)
+                        .filter(Opportunity.id == opp_id)
+                        .first()
+                    )
                     if existing:
                         existing.processing_error = detail_error[:2000]
                 except Exception:
@@ -235,7 +257,9 @@ async def _process_source(db: Session, source: Source) -> dict:
             return {"status": result, "item": item_inner, "opp_id": opp_id}
 
         try:
-            item_timeout = float(getattr(settings, "item_processing_timeout_seconds", 240.0))
+            item_timeout = float(
+                getattr(settings, "item_processing_timeout_seconds", 240.0)
+            )
             item_task = asyncio.create_task(_process_item_inner(item))
             done, pending = await asyncio.wait([item_task], timeout=item_timeout)
             if pending:
@@ -243,13 +267,17 @@ async def _process_source(db: Session, source: Source) -> dict:
                 error_msg = f"item_processing_timeout after {item_timeout:.0f}s"
                 logger.error(
                     "Item processing timeout (title=%s url=%s): %s",
-                    item.title, item.url, error_msg,
+                    item.title,
+                    item.url,
+                    error_msg,
                 )
                 if item.url:
                     try:
-                        existing = local_db.query(Opportunity).filter(
-                            Opportunity.application_link == item.url
-                        ).first()
+                        existing = (
+                            local_db.query(Opportunity)
+                            .filter(Opportunity.application_link == item.url)
+                            .first()
+                        )
                         if existing:
                             existing.processing_error = error_msg[:2000]
                             local_db.commit()
@@ -262,9 +290,11 @@ async def _process_source(db: Session, source: Source) -> dict:
             logger.error(f"Item processing failed ({item.title}): {error_msg}")
             if item.url:
                 try:
-                    existing = local_db.query(Opportunity).filter(
-                        Opportunity.application_link == item.url
-                    ).first()
+                    existing = (
+                        local_db.query(Opportunity)
+                        .filter(Opportunity.application_link == item.url)
+                        .first()
+                    )
                     if existing:
                         existing.processing_error = error_msg[:2000]
                         local_db.commit()
@@ -302,7 +332,9 @@ async def _process_source(db: Session, source: Source) -> dict:
         if opp_id and item:
             if item.detail_scrape_page_id:
                 _link_detail_chunks(db, item.detail_scrape_page_id, opp_id)
-            matched_chunk_id = _link_chunks_to_opportunity(db, chunk_models, item, opp_id)
+            matched_chunk_id = _link_chunks_to_opportunity(
+                db, chunk_models, item, opp_id
+            )
             if matched_chunk_id:
                 _attach_chunk_reference(db, opp_id, matched_chunk_id)
 
@@ -400,7 +432,9 @@ def _upsert_opportunity(
     item.domain_tags = _coerce_domain_tags(item.domain_tags) or ["general"]
     item.raw_domain_tags = _coerce_domain_tags(item.raw_domain_tags)
 
-    existing = db.query(Opportunity).filter(Opportunity.application_link == opp_url).first()
+    existing = (
+        db.query(Opportunity).filter(Opportunity.application_link == opp_url).first()
+    )
 
     if existing:
         status = _apply_changes(db, existing, item, scrape_page_id)
@@ -494,7 +528,9 @@ def _apply_changes(
         return "skipped"
 
     # Sync status with is_active
-    new_status = OpportunityStatus.OPEN if existing.is_active else OpportunityStatus.EXPIRED
+    new_status = (
+        OpportunityStatus.OPEN if existing.is_active else OpportunityStatus.EXPIRED
+    )
     if existing.status != new_status:
         existing.status = new_status
     # Clear any previous processing error on successful re-process
@@ -515,9 +551,9 @@ def _attach_chunk_reference(db: Session, opp_id: UUID, chunk_id: UUID) -> None:
 
 def _link_detail_chunks(db: Session, scrape_page_id: UUID, opp_id: UUID) -> None:
     """Link all chunks from a detail page to the opportunity."""
-    db.query(ContentChunk).filter(
-        ContentChunk.scrape_page_id == scrape_page_id
-    ).update({"opportunity_id": opp_id}, synchronize_session=False)
+    db.query(ContentChunk).filter(ContentChunk.scrape_page_id == scrape_page_id).update(
+        {"opportunity_id": opp_id}, synchronize_session=False
+    )
 
 
 def _expire_past_deadlines(db: Session) -> int:
@@ -552,11 +588,13 @@ def _expire_past_deadlines(db: Session) -> int:
             Opportunity.deadline < date.today(),
             Opportunity.is_active.is_(True),
         )
-        .update({
-            "is_active": False,
-            "status": OpportunityStatus.EXPIRED.value,
-            "updated_at": datetime.now(timezone.utc),
-        })
+        .update(
+            {
+                "is_active": False,
+                "status": OpportunityStatus.EXPIRED.value,
+                "updated_at": datetime.now(timezone.utc),
+            }
+        )
     )
     db.commit()
     logger.info(f"Expired {count} past-deadline opportunities")
@@ -575,7 +613,11 @@ def _apply_unstop_detail_parsing(
     """Apply Unstop-specific parsing (description, benefits, tags, deadlines)."""
     improved_desc = _extract_unstop_description(detail_markdown)
     if improved_desc:
-        if not item.description or len(improved_desc) > len(item.description) or len(item.description) < 200:
+        if (
+            not item.description
+            or len(improved_desc) > len(item.description)
+            or len(item.description) < 200
+        ):
             item.description = improved_desc
 
     improved_benefits = _extract_unstop_benefits(detail_markdown)
@@ -649,7 +691,7 @@ def _extract_unstop_description(markdown: str) -> Optional[str]:
     if not start_match:
         return None
 
-    tail = markdown[start_match.end():]
+    tail = markdown[start_match.end() :]
     end_markers = (
         "Read More",
         "## Feedback",
@@ -722,7 +764,7 @@ def _extract_unstop_benefits(markdown: str) -> Optional[str]:
     if not start:
         return None
 
-    tail = markdown[start.end():]
+    tail = markdown[start.end() :]
     end_markers = (
         "## ",
         "### ",
@@ -809,7 +851,9 @@ def _store_detail_page_and_chunks(
     """Store detail page raw content + chunks and attach scrape_page_id to item."""
     try:
         detail_hash = content_hash(detail_markdown)
-        detail_page = _store_raw_page(db, source, item.url, detail_markdown, detail_hash)
+        detail_page = _store_raw_page(
+            db, source, item.url, detail_markdown, detail_hash
+        )
         item.detail_scrape_page_id = detail_page.id
         detail_chunks = chunk_markdown(detail_markdown)
         _store_chunks(db, detail_page, source, detail_chunks)

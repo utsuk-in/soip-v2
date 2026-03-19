@@ -268,7 +268,9 @@ def send_password_reset_email(
     if not settings.smtp_host:
         logger.info(
             "[EMAIL-PREVIEW] To: %s | Subject: %s\n%s",
-            to_email, subject, text_body,
+            to_email,
+            subject,
+            text_body,
         )
         return True
 
@@ -314,7 +316,9 @@ def send_invite_email(
     if not settings.smtp_host:
         logger.info(
             "[EMAIL-PREVIEW] To: %s | Subject: %s\n%s",
-            to_email, subject, text_body,
+            to_email,
+            subject,
+            text_body,
         )
         return True
 

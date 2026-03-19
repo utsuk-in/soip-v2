@@ -25,9 +25,7 @@ def generate_alerts_for_new_opportunities(
         return 0
 
     opportunities = (
-        db.query(Opportunity)
-        .filter(Opportunity.id.in_(new_opportunity_ids))
-        .all()
+        db.query(Opportunity).filter(Opportunity.id.in_(new_opportunity_ids)).all()
     )
     users = (
         db.query(User)
@@ -78,7 +76,9 @@ def generate_alerts_for_new_opportunities(
                 created += 1
 
     db.commit()
-    logger.info(f"Generated {created} alerts for {len(new_opportunity_ids)} new opportunities")
+    logger.info(
+        f"Generated {created} alerts for {len(new_opportunity_ids)} new opportunities"
+    )
     return created
 
 

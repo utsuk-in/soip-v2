@@ -12,11 +12,11 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_recycle=300,  # recycle connections every 5 min (Render closes idle after ~10 min)
     connect_args={
-        "connect_timeout": 10,         # 10s to establish new connections
-        "keepalives": 1,               # enable TCP keepalive
-        "keepalives_idle": 30,         # send first probe after 30s idle
-        "keepalives_interval": 10,     # 10s between probes
-        "keepalives_count": 3,         # 3 failed probes = dead (detected in ~60s)
+        "connect_timeout": 10,  # 10s to establish new connections
+        "keepalives": 1,  # enable TCP keepalive
+        "keepalives_idle": 30,  # send first probe after 30s idle
+        "keepalives_interval": 10,  # 10s between probes
+        "keepalives_count": 3,  # 3 failed probes = dead (detected in ~60s)
         "options": "-c statement_timeout=60000",  # 60s server-side query timeout
     },
 )

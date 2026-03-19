@@ -38,7 +38,9 @@ except ImportError:
     sys.exit(1)
 
 
-async def timed_get(client: httpx.AsyncClient, url: str, label: str) -> tuple[str, float, httpx.Response]:
+async def timed_get(
+    client: httpx.AsyncClient, url: str, label: str
+) -> tuple[str, float, httpx.Response]:
     """Make a GET request and return (label, elapsed_ms, response)."""
     start = time.perf_counter()
     resp = await client.get(url)
@@ -49,7 +51,9 @@ async def timed_get(client: httpx.AsyncClient, url: str, label: str) -> tuple[st
 async def run_benchmark(base_url: str, token: str, runs: int = 3):
     headers = {"Authorization": f"Bearer {token}"}
 
-    async with httpx.AsyncClient(base_url=base_url, headers=headers, timeout=60) as client:
+    async with httpx.AsyncClient(
+        base_url=base_url, headers=headers, timeout=60
+    ) as client:
         # Quick health check
         try:
             r = await client.get("/api/auth/me")
@@ -57,7 +61,9 @@ async def run_benchmark(base_url: str, token: str, runs: int = 3):
                 print(f"Auth check failed ({r.status_code}). Is your token valid?")
                 sys.exit(1)
             user = r.json()
-            print(f"Authenticated as: {user.get('first_name', '?')} ({user.get('email', '?')})\n")
+            print(
+                f"Authenticated as: {user.get('first_name', '?')} ({user.get('email', '?')})\n"
+            )
         except httpx.ConnectError:
             print(f"Cannot connect to {base_url}. Is the server running?")
             sys.exit(1)
@@ -77,22 +83,30 @@ async def run_benchmark(base_url: str, token: str, runs: int = 3):
             rec_data = resp_rec.json() if resp_rec.status_code == 200 else []
 
             _, t_browse, _ = await timed_get(
-                client, "/api/opportunities?sort=newest&page_size=60", "/opportunities (browse)"
+                client,
+                "/api/opportunities?sort=newest&page_size=60",
+                "/opportunities (browse)",
             )
 
             # Collect IDs for feedback + explanations
-            opp_ids = list({o["id"] for o in (rec_data if isinstance(rec_data, list) else [])})[:16]
+            opp_ids = list(
+                {o["id"] for o in (rec_data if isinstance(rec_data, list) else [])}
+            )[:16]
             ids_param = ",".join(opp_ids) if opp_ids else ""
 
             _, t_feedback, _ = await timed_get(
                 client,
-                f"/api/feedback/batch?opportunity_ids={ids_param}" if ids_param else "/api/feedback/batch?opportunity_ids=",
+                f"/api/feedback/batch?opportunity_ids={ids_param}"
+                if ids_param
+                else "/api/feedback/batch?opportunity_ids=",
                 "/feedback/batch",
             )
 
             _, t_explain, _ = await timed_get(
                 client,
-                f"/api/opportunities/explanations?opportunity_ids={ids_param}" if ids_param else "/api/opportunities/explanations?opportunity_ids=",
+                f"/api/opportunities/explanations?opportunity_ids={ids_param}"
+                if ids_param
+                else "/api/opportunities/explanations?opportunity_ids=",
                 "/explanations",
             )
 
@@ -111,12 +125,14 @@ async def run_benchmark(base_url: str, token: str, runs: int = 3):
             new_card_totals.append(new_cards_visible)
             new_full_totals.append(new_full)
 
-            timings_log.append({
-                "recommended": t_rec,
-                "browse": t_browse,
-                "feedback": t_feedback,
-                "explanations": t_explain,
-            })
+            timings_log.append(
+                {
+                    "recommended": t_rec,
+                    "browse": t_browse,
+                    "feedback": t_feedback,
+                    "explanations": t_explain,
+                }
+            )
 
             print(f"  /recommended ......... {t_rec:>7.0f} ms")
             print(f"  /opportunities ....... {t_browse:>7.0f} ms")
@@ -124,7 +140,9 @@ async def run_benchmark(base_url: str, token: str, runs: int = 3):
             print(f"  /explanations ........ {t_explain:>7.0f} ms")
             print()
             print(f"  OLD total (sequential + LLM blocking):  {old_total:>7.0f} ms")
-            print(f"  NEW cards visible (parallel, no LLM):   {new_cards_visible:>7.0f} ms")
+            print(
+                f"  NEW cards visible (parallel, no LLM):   {new_cards_visible:>7.0f} ms"
+            )
             print(f"  NEW full (cards + explanations fade-in): {new_full:>7.0f} ms")
             print()
 
@@ -141,7 +159,7 @@ async def run_benchmark(base_url: str, token: str, runs: int = 3):
         # Average per-endpoint
         avg_rec = sum(t["recommended"] for t in timings_log) / runs
         avg_brw = sum(t["browse"] for t in timings_log) / runs
-        avg_fb  = sum(t["feedback"] for t in timings_log) / runs
+        avg_fb = sum(t["feedback"] for t in timings_log) / runs
         avg_exp = sum(t["explanations"] for t in timings_log) / runs
 
         print(f"  /recommended avg ......... {avg_rec:>7.0f} ms")
@@ -150,8 +168,12 @@ async def run_benchmark(base_url: str, token: str, runs: int = 3):
         print(f"  /explanations avg ........ {avg_exp:>7.0f} ms")
         print()
         print(f"  OLD flow (user waits):     {avg_old:>7.0f} ms")
-        print(f"  NEW flow (cards visible):  {avg_new_cards:>7.0f} ms  ← user sees content here")
-        print(f"  NEW flow (full render):    {avg_new_full:>7.0f} ms  ← explanations fade in")
+        print(
+            f"  NEW flow (cards visible):  {avg_new_cards:>7.0f} ms  ← user sees content here"
+        )
+        print(
+            f"  NEW flow (full render):    {avg_new_full:>7.0f} ms  ← explanations fade in"
+        )
         print()
         print(f"  Speedup (time-to-cards):   {speedup:.1f}x faster")
         print(f"  Time saved:                {avg_old - avg_new_cards:.0f} ms")
@@ -159,10 +181,18 @@ async def run_benchmark(base_url: str, token: str, runs: int = 3):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Benchmark student dashboard load time")
-    parser.add_argument("--base-url", default="http://localhost:8000", help="Backend API base URL")
-    parser.add_argument("--token", required=True, help="JWT token for an authenticated student")
-    parser.add_argument("--runs", type=int, default=3, help="Number of benchmark runs (default: 3)")
+    parser = argparse.ArgumentParser(
+        description="Benchmark student dashboard load time"
+    )
+    parser.add_argument(
+        "--base-url", default="http://localhost:8000", help="Backend API base URL"
+    )
+    parser.add_argument(
+        "--token", required=True, help="JWT token for an authenticated student"
+    )
+    parser.add_argument(
+        "--runs", type=int, default=3, help="Number of benchmark runs (default: 3)"
+    )
     args = parser.parse_args()
 
     asyncio.run(run_benchmark(args.base_url, args.token, args.runs))
