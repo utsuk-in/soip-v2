@@ -24,9 +24,8 @@ function isAdminContext(): boolean {
 }
 
 function getToken(): string | null {
-  if (isAdminContext()) {
-    return sessionStorage.getItem("soip_admin_token");
-  }
+  // Admin auth uses HTTP-only cookies — no client-side token needed.
+  if (isAdminContext()) return null;
   return localStorage.getItem("soip_token");
 }
 
@@ -34,16 +33,23 @@ async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const admin = isAdminContext();
   const token = getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-  if (token) {
+  // Student routes: send Authorization header. Admin routes: rely on HTTP-only cookie.
+  if (token && !admin) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+    // Admin routes need credentials for the HTTP-only cookie
+    ...(admin ? { credentials: "include" as RequestCredentials } : {}),
+  });
 
   if (res.status === 401) {
     // Auth endpoints return 401 for wrong credentials — let the caller handle it
@@ -52,10 +58,12 @@ async function request<T>(
       const body = await res.json().catch(() => ({}));
       throw new Error(body.detail || "Invalid credentials");
     }
-    // Session expired — clear only the relevant token and redirect
+    // Session expired — clear token and redirect.
+    // Skip redirect for /api/auth/me on admin context — the auth provider handles that gracefully.
     if (isAdminContext()) {
-      sessionStorage.removeItem("soip_admin_token");
-      window.location.href = "/admin/login";
+      if (!path.startsWith("/api/auth/me")) {
+        window.location.href = "/admin/login";
+      }
     } else {
       localStorage.removeItem("soip_token");
       window.location.href = "/login";
@@ -407,19 +415,20 @@ export async function getUniversities(search?: string): Promise<University[]> {
 // --- Admin ---
 
 async function requestFormData<T>(path: string, formData: FormData): Promise<T> {
+  const admin = isAdminContext();
   const token = getToken();
   const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (token && !admin) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers,
     body: formData,
+    ...(admin ? { credentials: "include" as RequestCredentials } : {}),
   });
 
   if (res.status === 401) {
     if (isAdminContext()) {
-      sessionStorage.removeItem("soip_admin_token");
       window.location.href = "/admin/login";
     } else {
       localStorage.removeItem("soip_token");
@@ -446,6 +455,13 @@ export async function adminRegister(data: AdminRegisterData): Promise<TokenRespo
   return request("/api/admin/register", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+export async function adminLogout(): Promise<void> {
+  await fetch(`${API_BASE}/api/admin/logout`, {
+    method: "POST",
+    credentials: "include",
   });
 }
 
@@ -506,10 +522,14 @@ export async function confirmStudentUpload(students: StudentRow[]): Promise<Uplo
 }
 
 export async function downloadTemplate(format: "xlsx" | "csv" = "xlsx"): Promise<void> {
+  const admin = isAdminContext();
   const token = getToken();
   const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}/api/admin/students/template?format=${format}`, { headers });
+  if (token && !admin) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/admin/students/template?format=${format}`, {
+    headers,
+    ...(admin ? { credentials: "include" as RequestCredentials } : {}),
+  });
   if (!res.ok) throw new Error("Failed to download template");
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

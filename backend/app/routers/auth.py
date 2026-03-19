@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app.config import settings as app_settings
 from app.database import get_db
 from app.models.interaction_log import InteractionLog
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
@@ -52,6 +54,21 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     db.commit()
 
     token = create_access_token(user.id)
+
+    # For admin users, also set an HTTP-only cookie
+    if user.role == "admin":
+        response = JSONResponse(content={"access_token": token, "token_type": "bearer"})
+        response.set_cookie(
+            key="soip_admin_token",
+            value=token,
+            httponly=True,
+            secure=not app_settings.debug,
+            samesite="strict",
+            path="/api",
+            max_age=app_settings.jwt_expire_minutes * 60,
+        )
+        return response
+
     return TokenResponse(access_token=token)
 
 

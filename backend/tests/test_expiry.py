@@ -1,14 +1,20 @@
-"""Tests for auto-expiry of past-deadline opportunities (SOIP-101 / SOIP-305)."""
+"""Tests for auto-expiry of past-deadline opportunities (SOIP-101 / SOIP-305)
+and deadline parsing edge cases (SOIP-93)."""
 
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy.orm import Session
 
 from app.models.opportunity import Opportunity
 from app.utils.enums import OpportunityCategory, OpportunityStatus
-from app.services.scraper.pipeline import _expire_past_deadlines
+from app.services.scraper.pipeline import (
+    _expire_past_deadlines,
+    _extract_unstop_registration_close_datetime,
+    _is_active_from_deadline,
+)
+from app.services.scraper.extractor import ExtractedOpportunity
 
 
 def _make_opportunity(
@@ -327,3 +333,117 @@ class TestStatusBadgeField:
             assert match["status"] == "expired"
         finally:
             _cleanup_expiry(db_session, unique_id)
+
+
+class TestUnstopDeadlineParsing:
+    """Edge-case tests for _extract_unstop_registration_close_datetime (SOIP-93)."""
+
+    def test_two_digit_year(self):
+        """'20 Mar 26, 11:59 PM IST' should parse to 2026-03-20."""
+        md = "Registration Close: 20 Mar 26, 11:59 PM IST"
+        result = _extract_unstop_registration_close_datetime(md)
+        assert result is not None
+        assert result.year == 2026
+        assert result.month == 3
+        assert result.day == 20
+        assert result.hour == 23
+        assert result.minute == 59
+
+    def test_four_digit_year(self):
+        """'20 Mar 2026, 11:59 PM IST' should parse correctly."""
+        md = "Registration Close: 20 Mar 2026, 11:59 PM IST"
+        result = _extract_unstop_registration_close_datetime(md)
+        assert result is not None
+        assert result.year == 2026
+        assert result.month == 3
+        assert result.day == 20
+
+    def test_full_month_name(self):
+        """'20 March 2026, 11:59 PM IST' should parse correctly."""
+        md = "Registration Close: 20 March 2026, 11:59 PM IST"
+        result = _extract_unstop_registration_close_datetime(md)
+        assert result is not None
+        assert result.year == 2026
+        assert result.month == 3
+
+    def test_missing_timezone_defaults_ist(self):
+        """When no timezone suffix, should default to IST (+05:30)."""
+        md = "Registration Close: 15 Apr 26, 6:00 PM"
+        result = _extract_unstop_registration_close_datetime(md)
+        assert result is not None
+        ist = timezone(timedelta(hours=5, minutes=30))
+        assert result.tzinfo is not None
+        assert result.utcoffset() == ist.utcoffset(None)
+
+    def test_garbage_input_returns_none(self):
+        """Non-date strings should return None."""
+        for text in ["TBD", "Rolling basis", "ASAP", "No deadline", ""]:
+            result = _extract_unstop_registration_close_datetime(f"Registration Close: {text}")
+            assert result is None, f"Expected None for input: {text}"
+
+    def test_no_registration_close_marker_returns_none(self):
+        """Text without 'Registration Close' marker should return None."""
+        result = _extract_unstop_registration_close_datetime("Deadline: 20 Mar 2026, 11:59 PM IST")
+        assert result is None
+
+    def test_leap_year_feb29(self):
+        """Feb 29 in a leap year (2028) should parse correctly."""
+        md = "Registration Close: 29 Feb 28, 11:59 PM IST"
+        result = _extract_unstop_registration_close_datetime(md)
+        assert result is not None
+        assert result.month == 2
+        assert result.day == 29
+        assert result.year == 2028
+
+    def test_invalid_feb29_non_leap_returns_none(self):
+        """Feb 29 in a non-leap year (2027) should return None."""
+        md = "Registration Close: 29 Feb 27, 11:59 PM IST"
+        result = _extract_unstop_registration_close_datetime(md)
+        assert result is None
+
+
+class TestIsActiveFromDeadlineEdgeCases:
+    """Edge-case tests for _is_active_from_deadline (SOIP-93)."""
+
+    def _make_item(self, **kwargs) -> ExtractedOpportunity:
+        defaults = dict(
+            title="Edge Case Test",
+            description="Test",
+            category="hackathon",
+        )
+        defaults.update(kwargs)
+        return ExtractedOpportunity(**defaults)
+
+    def test_deadline_at_just_ahead_is_active(self):
+        """deadline_at slightly in the future should be active (>= comparison)."""
+        ahead = datetime.now(timezone.utc) + timedelta(seconds=5)
+        item = self._make_item(deadline_at=ahead)
+        assert _is_active_from_deadline(item) is True
+
+    def test_deadline_date_today_is_active(self):
+        """deadline == today should be active (>= comparison)."""
+        item = self._make_item(deadline=date.today())
+        assert _is_active_from_deadline(item) is True
+
+    def test_deadline_yesterday_is_inactive(self):
+        """deadline == yesterday should be inactive."""
+        item = self._make_item(deadline=date.today() - timedelta(days=1))
+        assert _is_active_from_deadline(item) is False
+
+    def test_deadline_at_one_second_ago_is_inactive(self):
+        """deadline_at just past should be inactive."""
+        past = datetime.now(timezone.utc) - timedelta(seconds=1)
+        item = self._make_item(deadline_at=past)
+        assert _is_active_from_deadline(item) is False
+
+    def test_no_deadline_fields_is_active(self):
+        """No deadline or deadline_at should default to active."""
+        item = self._make_item()
+        assert _is_active_from_deadline(item) is True
+
+    def test_deadline_at_with_ist_timezone(self):
+        """deadline_at with IST timezone should be compared correctly."""
+        ist = timezone(timedelta(hours=5, minutes=30))
+        future = datetime.now(ist) + timedelta(hours=1)
+        item = self._make_item(deadline_at=future)
+        assert _is_active_from_deadline(item) is True

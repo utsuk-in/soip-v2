@@ -30,15 +30,14 @@ export default function AdminLoginPage() {
     setLoading(true);
     try {
       if (mode === "register") {
-        const res = await adminRegister({ email, password, first_name: firstName, invite_code: inviteCode, university_id: universityId });
-        sessionStorage.setItem("soip_admin_token", res.access_token);
+        // Cookie is set by the backend response (Set-Cookie header)
+        await adminRegister({ email, password, first_name: firstName, invite_code: inviteCode, university_id: universityId });
       } else {
-        const res = await apiLogin(email, password);
-        sessionStorage.setItem("soip_admin_token", res.access_token);
+        // Cookie is set by the backend response for admin users
+        await apiLogin(email, password);
       }
       const me = await getMe();
       if (me.role !== "admin") {
-        sessionStorage.removeItem("soip_admin_token");
         setError("This account does not have admin access");
         return;
       }

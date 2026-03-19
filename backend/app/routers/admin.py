@@ -1,7 +1,7 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
@@ -72,7 +72,31 @@ def admin_register(body: AdminRegisterRequest, db: Session = Depends(get_db)):
     db.refresh(user)
 
     token = create_access_token(user.id)
-    return TokenResponse(access_token=token)
+
+    response = JSONResponse(
+        content={"access_token": token, "token_type": "bearer"},
+        status_code=status.HTTP_201_CREATED,
+    )
+    response.set_cookie(
+        key="soip_admin_token",
+        value=token,
+        httponly=True,
+        secure=not settings.debug,
+        samesite="strict",
+        path="/api",
+        max_age=settings.jwt_expire_minutes * 60,
+    )
+    return response
+
+
+# --- Admin Logout ---
+
+@router.post("/logout")
+def admin_logout(admin: User = Depends(get_current_admin)):
+    """Clear the admin HTTP-only auth cookie."""
+    response = JSONResponse(content={"status": "ok"})
+    response.delete_cookie(key="soip_admin_token", path="/api")
+    return response
 
 
 # --- Student Upload (SOIP-580) ---

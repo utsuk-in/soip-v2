@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import { getMe, login as apiLogin, register as apiRegister, type User, type RegisterData } from "./api";
+import { getMe, login as apiLogin, register as apiRegister, adminLogout, type User, type RegisterData } from "./api";
 
 interface AuthState {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
-  logout: () => void;
+  logout: () => void | Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -20,11 +20,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     const onAdmin = window.location.pathname.startsWith("/admin");
-    const token = onAdmin
-      ? sessionStorage.getItem("soip_admin_token")
-      : localStorage.getItem("soip_token");
 
-    if (!token) {
+    // Student auth: check localStorage token. Admin auth: cookie is sent automatically.
+    if (!onAdmin && !localStorage.getItem("soip_token")) {
       setUser(null);
       setLoading(false);
       return;
@@ -33,9 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const u = await getMe();
       setUser(u);
     } catch {
-      if (onAdmin) {
-        sessionStorage.removeItem("soip_admin_token");
-      } else {
+      if (!onAdmin) {
         localStorage.removeItem("soip_token");
       }
       setUser(null);
@@ -61,9 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refreshUser();
   };
 
-  const logout = () => {
+  const logout = async () => {
     if (window.location.pathname.startsWith("/admin")) {
-      sessionStorage.removeItem("soip_admin_token");
+      await adminLogout().catch(() => {});
     } else {
       localStorage.removeItem("soip_token");
     }
