@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     smtp_from_email: str = Field(default="noreply@soip.app")
     smtp_use_tls: bool = Field(default=True)
 
+    # Password reset
+    password_reset_expire_minutes: int = 30
+    password_reset_max_per_hour: int = 3
+
     # Cross-encoder reranker (local)
     rerank_enabled: bool = Field(default=False)
     rerank_model: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")

@@ -9,6 +9,7 @@ from app.models.alert import UserAlert
 from app.models.scrape import ScrapePage, ContentChunk
 from app.models.magic_link import MagicLinkToken
 from app.models.interaction_log import InteractionLog
+from app.models.password_reset import PasswordResetToken
 
 __all__ = [
     "Base",
@@ -25,4 +26,5 @@ __all__ = [
     "ContentChunk",
     "MagicLinkToken",
     "InteractionLog",
+    "PasswordResetToken",
 ]

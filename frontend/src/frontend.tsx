@@ -9,6 +9,8 @@ import AdminLayout from "./components/AdminLayout";
 import LoginPage from "./pages/LoginPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import MagicLinkPage from "./pages/MagicLinkPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import DashboardPage from "./pages/DashboardPage";
 import BrowsePage from "./pages/BrowsePage";
@@ -37,6 +39,8 @@ function AppRoutes() {
     <Routes>
       {/* Public routes */}
       <Route path="/magic-link" element={<MagicLinkPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
 
       {/* Admin routes */}

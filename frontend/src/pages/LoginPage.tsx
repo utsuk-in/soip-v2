@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { YEAR_OF_STUDY_OPTIONS, INDIAN_STATES, ASPIRATION_OPTIONS, INTEREST_SUGGESTIONS, DEGREE_OPTIONS } from "../lib/constants";
 import { ArrowLeft } from "lucide-react";
@@ -351,9 +351,9 @@ export default function LoginPage() {
                 </button>
               </>
             ) : (
-              <span className="text-stone-400 dark:text-stone-500 cursor-default">
+              <Link to="/forgot-password" className="text-brand-600 dark:text-brand-300 font-semibold hover:text-brand-700 dark:hover:text-brand-200 transition-colors">
                 Forgot Password?
-              </span>
+              </Link>
             )}
           </p>
         </div>

@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session
 from app.config import settings as app_settings
 from app.database import get_db
 from app.models.interaction_log import InteractionLog
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    RegisterRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+)
 from app.schemas.user import UserOut
 from app.services.auth import authenticate_user, create_access_token, register_user
 from app.utils.dependencies import get_current_user
@@ -85,6 +91,36 @@ def magic_link_login(token: str = Query(...), db: Session = Depends(get_db)):
         )
 
     return TokenResponse(access_token=access_token)
+
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Request a password reset email. Always returns 200 to prevent user enumeration."""
+    from app.services.password_reset import RateLimitExceeded, request_password_reset
+
+    try:
+        request_password_reset(db, body.email)
+    except RateLimitExceeded:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many reset requests. Please try again later.",
+        )
+    return {"message": "If an account exists with that email, a reset link has been sent."}
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Reset password using a valid token."""
+    from app.services.password_reset import reset_password as do_reset
+
+    try:
+        do_reset(db, body.token, body.new_password)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    return {"message": "Password has been reset successfully."}
 
 
 @router.get("/me", response_model=UserOut)
